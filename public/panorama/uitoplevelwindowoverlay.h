@@ -51,9 +51,12 @@ public:
 	virtual void GetWindowBounds( float &left, float &top, float &right, float &bottom );
 	virtual void GetClientDimensions( float &width, float &height );
 	virtual void Activate( bool bForceful );
+	virtual void Minimize();
+	virtual void SetTopMost( bool bTopMost ) { }
 	virtual bool BHasFocus() { return m_bFocus; } 
 	virtual bool BIsFullscreen() { return m_bFullScreen; }
 	virtual void* GetNativeWindowHandle() { return 0; }
+	virtual void ForceHideWindow() { }
 
 	virtual bool BAllowInput( InputMessage_t &msg );
 	virtual bool BIsVisible() { return m_bVisible; }
@@ -65,11 +68,11 @@ public:
 	virtual Color GetClearColor() { return Color( 0, 0, 0, 0 ); }
 
 	// Necessary for generating mouse enter & leave events on windows
-	bool IsMouseOver() { return m_bMouseOverWindow; }
-	void OnMouseEnter();
-	void OnMouseLeave() { m_bMouseOverWindow = false; }
+	virtual bool IsMouseOver() OVERRIDE { return m_bMouseOverWindow; }
+	virtual void SetMouseCursor( EMouseCursors eCursor ) OVERRIDE {}
 
-	void SetMouseCursor( EMouseCursors eCursor );
+	void OnMouseEnter() { m_bMouseOverWindow = true; }
+	void OnMouseLeave() { m_bMouseOverWindow = false; }
 	
 	bool SetGameProcessInfo( AppId_t nAppId, bool bCanSharedSurfaces, int32 eTextureFormat );
 	void ProcessInputEvents();
@@ -81,7 +84,6 @@ public:
 	void SetGameWindowSize( uint32 nWidth, uint32 nHeight );
 	void SetFixedSurfaceSize( uint32 unSurfaceWidth, uint32 unSurfaceHeight );
 
-	void OnMouseMove( float x, float y );
 
 	void SetFocus( bool bFocus ); 
 
@@ -109,6 +111,9 @@ private:
 
 	uint32 m_unGameWidth;
 	uint32 m_unGameHeight;
+
+	uint32 m_unInitialWidth;
+	uint32 m_unInitialHeight;
 
 	bool m_bFullScreen;
 	
@@ -151,11 +156,6 @@ public:
 	virtual void SetFixedSurfaceSize( uint32 unSurfaceWidth, uint32 unSurfaceHeight ) OVERRIDE
 	{
 		return m_pWindow->SetFixedSurfaceSize( unSurfaceWidth, unSurfaceHeight );
-	}
-
-	virtual void OnMouseMove( float x, float y ) OVERRIDE
-	{
-		return m_pWindow->OnMouseMove( x, y );
 	}
 
 	virtual void OnMouseEnter() OVERRIDE

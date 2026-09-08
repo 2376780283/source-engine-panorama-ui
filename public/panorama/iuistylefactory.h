@@ -24,8 +24,10 @@ class IUIStyleFactory
 public:
 
 	virtual bool BRegisteredProperty( panorama::CStyleSymbol symName ) = 0;
+	virtual bool BRegisteredAlias( panorama::CStyleSymbol symName ) = 0;
 	virtual CStyleSymbol GetPropertyNameForAlias( panorama::CStyleSymbol symName ) = 0;
 	virtual CStyleProperty *CreateStyleProperty( panorama::CStyleSymbol symName ) = 0;
+	virtual CStyleProperty *CopyStyleProperty( const panorama::CStyleProperty &property ) = 0;
 	virtual void FreeStyleProperty( panorama::CStyleProperty *pProperty ) = 0;
 	virtual const CUtlVector< CUtlString > &GetSortedPropertyAndAliasNames() = 0;
 };

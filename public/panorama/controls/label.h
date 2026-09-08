@@ -13,6 +13,7 @@
 #include "panel2d.h"
 #include "panorama/localization/ilocalize.h"
 #include "panorama/text/iuitextlayout.h"
+#include "panorama/controls/image.h"
 
 namespace panorama
 {
@@ -30,39 +31,43 @@ public:
 	CLabel( CPanel2D *parent, const char * pchPanelID );
 	virtual ~CLabel();
 
-	virtual void Paint();
-	virtual bool BSetProperties( const CUtlVector< ParsedPanelProperty_t > &vecProperties );
+	virtual void Paint() OVERRIDE;
+	virtual bool BSetProperties( const CUtlVector< ParsedPanelProperty_t > &vecProperties ) OVERRIDE;
 
 	virtual void SetupJavascriptObjectTemplate() OVERRIDE;
 
 	enum ETextType
 	{
-		k_ETextTypePlain,
+		k_ETextTypeNone,			// indicates nothing about the text type
+		k_ETextTypePlain,			// default
 		k_ETextTypeUnlocalized,
 		k_ETextTypeHTML
 	};
-	virtual void SetText( const char *pchValue, ETextType eTextType = k_ETextTypePlain );
-	virtual void AppendText( const char *pchValue, ETextType eTextType = k_ETextTypePlain );
+	virtual void SetText( const char *pchValue, ETextType eTextType = k_ETextTypeNone );
+	void SetTextWithDialogVariables( const char *pchValue, ETextType eTextType = k_ETextTypeNone );
+	virtual void AppendText( const char *pchValue, ETextType eTextType = k_ETextTypeNone );
 	virtual const char *PchGetText() const { return m_pLocText ? m_pLocText->String() : ""; }	
 	
-	bool OnLocalizationChanged( const CPanelPtr< IUIPanel > &pPanel, const ILocalizationString *pString ); // can't be virtual as it is an event catcher
+	bool OnLocalizationChanged( const CPanelPtr< IUIPanel > &pPanel, const ILocalizationString *pString, int nStartCharIndex ); // can't be virtual as it is an event catcher
 	
 	void SetMaxChars( EStringTruncationStyle eTruncationStyle, uint32 nMaxChars );
 	void SetStyleForRange( int iStartIndex, int iEndIndex, CPanoramaSymbol symStyle );
 
-	virtual bool BRequiresContentClipLayer() { return m_bMayDrawOutsideBounds; }
+	virtual bool BRequiresContentClipLayer() OVERRIDE { return m_bMayDrawOutsideBounds; }
 	virtual bool BAcceptsFocus() { return false; }
 
 	virtual bool GetContextUIBounds( float *pflX, float *pflY, float *pflWidth, float *pflHeight ) OVERRIDE;
 
 	bool BHasSelection() { return m_nSelectionEndIndex != -1; }
 	void CopySelectionToClipboard();
+	void SelectAll();
+	void ClearSelection();
 
 	bool OnCopySelectedLabelText( const CPanelPtr< IUIPanel > &pPanel );
 
 	// for cloning
-	virtual bool IsClonable() { return AreChildrenClonable(); }
-	virtual CPanel2D *Clone();
+	virtual bool IsClonable() OVERRIDE { return AreChildrenClonable(); }
+	virtual CPanel2D *Clone() OVERRIDE;
 
 	// Get the count of anchor tags in this label, will be zero if not HTML
 	uint32 GetHREFCount();
@@ -73,13 +78,16 @@ public:
 	// enable or disable selection of text via mouse clicks
 	void SetAllowTextSelection( bool bAllow ) { m_bAllowTextSelection = bAllow; }
 
+	// allow raw text (for development-only panels, generally)
+	void SetAllowRawText( bool bAllow ) { m_bAllowRawText = bAllow; }
+
 #ifdef DBGFLAG_VALIDATE
 	virtual void ValidateClientPanel( CValidator &validator, const tchar *pchName ) OVERRIDE;
 	void ValidateLinkVector( CValidator &validator, CUtlVector< CUtlString > *pvecLinks );
 #endif
 
 	// Allow us to recalc HTML style flags on scale factor changes
-	virtual void OnUIScaleFactorChanged( float flScaleFactor ) OVERRIDE;
+	virtual void OnUIScaleFactorChanged( const Vector &vOldScaleFactor, const Vector &vNewScaleFactor ) OVERRIDE;
 
 	virtual void GetDebugPropertyInfo( CUtlVector< DebugPropertyOutput_t *> *pvecProperties ) OVERRIDE;
 
@@ -98,28 +106,26 @@ public:
 		k_EHTMLFormatTagPre = 1 << 9,
 	};
 
+	virtual bool OnKeyDown( const KeyData_t &code ) OVERRIDE;
+
+	virtual void SetTextFromJS( const char *pchValue );
+	virtual void SetLocalizationString( const char* pchValue );
+	virtual void SetProceduralTextThatIPromiseIsLocalizedAndEscaped( const char* pchValue, bool bAllowDialogVariables );
+
 protected:
-	virtual void OnContentSizeTraverse( float *pflContentWidth, float *pflContentHeight, float flMaxWidth, float flMaxHeight, bool bFinalDimensions );
-	virtual void OnLayoutTraverse( float flFinalWidth, float flFinalHeight );
-	virtual void OnStylesChanged();
-	virtual void OnMouseMove( float flMouseX, float flMouseY );
-	virtual bool OnMouseButtonDown( const MouseData_t &code );
-	virtual bool OnMouseButtonUp( const MouseData_t &code );
+	virtual void OnContentSizeTraverse( float *pflContentWidth, float *pflContentHeight, float flMaxWidth, float flMaxHeight, bool bFinalDimensions ) OVERRIDE;
+	virtual void OnLayoutTraverse( float flFinalWidth, float flFinalHeight ) OVERRIDE;
+	virtual void OnStylesChanged() OVERRIDE;
+	virtual void OnMouseMove( float flMouseX, float flMouseY ) OVERRIDE;
+	virtual bool OnMouseButtonDown( const MouseData_t &code ) OVERRIDE;
+	virtual bool OnMouseButtonUp( const MouseData_t &code ) OVERRIDE;
 	bool EventStyleFlagsChanged( const CPanelPtr< IUIPanel > &pPanel );
 	bool OnFindLongestStringForLocVariable( const CPanelPtr< IUIPanel > &pPanel );
 
-	virtual void InitClonedPanel( CPanel2D *pPanel );
+	virtual void InitClonedPanel( CPanel2D *pPanel ) OVERRIDE;
 
-	virtual void SetTextFromJS(const char *pchValue) 
-	{ 
-		if( m_bParseAsHTML )
-			SetText( pchValue, k_ETextTypeHTML );
-		else
-			SetText( pchValue, k_ETextTypeUnlocalized );
-	}
-
-	bool BParseAsHTML() const { return m_bParseAsHTML; }
-	void SetParseAsHTML( bool bParseAsHTML ) { m_bParseAsHTML = bParseAsHTML; }
+	bool BParseAsHTML() const { return m_TextType == k_ETextTypeHTML; }
+	void SetParseAsHTML( bool bParseAsHTML ) { if ( bParseAsHTML ) m_TextType = k_ETextTypeHTML; }
 
 private:
 	struct TextRangeFormat_t
@@ -187,9 +193,9 @@ private:
 	bool BCoordsInTextRange( const TextRangeFormat_t &rangeFormat, float flX, float flY );
 	int FindTextRangeAt( float flX, float flY );
 
-	IUITextLayout *CreateTextLayout( float flWidth, float flHeight, bool bUseChildDesiredSize, const char *pchOptStringToUse = NULL );
+	IUITextLayout *CreateTextLayout( float flWidth, float flHeight, bool bUseChildDesiredSize, const char *pchOptStringToUse = NULL, const float flOverrideFontSize = 0.0f );
 	IUITextLayout *CreateCurrentLayoutTextLayout();
-	virtual int ResolveStringLengthInPixels( const char *pchString );
+	virtual int ResolveStringLengthInPixels( const char *pchString ) OVERRIDE;
 
 	bool HandleAnchorTagEvent( CUtlVector< CUtlString > *pvecLinks, int iLinkIndex );
 
@@ -198,7 +204,8 @@ private:
 	bool m_bContentSizeDirty;
 	float m_flMaxWidthLastContentSize;
 	float m_flMaxHeightLastContentSize;
-	float m_flLastUIScaleFactor;
+	float m_flLastUIScaleX;
+	float m_flLastUIScaleY;
 
 	bool m_bLeftMouseIsDown;
 	Vector2D m_LastMousePos;
@@ -214,7 +221,6 @@ private:
 	CMutableLocalizationString m_pLocTextHTML; // the base string with html markup preserved
 	uint32 m_nMaxChars;										// max chars to store in this label
 	EStringTruncationStyle m_eStringTruncationStyle;		// how to truncate our text
-	bool m_bParseAsHTML;									// if true, set text will be parsed as html
 	CUtlVector< TextRangeFormat_t > m_vecTextRangeFormats;	// list of parsed text range formats
 	CUtlVector< CUtlString > *m_pvecParsedHREFs;			// parsed href.. indexes are added to text range formats. Multiple ranges could have same URL.
 	CUtlVector< CUtlString > *m_pvecParsedMouseOvers;		// parsed onmouseover.. indexes are added to text range formats. Multiple ranges could have same URL.
@@ -222,8 +228,24 @@ private:
 	CUtlVector< CUtlString > *m_pvecParsedContextMenus;		// parsed oncontextmenu.. indexes are added to text range formats. Multiple ranges could have same URL.
 	TextRangeFormat_t *m_pLastHoverRange;					// last text range the mouse was hovering over	
 	TextRangeFormat_t *m_pMouseDownRange;					// index into m_vecTextRangeFormats
+	EImageScaling m_InlineImageScalingMethod; // the type of scaling we apply to any inline image panels
+	ETextType m_TextType;
+
+	float m_flLastTextLayoutWidth;
+	float m_flLastTextLayoutHeight;
+	IUITextLayout *m_pCachedTextLayout;
+
+	float m_flShrinkOffsetY;
+	float m_flShrinkFontSize;
+
+	bool m_bAllowRawText;		// For validation, whether we allow non-localized strings to be set via SetText().
+								// set 'allowrawtext' attribute -- should generally be used only in internal panels that
+							
+	bool m_bHtmlStrict;			// HTML strict mode will strip '\n' and '\t' characters
+								// False by default, set 'htmlstrict' attribute
 
 	static uint32 s_unNextInlineImageID;
+	static uint32 s_unNextInlinePanelID;
 };
 
 } // namespace panorama

@@ -57,10 +57,10 @@ public:
 	void ResolveDefaultValues();
 	void ToString( CFmtStr1024 *pfmtBuffer );
 	
-	void ScaleLengthValues( float flScaleFactor )
+	void ScaleLengthValues( float flScaleFactorX, float flScaleFactorY )
 	{
-		m_horizontal.ScaleLengthValue( flScaleFactor );
-		m_vertical.ScaleLengthValue( flScaleFactor );
+		m_horizontal.ScaleLengthValue( flScaleFactorX );
+		m_vertical.ScaleLengthValue( flScaleFactorY );
 	}
 
 	bool operator==( const CBackgroundPosition &rhs ) const
@@ -152,7 +152,7 @@ public:
 
 	void SetPathToNone()
 	{
-		m_eImagePath = m_eImagePath;
+		m_eImagePath = k_EImagePathNone;
 		m_sURLPath.Clear();
 	}
 
@@ -191,6 +191,13 @@ public:
 	CBackgroundRepeat GetRepeat() { return m_repeat; }
 	void SetRepeat( const CBackgroundRepeat &repeat ) { m_repeat = repeat; }
 
+	void SetOpacity( float flOpacity ) { m_flOpacity = flOpacity; }
+	float GetOpacity() const { return m_flOpacity; }
+	float GetInterpolatedOpacity( float flProgress ) const;
+
+	void SetTemporaryLayer( bool bTemporaryLayer ) { m_bTemporaryLayer = bTemporaryLayer; }
+	bool IsTemporaryLayer() const { return m_bTemporaryLayer; }
+
 	IImageSource *GetImage() { return m_pImage; }
 	CVideoPlayerPtr GetMovie() { return m_pVideoPlayer; }
 
@@ -205,7 +212,7 @@ public:
 	}
 
 	void ResolveDefaultValues();
-	void ApplyUIScaleFactor( float flScaleFactor );
+	void ApplyUIScaleFactor( float flScaleFactorX, float flScaleFactorY );
 	void OnAppliedToPanel( IUIPanel *pPanel );
 	void MergeTo( CBackgroundImageLayer *pTarget );
 	void ToString( CFmtStr1024 *pfmtBuffer );
@@ -223,11 +230,13 @@ public:
 	}
 
 	// helpers for drawing
-	void CalculateFinalDimensions( float *pflWidth, float *pflHeight, float flPanelWidth, float flPanelHeight, float flScaleFactor );
+	void CalculateFinalDimensions( float *pflWidth, float *pflHeight, float flPanelWidth, float flPanelHeight, float flScaleFactorX, float flScaleFactorY );
 	void CalculateFinalPosition( float *px, float *py, float flWidthPanel, float flHeightPanel, float flWidthImage, float flHeightImage );
 	void CalculateFinalSpacing( float *px, float *py, float flWidthPanel, float flHeightPanel, float flWidthImage, float flHeightImage );
 
 	void Set( const CBackgroundImageLayer &rhs );
+	void UnloadImage();
+	void ReloadImage( IUIPanel *pPanel );
 
 
 #ifdef DBGFLAG_VALIDATE
@@ -252,6 +261,10 @@ private:
 
 	// from background-repeat
 	CBackgroundRepeat m_repeat;
+
+	// Used when crossfading. Not considered for equality purposes
+	float m_flOpacity;
+	bool m_bTemporaryLayer;
 
 	// loaded when applied to a panel
 	IImageSource *m_pImage;

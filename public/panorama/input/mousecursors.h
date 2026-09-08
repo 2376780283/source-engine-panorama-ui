@@ -5,10 +5,7 @@
 
 #ifndef MOUSECURSORS_H
 #define MOUSECURSORS_H
-
-#ifdef _WIN32
 #pragma once
-#endif
 
 namespace panorama
 {
@@ -20,7 +17,12 @@ enum EMouseCursors
 	eMouseCursor_IBeam,
 	eMouseCursor_SizeWE,
 	eMouseCursor_SizeNS,
-	eMouseCursor_Last,
+	eMouseCursor_Hand,
+	eMouseCursor_Hand_Closed,
+#if defined( SOURCE2_PANORAMA ) && !defined( PANORAMA_USE_S1WRAPPER )
+	eMouseCursor_PassThrough,
+#endif
+	eMouseCursor_Last
 };
 
 } // namespace panorama

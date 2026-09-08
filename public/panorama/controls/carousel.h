@@ -21,6 +21,7 @@ namespace panorama
 
 DECLARE_PANORAMA_EVENT0( ResetCarouselMouseWheelCounts );
 DECLARE_PANORAMA_EVENT1( SetCarouselSelectedChild, CPanelPtr<CPanel2D> );
+DECLARE_PANEL_EVENT0( CarouselChildrenChanged );
 
 
 //-----------------------------------------------------------------------------
@@ -48,7 +49,10 @@ public:
 	void SetOffset( CUILength len );
 	void DrawFocusFrame( bool bDraw );
 	void DeleteChildren();
-	
+	void SetReactToFocusChange( bool bReactToFocusChange ) { m_bReactToFocusChange = bReactToFocusChange; }
+
+	int GetPanelsVisible() const { return m_nPanelsVisible; }
+
 	bool SetFocusToIndex( int iFocus );
 	int GetFocusIndex() const { return GetChildIndex( m_pFocusedChild.Get() ); }
 	CPanel2D *GetFocusChild() const { return m_pFocusedChild.Get(); }
@@ -59,10 +63,17 @@ public:
 	// Sets the panel for which focus state is checked when applying focus offset.
 	void SetFocusOffsetPanel( CPanel2D *pPanel ) { m_ptrPanelFocusOffset = pPanel; }
 
+	float GetAutoScrollDelay() const { return m_flAutoScrollDelay; }
+	float GetAutoScrollRandomDelay() const { return m_flAutoScrollRandomDelay; }
+	void SetAutoScrollDelay( float flAutoScrollDelay, float flAutoScrollRandomDelay = 0.0f );
+	bool SetAutoScrollDelay( const char *pchValue );
+	void SetAutoScrollEnabled( bool bEnabled );
+
+	void ForceRefreshChildFocusStyles();
+
 	virtual bool BSetProperty( CPanoramaSymbol symName, const char *pchValue ) OVERRIDE;
 	virtual void GetDebugPropertyInfo( CUtlVector< DebugPropertyOutput_t *> *pvecProperties );
 	virtual void OnLayoutTraverse( float flFinalWidth, float flFinalHeight );
-	virtual void Paint();
 
 	virtual bool OnMoveRight( int nRepeats );
 	virtual bool OnMoveLeft( int nRepeats );
@@ -71,7 +82,7 @@ public:
 	virtual bool OnMouseWheel( const panorama::MouseData_t &code );
 	virtual void OnStylesChanged();
 
-	virtual void OnUIScaleFactorChanged( float flScaleFactor ) OVERRIDE;
+	virtual void OnUIScaleFactorChanged( const Vector &vOldScaleFactor, const Vector &vNewScaleFactor ) OVERRIDE;
 
 	virtual bool BRequiresContentClipLayer() OVERRIDE { return true; }
 
@@ -130,6 +141,7 @@ protected:
 
 	// child management
 	virtual void OnBeforeChildrenChanged();
+	virtual void OnAfterChildrenChanged();
 	virtual void OnCallBeforeStyleAndLayout() { UpdateFocusAndDirtyChildStyles(); }
 
 private:
@@ -146,6 +158,7 @@ private:
 	bool EventCarouselMouseScroll( const CPanelPtr< IUIPanel > &ptrPanel, int cRepeat );
 	bool EventWindowCursorShown( IUIWindow *pWindow );
 	bool EventWindowCursorHidden( IUIWindow *pWindow );
+	bool EventAutoScroll( uint8 unAutoScrollID );
 
 	// owned panels
 	CLabel *CreateTitleLabel();
@@ -167,6 +180,7 @@ private:
 	void RemoveCarouselStyle( CPanel2D *pChild, int iChild, int iCurrentFocus );
 	void RegisterForCursorChanges();
 	void UnregisterForCursorChanges();
+	void CarouselSelectedChildChanged();
 
 	// configured offets
 	void GetPanelOffsets( CUILength *plenX, CUILength *plenY, CUILength *plenZ, int nDistanceFromFocus, float flWidth, float flHeight );
@@ -177,8 +191,11 @@ private:
 	void LayoutChildPanels( int iFocusChild, float flOffset, float flLeft, float flRight, const float flContainerWidth, const float flContainerHeight, const CUtlVector< CPanel2D* > &vecNewChildren );
 	bool BPositionPanelRight( int iPanel, int nDistanceFromFocus, float *pflOffset, float flLeft, float flContainerWidth, float flContainerHeight, bool bCheckFits, const CUtlVector< CPanel2D* > &vecNewChildren );
 	bool BPositionPanelLeft( int iPanel, int nDistanceFromFocus, float *pflOffset, float flLeft, float flContainerWidth, float flContainerHeight, bool bCheckFits, const CUtlVector< CPanel2D* > &vecNewChildren );
-	void LayoutMouseScrollRegions( float flFinalWidth, float flFinalHeight );
 	
+	// autoscroll
+	void CheckScheduleAutoScroll();
+	bool IsAutoScrollEnabled() const;
+
 	struct DirtyChildStyles_t
 	{
 		int m_iOriginalFocus;
@@ -196,6 +213,7 @@ private:
 	bool m_bWrap;
 	CUILength m_lenOffset;
 	bool m_bIncludeScale2d;
+	bool m_bReactToFocusChange;
 
 	// for edge focus
 	EFocusEdge m_eLastFocusEdge;
@@ -224,6 +242,14 @@ private:
 	int32 m_nPanelsVisible;
 
 	CPanelPtr< CPanel2D > m_ptrPanelFocusOffset;
+
+	float m_flAutoScrollDelay;
+	float m_flAutoScrollRandomDelay;
+	uint8 m_unAutoScrollID;
+	bool m_bAutoScrollScheduled;
+	bool m_bAutoScrollEnabled;
+
+	int m_nChildCountHighWatermark;
 };
 
 

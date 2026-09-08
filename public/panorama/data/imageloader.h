@@ -5,10 +5,7 @@
 
 #ifndef IMAGESOURCE_H
 #define IMAGESOURCE_H
-
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include "panorama/data/iimagesource.h"
 #include "panorama/controls/panelptr.h"
@@ -26,7 +23,7 @@ namespace panorama
 int GetFormatPixelBytes( EImageFormat format );
 
 class CMovie;
-class IUIRenderEngine;
+class IUIRenderDevice;
 class IUITexture;
 class CImageData;
 
@@ -39,6 +36,7 @@ class CImageLoaderTask;
 
 #if defined( SOURCE2_PANORAMA )
 class CLoadFromVTexTask;
+class CLoadFromSvgTask;
 #endif
 
 enum ESourceFormats
@@ -49,38 +47,107 @@ enum ESourceFormats
 	k_ESourceFormatJPG,
 	k_ESourceFormatRawRGBA,
 	k_ESourceFormatGIF,
+	k_ESourceFormatSVG,
+	k_ESourceFormatEngineRT,
 	k_ESourceFormatVTEX
 };
 
 class CImageData;
 typedef void (ImageDecodeCallback_t)( bool bSuccess, CImageData *pNewImage, CUtlBuffer *pBufDecoded );
 
-class CImageDecodeWorkItem
+class IImageDecodeWorkItem
 {
 public:
-	CImageDecodeWorkItem( IUIRenderEngine *pRenderEngine, CUtlBuffer &bufDataInMayModify, const char *pchFilePath, int nWide, int nTall, int nResizeWidth, int nResizeHeight,
-		EImageFormat formatOut, bool bAllowAnimation, CUtlDelegate< ImageDecodeCallback_t > del );
+
+	virtual ~IImageDecodeWorkItem() {}
+
+	virtual void RunWorkItem() = 0;
+	virtual void DispatchResult() = 0;
+};
+
+class CImageDecodeWorkItem : public IImageDecodeWorkItem
+{
+public:
+	CImageDecodeWorkItem( IUIRenderDevice *pRenderDevice, CUtlBuffer &bufDataInMayModify, const char *pchFilePath, int nWide, int nTall,
+		EImageFormat formatOut, const UIImageLoadParams_t &loadParams, CUtlDelegate< ImageDecodeCallback_t > del );
 	~CImageDecodeWorkItem();
 
 	void RunWorkItem();
 	void DispatchResult();
 
+#if defined( SOURCE2_PANORAMA ) 
+	void UseAsyncFilesystemDeallocator() { m_bUseAsyncFilesystemDeallocator = true; }
+
+	bool m_bUseAsyncFilesystemDeallocator;
+#endif
+	ESourceFormats m_srcFormat;
+
 private:
 
 	bool m_bSuccess;
-	IUIRenderEngine *m_pSurface;
+	IUIRenderDevice *m_pDevice;
 	CUtlBuffer *m_pBuffer;
 	CUtlString m_strFilePath;
 	int m_nWide;
 	int m_nTall;
-	int m_nResizeWidth;
-	int m_nResizeHeight;
+	UIImageLoadParams_t m_loadParams;
 	EImageFormat m_eFormat;
-	bool m_bAllowAnimation;
 	CImageData *m_pNewImage;
 
 	CUtlDelegate< ImageDecodeCallback_t > m_Del;
 };
+
+
+#ifdef PANORAMA_USE_S1WRAPPER
+
+//-----------------------------------------------------------------------------
+//
+// Value that is guaranteed to be atomic and load/load or store/store
+// consistent when read and written by multiple threads.  Prevents
+// compiler reordering of loads across loads and stores across stores
+// to avoid the compiler moving code around before or after load/store
+// usage.
+//
+// Use this instead of declaring variables volatile if your only
+// intent with volatile is to get the non-portable Visual Studio automatic
+// barrier behavior.
+//
+// Only usable with primitive types.
+//
+//-----------------------------------------------------------------------------
+
+template< typename T >
+class CThreadSyncValue
+{
+public:
+	// Allow arbitrary construction of T.
+	template <typename... ConstructArgs>
+	CThreadSyncValue( ConstructArgs... constructArgs )
+		: m_value( constructArgs... ) {}
+
+	T Load() const
+	{
+		// For this CPU we automatically get load-acquire semantics so
+		// we only need to prevent compiler reordering.
+		ThreadMemoryBarrier();
+		return m_value;
+	}
+
+	void Store( T value )
+	{
+		// For this CPU we automatically get store-release semantics so
+		// we only need to prevent compiler reordering.
+		ThreadMemoryBarrier();
+		m_value = value;
+	}
+
+protected:
+	// No need for volatile or other special qualifiers here as
+	// we use explicit barriers in Load/Store.
+	T m_value;
+};
+
+#endif
 
 class CImageDecodeWorkThreadPool;
 class CImageDecodeThread : public CThread
@@ -101,9 +168,12 @@ public:
 
 	virtual int Run() OVERRIDE;
 
+	bool HasFinishedRunning() { return m_bhasFinishedRunning.Load(); }
+
 private:
-	volatile bool m_bExit;
+	CThreadSyncValue<bool> m_bExit;
 	CImageDecodeWorkThreadPool *m_pParent;
+	CThreadSyncValue<bool> m_bhasFinishedRunning;
 };
 
 class CImageDecodeWorkThreadPool
@@ -115,17 +185,40 @@ public:
 	// Run frame on main thread
 	void RunFrame();
 
-	void AddWorkItem( CImageDecodeWorkItem  *pWorkItem );
+#if defined( SOURCE2_PANORAMA ) 
+	void WaitForAllJobs();
+#endif
+
+
+	void AddWorkItem( IImageDecodeWorkItem  *pWorkItem );
 	
+#ifdef DBGFLAG_VALIDATE
+	virtual void Validate( CValidator &validator, const tchar *pchName )
+	{
+		VALIDATE_SCOPE();
+		AUTO_LOCK( m_AsyncIoLock );
+		ValidateObj( m_llAsyncIORequests );
+		ValidateObj( m_llAsyncIOResults );
+		for ( int i = 0; i < V_ARRAYSIZE( m_pWorkThreads ); ++i )
+		{
+			validator.ClaimMemory( m_pWorkThreads[i] );
+		}
+	}
+#endif
+
 private:
 
 	friend class CImageDecodeThread;
+#if defined( SOURCE2_PANORAMA ) 
 	CImageDecodeThread * m_pWorkThreads[1];
+#else
+	CImageDecodeThread * m_pWorkThreads[4];
+#endif
 
 	CThreadMutex m_AsyncIoLock;
 	CThreadEvent m_ThreadEvent;
-	CUtlLinkedList< CImageDecodeWorkItem *, int > m_llAsyncIORequests;
-	CUtlLinkedList< CImageDecodeWorkItem *, int > m_llAsyncIOResults;
+	CUtlLinkedList< IImageDecodeWorkItem *, int > m_llAsyncIORequests;
+	CUtlLinkedList< IImageDecodeWorkItem *, int > m_llAsyncIOResults;
 };
 
 //
@@ -134,19 +227,23 @@ private:
 class CImageResourceManager : public IUIImageManager
 {
 public:
-	CImageResourceManager( IUIRenderEngine *pSurface );
+	CImageResourceManager( IUIRenderDevice *pDevice );
 	~CImageResourceManager();
 	virtual void Shutdown();
+	void ShutdownForEngine();
 
-	virtual IImageSource *LoadImageFromURL( const IUIPanel *pPanel, const char *pchResourceURLDefault, const char *pchResourceURL, bool bPrioritizeLoad, EImageFormat imgFormatOut, int32 nResizeWidth = panorama::k_ResizeNone, int32 nResizeHeight = panorama::k_ResizeNone, bool bAllowAnimation = true );
-	virtual IImageSource *LoadImageFileFromMemory( const IUIPanel *pPanel, const char *pchResourceURLDefault, const CUtlBuffer &bufFile, int nResizeWidth = panorama::k_ResizeNone, int nResizeHeight = panorama::k_ResizeNone, bool bAllowAnimation = true );
-	virtual IImageSource *LoadImageFromMemory( const IUIPanel *pPanel, const char *pchResourceURLDefault, const CUtlBuffer &bufRGBA, int nWide, int nTall, EImageFormat imgFormatIn = k_EImageFormatR8G8B8A8, int nResizeWidth = panorama::k_ResizeNone, int nResizeHeight = panorama::k_ResizeNone, bool bAllowAnimation = true );
+	virtual IImageSource *LoadImageFromURL( const IUIPanel *pPanel, const char *pchResourceURLDefault, const char *pchResourceURL, bool bPrioritizeLoad, EImageFormat imgFormatOut, const UIImageLoadParams_t &loadParams ) OVERRIDE;
+	virtual IImageSource *LoadImageFileFromMemory( const IUIPanel *pPanel, const char *pchResourceURLDefault, const CUtlBuffer &bufFile, const UIImageLoadParams_t &loadParams ) OVERRIDE;
+	virtual IImageSource *LoadImageFromMemory( const IUIPanel *pPanel, const char *pchResourceURLDefault, const CUtlBuffer &bufRGBA, int nWide, int nTall, EImageFormat imgFormatIn, const UIImageLoadParams_t &loadParams ) OVERRIDE;
+	virtual IImageSource *LoadImageFromEngineRT( const IUIPanel *pPanel, const char *pchEngineRTName, const UIImageLoadParams_t &loadParams ) OVERRIDE;
 	virtual CUtlString GetPchImageSourcePath( IImageSource *pImageSource ) OVERRIDE;
 
 	virtual void ReloadChangedFile( const char *pchFile ) OVERRIDE;
 	virtual void ReloadChangedImage( IImageSource *pImageToReload ) OVERRIDE;
 
 	bool OnImageUnreferenced( CImageProxySource *pImage );
+	
+	void OnResolutionChange( float fRelativeScalefactor );
 
 	void RunFrame();
 
@@ -157,7 +254,7 @@ public:
 #endif
 
 private:
-	IImageSource *LoadImageInternal( const IUIPanel *pPanel, CFileResource &fileResourceDefault, CFileResource &fileResource, bool bPrioritizeLoad, EImageFormat imgFormatOut, int32 nResizeWidth, int32 nResizeHeight, bool bAllowAnimation );
+	IImageSource *LoadImageInternal( const IUIPanel *pPanel, CFileResource &fileResourceDefault, CFileResource &fileResource, bool bPrioritizeLoad, EImageFormat imgFormatOut, const UIImageLoadParams_t &loadParams );
 	CImageProxySource *GetDefaultImage( CFileResource &fileDefault, EImageFormat imgFormatOut, bool bAllowAnimation );
 
 	friend class CLoadFileURLTask;
@@ -165,19 +262,20 @@ private:
 	friend class CImageLoaderTask;
 #if defined( SOURCE2_PANORAMA )
 	friend class CLoadFromVTexTask;
+	friend class CLoadFromSvgTask;
 #endif
 
 	// Internally adds image to our tracking maps
-	void AddImageToManager( CFileResource &resource, CImageProxySource *pImageProxy, int32 nResizeWidth, int32 nResizeHeight, bool bAllowAnimation );
+	void AddImageToManager( CFileResource &resource, CImageProxySource *pImageProxy, const UIImageLoadParams_t &loadParams );
 	bool RemoveImageFromManager( IImageSource *pImage );
 
 	// Loads a resource, returns vector index
-	bool OnImageLoaded( CFileResource & resource, CImageData *pImage, int32 nResizeWidth, int32 nResizeHeight, bool bAllowAnimation );
-	bool OnFailedImageLoad( CFileResource & resource, int32 nResizeWidth, int32 nResizeHeight, bool bAllowAnimation );
-	void AddLoad( CFileResource &resource, EImageFormat eFormat, bool bPrioritizeLoad, int32 nResizeWidth, int32 nResizeHeight, bool bAllowAnimation );
+	bool OnImageLoaded( CFileResource & resource, CImageData *pImage, const UIImageLoadParams_t &loadParams );
+	bool OnFailedImageLoad( CFileResource & resource, const UIImageLoadParams_t &loadParams );
+	void AddLoad( CFileResource &resource, EImageFormat eFormat, bool bPrioritizeLoad, const UIImageLoadParams_t &loadParams );
 
 	// Synchronous load only used for initial global default image
-	bool LoadLocalFileSynchronous( CFileResource &resource, EImageFormat eFormat, bool bAllowAnimation );
+	bool LoadLocalFileSynchronous( CFileResource &resource, EImageFormat eFormat, const UIImageLoadParams_t &loadParams );
 
 #if defined( SOURCE2_PANORAMA )
 	bool FixupFileResourceToCompiledImage( CFileResource &fileResource );
@@ -186,27 +284,74 @@ private:
 	struct UrlImageKey_t
 	{
 		CFileResource fileResource;
-		int32 nTargetWidth;
-		int32 nTargetHeight;
-		bool bAllowAnimation;
+		UIImageLoadParams_t loadParams;
 
-		// Sort on size only
 		bool operator <( const UrlImageKey_t &l ) const
 		{
-			if ( nTargetWidth < l.nTargetWidth )
+			if ( loadParams.m_nResizeWidth < l.loadParams.m_nResizeWidth )
 				return true;
-			else if ( nTargetWidth > l.nTargetWidth )
+			else if ( loadParams.m_nResizeWidth > l.loadParams.m_nResizeWidth )
 				return false;
 
-			if ( nTargetHeight < l.nTargetHeight )
+			if ( loadParams.m_nResizeHeight < l.loadParams.m_nResizeHeight )
 				return true;
-			else if ( nTargetHeight > l.nTargetHeight )
+			else if ( loadParams.m_nResizeHeight > l.loadParams.m_nResizeHeight )
 				return false;
 
-			if ( bAllowAnimation && !l.bAllowAnimation )
+			if ( loadParams.m_nMaxWidth < l.loadParams.m_nMaxWidth )
 				return true;
-			else if ( !bAllowAnimation && l.bAllowAnimation )
+			else if ( loadParams.m_nMaxWidth > l.loadParams.m_nMaxWidth )
 				return false;
+
+			if ( loadParams.m_nMaxHeight < l.loadParams.m_nMaxHeight )
+				return true;
+			else if ( loadParams.m_nMaxHeight > l.loadParams.m_nMaxHeight )
+				return false;
+
+			if( (l.loadParams.m_fScaleFactor - loadParams.m_fScaleFactor) > 0.01f )
+				return true;
+			else if( (loadParams.m_fScaleFactor - l.loadParams.m_fScaleFactor) > 0.01f )
+				return false;
+
+			if ( loadParams.m_bAllowAnimation && !l.loadParams.m_bAllowAnimation )
+				return true;
+			else if ( !loadParams.m_bAllowAnimation && l.loadParams.m_bAllowAnimation )
+				return false;
+
+			if( loadParams.m_svgAttributeOverrides.m_nFlags < l.loadParams.m_svgAttributeOverrides.m_nFlags )
+				return true;
+			if( loadParams.m_svgAttributeOverrides.m_nFlags > l.loadParams.m_svgAttributeOverrides.m_nFlags )
+				return false;
+
+			if( loadParams.m_svgAttributeOverrides.m_nFlags )
+			{
+				for( int i = 0; i < k_ESvgAttributeMax; ++i )
+				{
+					if( loadParams.m_svgAttributeOverrides.m_nFlags & (1 << i) )
+					{
+						// Opacity and length values are compared as floats 
+						if( (i == k_ESvgAttributeFill_opacity) || (i == k_ESvgAttributeStroke_opacity) || (i == k_ESvgAttributeStroke_width) ||
+							(i == k_ESvgAttributeOpacity) )
+						{
+							float fVal = *(float*)&loadParams.m_svgAttributeOverrides.m_overrides[i];
+							float fLVal = *(float*)&l.loadParams.m_svgAttributeOverrides.m_overrides[i];
+							if( (fLVal - fVal) > 0.001f )
+								return true;
+							if( (fVal - fLVal) > 0.001f )
+								return false;
+						}
+						else
+						{
+							int nVal = *(int*)&loadParams.m_svgAttributeOverrides.m_overrides[i];
+							int nLVal = *(int*)&l.loadParams.m_svgAttributeOverrides.m_overrides[i];
+							if( nVal < nLVal )
+								return true;
+							if( nVal > nLVal )
+								return false;
+						}
+					}
+				}
+			}
 
 			return fileResource < l.fileResource;
 		}
@@ -217,11 +362,12 @@ private:
 	CUtlVector< CImageLoaderTask * > m_vecLoaderTasksToStart;
 	CUtlRBTree< CImageLoaderTask *, int, CDefLess< CImageLoaderTask * > > m_treeLoadTasks;
 
-	IUIRenderEngine *m_pSurface;
+	IUIRenderDevice *m_pDevice;
 
 	CImageDecodeWorkThreadPool *m_pImageDecodePool;
 
 	bool m_bInited;
+	bool m_bEventsRegistered;
 };
 
 } // namespace panorama

@@ -11,6 +11,7 @@
 
 #if defined( SOURCE2_PANORAMA )
 #include "tier0/platwindow.h"
+FORWARD_DECLARE_HANDLE( InputContextHandle_t );
 #endif
 
 #include "tier1/convar.h"
@@ -24,11 +25,7 @@
 #include "tier1/utlstring.h"
 #include "tier1/utldelegate.h"
 #include "tier0/validator.h"
-#ifdef SOURCE_PANORAMA_FIXME
-	#include "tier1/UtlSortVector.h"
-#else
-	#include "tier1/utlsortvector.h"
-#endif
+#include "tier1/utlsortvector.h"
 #include "language.h"
 #include "panorama/layout/panel2dfactory.h"
 #include "iuistylefactory.h"
@@ -46,7 +43,9 @@
 #pragma GCC diagnostic ignored "-Wshadow"
 #endif
 #if defined( SOURCE2_PANORAMA )
+//#include "google_inc_push.h"
 #include "../thirdparty/v8/include/v8.h"
+//#include "google_inc_pop.h"
 #else
 #include "tier0/memdbgoff.h"
 #include "../external/v8/include/v8.h"
@@ -81,7 +80,6 @@ namespace panorama
 {
 
 // forward decl for engine components
-class CUIProtoBufMsgMemoryPoolMgr;
 class CUIRenderEngine;
 class IUIInput;
 class IUIEvent;
@@ -164,6 +162,11 @@ enum RegisterJSType_t : uint8
 	k_ERegisterJSTypeConstString,
 	k_ERegisterJSTypePanoramaSymbol,
 	k_ERegisterJSTypeRawV8Args,
+	k_ERegisterJSTypeScaleformCompatAccessor,
+	k_ERegisterJSTypeScaleformCompatArgs,
+	k_ERegisterJSTypeUtlString,
+
+	k_ERegisterJSTypeMax,
 };
 
 struct RegisterJSEntryInfo_t
@@ -191,6 +194,7 @@ struct RegisterJSEntryInfo_t
 
 	static const uint8 k_unMaxParams = 10;
 	RegisterJSType_t pParamTypes[k_unMaxParams];
+	const char *pParamNames[k_unMaxParams];
 
 	uint32 GetEntryType() const
 	{
@@ -213,8 +217,7 @@ public:
 		k_ERenderToOverlayTexture = 4,
 		k_ERenderToOverlaySharedTexture = 5,
 		k_ERenderToOverlaySteamWM = 6,
-		k_ERenderToLegacyVR = 7, // This one is used for the Steam Client's main interface and will die eventually
-		k_ERenderToOpenVROverlay = 8,
+		k_ERenderToOpenVROverlay = 7,
 
 		k_ERenderTargetUnset = 0,
 	};
@@ -231,6 +234,7 @@ public:
 		k_EHapticFeedbackStrength_Low,
 		k_EHapticFeedbackStrength_Medium,
 		k_EHapticFeedbackStrength_High,
+		k_EHapticFeedbackStrength_VeryHigh,
 	};
 
 	// return true if the states are different and a valid transition.  Used to test fullscreen transition
@@ -242,7 +246,6 @@ public:
 			eTarget == IUIEngine::k_ERenderToOverlaySharedTexture ||
 			eTarget == IUIEngine::k_ERenderToOverlaySteamWM);
 	}
-	static bool BIsRenderingToLegacyVR( ERenderTarget eTarget ) { return (eTarget == k_ERenderToLegacyVR); }
 	static bool BIsRenderingToOpenVROverlay( ERenderTarget eTarget ) { return (eTarget == k_ERenderToOpenVROverlay); }
 	static bool BIsRenderingToFullScreen( ERenderTarget eTarget ) { return (eTarget == k_ERenderFullScreen); }
 
@@ -270,22 +273,30 @@ public:
 	virtual void RunFrame() = 0;
 
 	// Will set the UI engine to aggressively limit frame rate it runs at to avoid resource usage
-	virtual void SetAggressiveFrameRateLimit( bool bLimit ) = 0;
+	virtual void SetAggressiveFrameRateLimit( bool bLimitMainThread, bool bLimitRendering ) = 0;
 
 	virtual bool BIsRunning() = 0;
 	virtual bool BHasFocus() = 0;
 	virtual double GetCurrentFrameTime() = 0;
 
+	virtual bool BShouldUseForceBuiltPaintCmdCaches() = 0;
+	virtual void SetUseForceBuiltPaintCmdCaches( bool bUseForceBuiltPaintCmdCaches ) = 0;
+
 #if !defined( SOURCE2_PANORAMA )
 	virtual IUIWindow *CreateNewWindow( const char *pchWindowTitle, uint32 width, uint32 height, ERenderTarget eRenderType, bool bFixedSurfaceSize, bool bEnforceWindowAspectRatio, bool bUseCustomMouseCursor, const char *pchMonitorName ) = 0;
 	virtual IUIWindow *CreateNewOverlayWindow( const char *pchWindowTitle, uint32 width, uint32 height, panorama::IUIEngine::ERenderTarget eTarget, bool bFixedSize, bool bDrawCustomMouseCursor ) = 0;
-	virtual IUIWindow *CreateNewOpenVROverlayWindow( uint32 width, uint32 height, vr::VROverlayHandle_t ulOverlayHandle ) = 0;
+	virtual IUIWindow *CreateNewOpenVROverlayWindow( uint32 width, uint32 height, vr::VROverlayHandle_t ulOverlayHandle, bool bKeepInputFocusOnGamepadFocusLost, bool bIgnoreGamepadFocus ) = 0;
 #else
-	virtual IUIWindow *CreateNewUILayerWindow( uint32 xPos, uint32 yPos, uint32 width, uint32 height, bool bFixedSurfaceSize, bool bEnforceWindowAspectRatio, bool bUseCustomMouseCursor, bool bAcceptKBandMouse, const char *pName ) = 0;
+	virtual IUIWindow *CreateNewUILayerWindow( uint32 xPos, uint32 yPos, uint32 width, uint32 height, bool bFixedSurfaceSize, bool bEnforceWindowAspectRatio, bool bUseCustomMouseCursor, bool bAcceptKBandMouse, const char *pName, InputContextHandle_t hInputContext ) = 0;
+	virtual IUIWindow *CreateNewOffscreenUIWindow( uint32 width, uint32 height, const char *pName, InputContextHandle_t hInputContext, bool bDrawToBackBuffer ) = 0;
+	virtual bool DestroyWindow( IUIWindow *pWindow ) = 0;
 #endif
+	virtual void OnResolutionChange( float fRelativeScalefactor ) = 0;
+	virtual void OnGPUMemLevelChanged( ) = 0;
 
 	virtual IUITextLayout *CreateTextLayout( const char *pchText, const char *pchFontName, float flSize, float flLineHeight, EFontWeight weight, EFontStyle style, ETextAlign align, bool bWrap, bool bEllipsis, int nLetterSpacing, float flMaxWidth, float flMaxHeight ) = 0;
-	virtual IUITextLayout *CreateTextLayout( const wchar_t *pwchText, const char *pchFontName, float flSize, float flLineHeight, EFontWeight weight, EFontStyle style, ETextAlign align, bool bWrap, bool bEllipsis, int nLetterSpacing, float flMaxWidth, float flMaxHeight ) = 0;
+	virtual IUITextLayout *CreateTextLayout( const uchar16 *pch16Text, const char *pchFontName, float flSize, float flLineHeight, EFontWeight weight, EFontStyle style, ETextAlign align, bool bWrap, bool bEllipsis, int nLetterSpacing, float flMaxWidth, float flMaxHeight ) = 0;
+	virtual IUITextLayout *CreateTextLayout( const uchar32 *pch32Text, const char *pchFontName, float flSize, float flLineHeight, EFontWeight weight, EFontStyle style, ETextAlign align, bool bWrap, bool bEllipsis, int nLetterSpacing, float flMaxWidth, float flMaxHeight ) = 0;
 	virtual void FreeTextLayout( IUITextLayout *pLayout ) = 0;
 	virtual const CUtlSortVector< CUtlString > &GetSortedValidFontNames() = 0;
 
@@ -296,6 +307,7 @@ public:
 	virtual IUISettings *UISettings() = 0;
 	virtual IUILayoutManager *UILayoutManager() = 0;
 	virtual IUIFileSystem *UIFileSystem() = 0;
+	virtual IUIImageManager *UIImageManager() = 0;
 
 	virtual void RegisterFrameFunc( PanoramaFrameFunc_t frameFunc ) = 0;
 
@@ -304,7 +316,7 @@ public:
 	virtual CUtlLinkedList<CUtlString> &GetConsoleHistory() = 0;
 
 	// panel management
-	virtual IUIPanel * CreatePanel() = 0;
+	virtual IUIPanel *CreatePanel( IUIWindow *pWindow ) = 0;
 	virtual void PanelDestroyed( IUIPanel *pPanel, IUIPanel *pOldParent ) = 0;
 	virtual bool IsValidPanelPointer( const IUIPanel *pPanel ) = 0;
 	virtual PanelHandle_t GetPanelHandle( const IUIPanel *pPanel ) = 0;
@@ -324,6 +336,7 @@ public:
 	virtual void UnregisterEventHandlersForPanel( IUIPanel *pPanel ) = 0;
 	virtual void RegisterForUnhandledEvent( CPanoramaSymbol symMsg, CUtlAbstractDelegate pFunc ) = 0;
 	virtual void UnregisterForUnhandledEvent( CPanoramaSymbol symMsg, CUtlAbstractDelegate pFunc ) = 0;
+	virtual void UnregisterForUnhandledEvents( void *pEventHandler ) = 0;
 	virtual bool BHaveEventHandlersRegisteredForType( CPanoramaSymbol symPanelType ) = 0;
 	virtual void RegisterPanelTypeEventHandler( CPanoramaSymbol symMsg, CPanoramaSymbol symPanelType, CUtlAbstractDelegate pFunc, bool bThisPtrIsUIPanel = false ) = 0;
 	virtual bool DispatchEvent( IUIEvent *pEvent ) = 0;
@@ -391,6 +404,10 @@ public:
 	// Gets the value of a cookie. Returns false if the cookie does not exist.
 	virtual bool GetCookieValueForRemoteHost( const char *hostName, const char *cookieName, CUtlString *pstrCookieValue ) = 0;
 
+	// Sets cookie for web requests (layout & AsyncWebRequest)
+	virtual bool BSetCookieForWebRequests( const char *pchHost, const char *pchPath, const char *pchCookie ) = 0;
+	virtual bool BClearCookieForWebRequests( const char *pchHost, const char *pchPath, const char *pchCookie ) = 0;
+
 #if defined( SOURCE2_PANORAMA ) || defined( PANORAMA_PUBLIC_STEAM_SDK )
 	virtual ISteamHTMLSurface *AccessHTMLController() = 0;
 #else
@@ -427,7 +444,7 @@ public:
 	virtual bool BAnyOverlayWindowHasFocus() = 0;
 
 	// Get the focused window, there should really be only one, if some bug allows multiple the first found is returned
-	virtual IUIWindow *GetFocusedWindow() = 0;
+	virtual IUIWindow *GetFocusedWindow( bool bSkipVRWindows = false ) = 0;
 
 	// Get the last time any input event happened across any of our windows
 	virtual double GetLastInputTime() = 0;
@@ -436,9 +453,10 @@ public:
 	virtual void UpdateLastInputTime() = 0;
 
 	// Clipboard access
-	virtual void CopyToClipboard( const char *pchTextUTF8 ) = 0;
-	virtual void GetClipboardText( CUtlString &strUTF8 ) = 0;
-
+	virtual void ClearClipboard() = 0;
+	virtual void CopyToClipboard( const char *pchTextUTF8, const char *pchClipboardPasteStringLocToken ) = 0;
+	virtual void GetClipboardText( CUtlString &strUTF8, CUtlString *out_psPasteStringLocToken ) const = 0;
+	
 	// Input locale support
 	virtual ELanguage GetDisplayLanguage() = 0;
 	virtual ELanguage GetCurrentInputLocale() = 0;
@@ -455,13 +473,14 @@ public:
 	virtual bool BGetGPUInformation( char *rgchGPUDesc, uint32 unGPUDescBytes, uint64 *pulDedicatedGPUMem, uint64 *pulDedicatedSystemMem, uint64 *pulSharedMem ) = 0;
 
 	// Pool allocations for panel styles
-	virtual IUIPanelStyle *AllocPanelStyle( IUIPanel *pStyle, float flUIScaleFactor ) = 0;
-	virtual void FreePanelStyle( IUIPanelStyle *pPanel ) = 0;
+	virtual IUIPanelStyle *AllocPanelStyle( IUIPanel *pPanel ) = 0;
+	virtual void FreePanelStyle( IUIPanelStyle *pStyle ) = 0;
 
 	virtual void SetPanelWaitingAsyncDelete( IUIPanel *pPanel ) = 0;
 	virtual bool BIsPanelWaitingAsyncDelete( IUIPanel *pPanel ) = 0;
 
 	virtual void PulseActiveControllerHaptic( EHapticFeedbackPosition ePosition, EHapticFeedbackStrength eStrength ) = 0;
+	virtual EHapticFeedbackPosition GetHapticFeedbackPositionForInteraction() = 0;
 
 	virtual void MarkLayerToRepaintThreadSafe( uint64 ulCompositionLayerID ) = 0;
 
@@ -471,12 +490,16 @@ public:
 	virtual uint32 GetWheelScrollLines() = 0;
 
 	// Execute some javascript in the given panel context
-	virtual void RunScript( IUIPanel *pPanelContext, const char *pchScriptString, const char *pchSourceFilename, int nSourceBeginLine, int nSourceBeginCol, bool bPrintRetValue ) = 0;
+	virtual void RunScript( IUIPanel *pPanelContext, const char *pchScriptString, const char *pchSourceFilename, 
+		int nSourceBeginLine, int nSourceBeginCol, bool bPrintRetValue, bool bIsReload ) = 0;
 
 	// Expose a new object type/template to javascript with the given name, 
 	// the function pointer passed should setup member accssors/methods with the functions
 	// from uijsregistration.h
 	virtual void ExposeObjectTypeToJavaScript( const char *pchObjectTypeName, CUtlAbstractDelegate &del ) = 0;
+
+	// Is the object type name already exposed to JavaScript?
+	virtual bool IsObjectTypeExposedToJavaScript( const char *pchObjectTypeName ) = 0;
 
 	// Expose an instance of an object type as a global with specified name to javascript
 	virtual void ExposeGlobalObjectToJavaScript( const char *pchJSVarName, void *pInstance, const char *pchJsTypeName, bool bTrueGlobal = false ) = 0;
@@ -500,11 +523,15 @@ public:
 	// Get global v8 context
 	virtual v8::Persistent<v8::Context> &GetV8GlobalContext() = 0;
 
-	// Access the current object template we are setting up
-	virtual v8::Handle<v8::ObjectTemplate> GetCurrentV8ObjectTemplateToSetup() = 0;
+	// Access the current class template we are setting up
+	virtual v8::Local<v8::FunctionTemplate> GetCurrentV8ClassTemplateToSetup() = 0;
 
-	// Allow access to the proto buf msg memory pool
-	virtual CUIProtoBufMsgMemoryPoolMgr *MsgMemoryPoolMgr() = 0;
+	// Access the object template for the class template we are setting up
+	virtual v8::Local<v8::ObjectTemplate> GetCurrentV8ObjectTemplateToSetup() = 0;
+
+	// Access signatures for the current class we are setting up
+	virtual v8::Local<v8::Signature> GetCurrentV8ClassToSetupSignature() = 0;
+	virtual v8::Local<v8::AccessorSignature> GetCurrentV8ClassToSetupAccessorSignature() = 0;
 
 	// Allow access to style factory interface
 	virtual IUIStyleFactory *UIStyleFactory() = 0;
@@ -512,12 +539,22 @@ public:
 	// Various code that uses JS needs this
 	virtual v8::Isolate * GetV8Isolate() = 0;
 
+	// Run a JS function
+	virtual v8::Local< v8::Value > RunFunction( IUIPanel *pPanelContext, v8::Persistent<v8::Function> *pFunction, 
+		int nNumArgs, v8::Handle<v8::Value> *pArgs, bool bPrintRetValue ) = 0;
+
+	virtual v8::Handle< v8::Value > RunFunction( IUIPanel *pPanel, const char *pchFunctionName, 
+		int nNumArgs, v8::Handle<v8::Value> *pArgs ) = 0;
+
 	// Create a V8 object to wrap a panel
 	virtual v8::Persistent<v8::Object> *CreateV8PanelInstance( IUIPanel *pPanel ) = 0;
 
 	// Helper to create a JS object to wrap a given panel style
 	virtual v8::Persistent<v8::Object> *CreateV8PanelStyleInstance( IUIPanelStyle *pPanelStyle ) = 0;
 
+	// Helper to create a JS object to wrap a given ui window
+	virtual v8::Persistent<v8::Object> *CreateV8IUIWindowInstance( IUIWindow *pPanelStyle ) = 0;
+	
 	// Helper to create JS object for given js object type
 	virtual v8::Persistent<v8::Object> *CreateV8ObjectInstance( const char *pchObjectType, void *pActualObject, IUIJSObject *pJSObject ) = 0;
 
@@ -548,6 +585,9 @@ public:
 	// Create an event from a string representation
 	virtual IUIEvent *CreateEventFromString( IUIPanel *pCreatingPanel, const char *pchEvent, const char **pchEventEnd ) = 0;
 
+	// Create multiple events from a string representation (whitespace separated like you do in XML)
+	virtual bool CreateEventsFromString( VecUIEvents_t *pOutVecUIEvents, IUIPanel *pCreatingPanel, const char *pchEvent, const char **pchEventEnd ) = 0;
+
 	// Used internally by initialization code to register panels with framework
 	virtual void RegisterPanelFactoryWithEngine( CPanoramaSymbol symPanelType, CPanel2DFactory *pFactory ) = 0;
 
@@ -555,7 +595,7 @@ public:
 	virtual bool BRegisteredPanelType( CPanoramaSymbol symPanelType ) = 0;
 
 	// Factory func for creating panels
-	virtual IUIPanelClient *CreatePanel( CPanoramaSymbol symName, const char *pchID, panorama::IUIPanel *parent ) = 0;
+	virtual IUIPanelClient *CreatePanelClient( CPanoramaSymbol symName, const char *pchID, panorama::IUIPanel *parent ) = 0;
 
 	// Create debugger window
 	virtual void CreateDebuggerWindow() = 0;
@@ -564,7 +604,7 @@ public:
 	virtual void CloseDebuggerWindow() = 0;
 
 	// Register any delegate to run at specified time, be sure to use CancelScheduledDelgate if you delete the object the delgate runs on, etc.
-	virtual int RegisterScheduledDelegate( double flTargetFrameTime, CUtlDelegate< void() > del ) = 0;
+	virtual int RegisterScheduledDelegate( double flTargetFrameTime, CUtlDelegate< void() > del, const char *pchName ) = 0;
 
 	// Cancel a scheduled delegate by index returned from RegisterScheduledDelegate
 	virtual void CancelScheduledDelegate( int iScheduleIndex ) = 0;
@@ -616,7 +656,10 @@ public:
 	// If there is a current JS registration entry set the parameter
 	// type information in it.  Silently ignores -1 entry indices
 	// so this can be called safely when there is no scope.
-	virtual void SetRegisterJSEntryParams( int nEntry, uint8 unNumParams, RegisterJSType_t *pParamTypes ) = 0;
+	virtual void SetRegisterJSEntryParams( int nEntry, uint8 unNumParams, RegisterJSType_t *pParamTypes, const char *pchArgNames ) = 0;
+
+	// Helper to ensure JS request is ok to / from specified domain
+	virtual bool BMatchDomainForJSRequest( IUIPanel *pContextPanel, const char *pchURL ) = 0;
 
 	// Invalidate cached copies of all layout/style/script files (used eg. by the game when search paths change)
 	// (Does NOT rebuild or reload any existing UI, just causes subsequent references to the files to load from scratch.)
@@ -638,7 +681,7 @@ public:
 	virtual void IncrementPaintCountForPanel( uint64 ulPanelPtrValue, bool bRequiredCompositionLayer, double flFrameTime ) = 0;
 
 	// Get panel paint info for the panel
-	virtual void GetPanelPaintInfo( uint64 ulPanelPtrValue, uint32 &unPaintCount, bool &bRequiredCompositionLayer, double &flFrameTimeLastPaint ) = 0;
+	virtual void GetPanelPaintInfo( uint64 ulPanelPtrValue, uint32 &unMaxPanelPaintCount, uint32 &unPaintCount, bool &bRequiredCompositionLayer, double &flFrameTimeLastPaint ) = 0;
 
 	// Returns whether any windows exist for the UI engine
 	virtual bool BHasAnyWindows() = 0;
@@ -650,10 +693,8 @@ public:
 	virtual void Validate( CValidator &validator, const tchar *pchName ) = 0;
 #endif
 
-#if defined( SOURCE2_PANORAMA )
-	virtual void TextEntryFocusChange( IUIPanel *pPanel ) = 0;
-	virtual void TextEntryInvalid( IUIPanel *pPanel ) = 0;
-#endif
+	virtual void CaptureJSStackTrace( bool bPrint = false ) {}
+
 };
 
 
@@ -712,6 +753,7 @@ PANORAMA_INTERFACE void ValidateStaticsInternal( CValidator &validator );
 PANORAMA_INTERFACE IUIEngine *CreatePanoramaUIEngineInternal();
 
 extern void RegisterEventTypesWithEngine( IUIEngine *pEngine );
+extern void RegisterGlobalJSMethods( IUIEngine *pEngine );
 
 #ifndef PANORAMA_EXPORTS
 extern bool LoadPanoramaModule( const char *pchPanoramaModulePath );
@@ -734,7 +776,10 @@ class IUIJSObject
 public:
 	~IUIJSObject()
 	{
-		UIEngine()->DeleteJSObjectInstance( this );
+		if ( UIEngine() )
+		{
+			UIEngine()->DeleteJSObjectInstance( this );
+		}
 	}
 
 	virtual const char *GetJSTypeName() = 0;

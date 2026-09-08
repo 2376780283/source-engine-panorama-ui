@@ -5,10 +5,7 @@
 
 #ifndef STYLEPROPERTIES_H
 #define STYLEPROPERTIES_H
-
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include "layout/stylesymbol.h"
 #include "layout/csshelpers.h"
@@ -64,19 +61,24 @@ struct AnimationProperty_t
 	CCubicBezierCurve< Vector2D > m_CubicBezier;
 	float m_flIteration;							// value or infinite
 	EAnimationDirection m_eAnimationDirection;
+	EAnimationFillMode m_eAnimationFillMode;
 	double m_flDelay;
 
 	bool operator==(const AnimationProperty_t &rhs) const
 	{
-		return (m_symName == rhs.m_symName && m_flDuration == rhs.m_flDuration && m_eTimingFunction == rhs.m_eTimingFunction &&
-			(m_eTimingFunction != k_EAnimationCustomBezier ||
-			(m_CubicBezier.ControlPoint( 0 ) == rhs.m_CubicBezier.ControlPoint( 0 ) &&
-			m_CubicBezier.ControlPoint( 1 ) == rhs.m_CubicBezier.ControlPoint( 1 ) &&
-			m_CubicBezier.ControlPoint( 2 ) == rhs.m_CubicBezier.ControlPoint( 2 ) &&
-			m_CubicBezier.ControlPoint( 3 ) == rhs.m_CubicBezier.ControlPoint( 3 )
-			)
+		return 
+			(
+			m_symName == rhs.m_symName && m_flDuration == rhs.m_flDuration && m_eTimingFunction == rhs.m_eTimingFunction &&
+			(
+				m_eTimingFunction != k_EAnimationCustomBezier ||
+				(m_CubicBezier.ControlPoint( 0 ) == rhs.m_CubicBezier.ControlPoint( 0 ) &&
+					m_CubicBezier.ControlPoint( 1 ) == rhs.m_CubicBezier.ControlPoint( 1 ) &&
+					m_CubicBezier.ControlPoint( 2 ) == rhs.m_CubicBezier.ControlPoint( 2 ) &&
+					m_CubicBezier.ControlPoint( 3 ) == rhs.m_CubicBezier.ControlPoint( 3 ))
 			) &&
-			m_flIteration == rhs.m_flIteration && m_eAnimationDirection == rhs.m_eAnimationDirection && m_flDelay == rhs.m_flDelay);
+			m_flIteration == rhs.m_flIteration && m_eAnimationDirection == rhs.m_eAnimationDirection &&
+			m_flDelay == rhs.m_flDelay && m_eAnimationFillMode == rhs.m_eAnimationFillMode
+			);
 	}
 
 	bool operator!=(const AnimationProperty_t &rhs) const
@@ -92,12 +94,12 @@ struct AnimationProperty_t
 class CActiveAnimation
 {
 public:
-	CActiveAnimation( float flAnimationStart, AnimationProperty_t &animationProperty );
+	CActiveAnimation( float flAnimationStart, const AnimationProperty_t &animationProperty );
 	~CActiveAnimation();
 
 	CPanoramaSymbol GetName() const { return m_animationData.m_symName; }
 	const AnimationProperty_t &GetAnimationData() const { return m_animationData; }
-	void AddFrameData( float flPercent, EAnimationTimingFunction eTimingFunction, const CCubicBezierCurve<Vector2D> &cubicBezier, CStyleProperty *pProperty, float flUIScaleFactor );
+	void AddFrameData( float flPercent, EAnimationTimingFunction eTimingFunction, const CCubicBezierCurve<Vector2D> &cubicBezier, CStyleProperty *pProperty, const Vector &vScaleFactor, const Vector &vParentScaleFactor );
 
 	bool BHasFrameDataForProperty( CStyleSymbol symStyleProperty );
 
@@ -109,7 +111,9 @@ public:
 	bool BAffectsCompositionOnly();
 	bool BAffectsPanelLayoutFlags( CPanelStyle *pPanelStyle );
 
-	void UpdateUIScaleFactor( float flOldScaleFactor, float flNewScaleFactor );
+	void ApplyUIScaleFactor( const Vector &vScaleFactor, const Vector &vParentScaleFactor );
+
+	void Reverse();	
 
 	// keyframe data
 	struct PropertyFrameData_t
@@ -125,6 +129,14 @@ public:
 #ifdef DBGFLAG_VALIDATE
 	virtual void Validate( CValidator &validator, const tchar *pchName );
 #endif
+
+	// Move frame data to another CActiveAnimation.  This is a bit dangerous if this data is in a
+	// CPanelStyle's active animations list.  However, if you immediately follow it up with a call to
+	// SetActiveAnimations(), which doesn't use the frame data from the outgoing animation data,
+	// it should be fine.
+	void MoveFrameData( CActiveAnimation* pTarget ) {
+		pTarget->m_mapFrameData.Swap( m_mapFrameData );
+	}
 
 private:
 	CActiveAnimation();
@@ -145,14 +157,16 @@ class CStyleSelector
 public:
 	CStyleSelector()
 	{
-		m_pchID = NULL;
+		m_pchID = nullptr;
 		m_eStyleFlags = k_EStyleFlagNone;
 		m_unSelectorFlags = 0;
+		m_pNotSelector = nullptr;
 	}
 
 	~CStyleSelector()
 	{
 		ClearID();
+		delete m_pNotSelector;
 	}
 
 	void SetID( const char *pchID )
@@ -206,12 +220,24 @@ public:
 		return ((m_unSelectorFlags & k_ESelectorFlagsChildCombinator) != 0);
 	}
 
+	const CStyleSelector *GetNotSelector() const
+	{
+		return m_pNotSelector;
+	}
+
+	void SetNotSelector( CStyleSelector *pNotSelector )
+	{
+		delete m_pNotSelector;
+		m_pNotSelector = pNotSelector;
+	}
+
 #ifdef DBGFLAG_VALIDATE
 	void Validate( CValidator &validator, const tchar *pchName )
 	{
 		VALIDATE_SCOPE();
 		validator.ClaimMemory( (void *)m_pchID );
 		ValidateObj( m_classes );
+		ValidatePtr( m_pNotSelector );
 	}
 #endif
 
@@ -230,6 +256,7 @@ private:
 	CUtlPtrArray< CPanoramaSymbol > m_classes;		// can be empty if id or panel type are set	
 	EStyleFlags m_eStyleFlags;						// required style flags
 	uint32 m_unSelectorFlags;						// ESelectorFlags
+	CStyleSelector *m_pNotSelector;					// Selector negated by :not( ... )
 };
 
 
@@ -254,19 +281,20 @@ public:
 
 	CStyleSymbol GetPropertySymbol() const { return m_symPropertyName; }
 
-	// Merges data to the target, this will only overwrite unset properties, and shouldn't clobber
-	// already set ones.
-	virtual void MergeTo( CStyleProperty *pTarget ) const
-	{
-		if( m_bDisallowTransition )
-			pTarget->m_bDisallowTransition = true;
-	}
+	// Merges data to the target, this will only overwrite unset properties, and shouldn't clobber already set ones
+	virtual void MergeTo( CStyleProperty *pTarget ) const = 0;
 
 	// Can this property support animation?
 	virtual bool BCanTransition() = 0;
 
 	// Interpolation func for animation of this property, must implement if you override BCanTransition to return true.
 	virtual void Interpolate( IUIPanel *pPanel, const CStyleProperty &target, float flProgress /* 0.0->1.0 */ ) = 0;
+
+	// Called when starting a transition with this property
+	virtual void OnStartingTransition( CStyleProperty *pPreviousStyleProperty ) {}
+
+	// Called when this property is no longer in transition
+	virtual void OnFinishedTransition() {}
 
 	// Parses string and sets value
 	virtual bool BSetFromString( CStyleSymbol symParsedName, const char *pchString ) = 0;
@@ -277,13 +305,13 @@ public:
 	// When applying styles to an element, used to determine if all data for this property has been set or if more fields should be found
 	// by looking at lower weight styles
 	// Example: For margin, if we have only seen margin-length, should return false until top, bottom, right are set
-	virtual bool BFullySet() { return true; }
+	virtual bool BFullySet() const = 0;
 
 	// called when applied to a panel before comparing with set values. Gives the style an opportunity to change any unset values to defaults
-	virtual void ResolveDefaultValues() {}
+	virtual void ResolveDefaultValues() = 0;
 
 	// called when we are ready to apply any scaling factor to the values
-	virtual void ApplyUIScaleFactor( float flScaleFactor ) {}
+	virtual void ApplyUIScaleFactor( const Vector &vScaleFactor, const Vector &vParentScaleFactor ) {}
 
 	// called when applied to a panel after comparing with set values
 	virtual void OnAppliedToPanel( IUIPanel *pPanel ) {}
@@ -323,14 +351,27 @@ public:
 protected:
 #if !defined( SOURCE2_PANORAMA )
 #include "tier0/memdbgoff.h"
-#endif
 	void *operator new(size_t size) throw(){ return NULL; }
 	void *operator new(size_t size, int nBlockUse, const char *pFileName, int nLine) throw(){ return NULL; }
 	void operator delete(void* p) { Assert( false ); }
 	void operator delete(void* p, int nBlockUse, const char *pFileName, int nLine) { Assert( false ); }
-#if !defined( SOURCE2_PANORAMA )
 #include "tier0/memdbgon.h"
 #endif
+
+	// protected helper instead of base class implementation to verify at compile time that each property implements MergeTo
+	bool BMergeToCommon( CStyleProperty *pTarget ) const
+	{
+		if ( pTarget->GetPropertySymbol() != GetPropertySymbol() )
+		{
+			AssertMsg1( false, "Mismatched types to %s::MergeTo", GetPropertySymbol().String() );
+			return false;
+		}
+
+		if ( m_bDisallowTransition )
+			pTarget->m_bDisallowTransition = true;
+
+		return true;
+	}
 
 
 private:
@@ -340,6 +381,16 @@ private:
 
 
 typedef CUtlHashMap< panorama::CStyleSymbol, panorama::CStyleProperty *, CDefEquals< panorama::CStyleSymbol > > StylePropertyHash_t;
+template <typename CStylePropertyType>
+CStylePropertyType* LookupStylePropertyInMap( StylePropertyHash_t* pProperties )
+{
+	CStyleSymbol sym = CStylePropertyType::symbol;
+	int iElement = pProperties->Find( sym );
+	if ( iElement == pProperties->InvalidIndex() )
+		return nullptr;
+	CStyleProperty* pProperty = pProperties->Element( iElement );
+	return assert_cast< CStylePropertyType* >( pProperty );
+}
 
 //-----------------------------------------------------------------------------
 // Purpose: Represents a style's properties and position in a file
@@ -411,8 +462,12 @@ struct StyleFromFile_t
 	CUtlPtrArray< CStyleSelector > m_parentSelectors;	// selectors for parents, ordered farthest to our closest parent
 
 	StylePropertyHash_t *m_pProperties;				// list of parsed properties
-	uint m_unFileLocation;							// style offset into the file (Nth style, higher value means defined later and takes priority when determining
-	// cascading order (CSS2 TR 6.4.1)
+
+	uint m_unFileOrder;								// the order the style was seen in the file. Higher value means defined later and
+													// takes priority when determining cascading order (CSS2 TR 6.4.1)
+
+	StyleFileIndex_t m_unFileIndex;					// for debugger: index of this style file within the layout file.
+	uint m_unFileLocation;							// for debugger: style offset into the file 
 
 	StyleFromFile_t *m_pNext;						// allows chaining of objects with the same same symbol in CStyleFile
 };
@@ -447,13 +502,18 @@ public:
 		}
 	}
 
+	CStyleKeyFrame *Copy() const;	
+
 	float GetPercent() const { return m_flPercent; }
 	EAnimationTimingFunction GetTimingFunction() const { return m_eTimingFunction; }
 	const CCubicBezierCurve< Vector2D >& GetCubicBezier() const { return m_CubicBezier; }
 	StylePropertyHash_t *GetProperties() const { return m_pProperties; }
 
+	void SetPercent( float flPercent ) { m_flPercent = flPercent; }
+
 	// ordered by percent
 	bool operator<(const CStyleKeyFrame &rhs) const { return m_flPercent < rhs.m_flPercent; }
+	bool operator<( float flPercent ) const { return m_flPercent < flPercent; } 
 
 #ifdef DBGFLAG_VALIDATE
 	void Validate( CValidator &validator, const tchar *pchName )
@@ -502,10 +562,23 @@ typedef CUtlSortVector< CStyleKeyFrame* > VecKeyFrames_t;
 //-----------------------------------------------------------------------------
 // Purpose: Represents an animation
 //-----------------------------------------------------------------------------
+
+static inline int InsertAnimationFrame( VecKeyFrames_t *pKeyframes,  CStyleKeyFrame *pFrame )
+{
+	int iVec = pKeyframes->Find( pFrame );
+	if( iVec != pKeyframes->InvalidIndex() )
+	{
+		delete pKeyframes->Element( iVec );
+		pKeyframes->Remove( iVec );
+	}
+
+	return pKeyframes->Insert( pFrame );
+}
+
 class CStyleAnimation
 {
 public:
-	CStyleAnimation( CPanoramaSymbol symName, CPanoramaSymbol symStyleFile, uint unFileLocation ) 
+	CStyleAnimation( CPanoramaSymbol symName, CPanoramaSymbol symStyleFile, uint unFileLocation, uint unFileOrder ) 
 #if !defined( SOURCE2_PANORAMA )
 : m_vecKeyFrames( StyleKeyFrameLessPtr )
 #endif
@@ -513,6 +586,7 @@ public:
 		m_symName = symName;
 		m_symStyleFile = symStyleFile;
 		m_unFileLocation = unFileLocation;
+		m_unFileOrder = unFileOrder;
 	}
 
 	~CStyleAnimation()
@@ -527,20 +601,15 @@ public:
 
 	void InsertFrame( CStyleKeyFrame *pFrame )
 	{
-		int iVec = m_vecKeyFrames.Find( pFrame );
-		if( iVec != m_vecKeyFrames.InvalidIndex() )
-		{
-			delete m_vecKeyFrames.Element( iVec );
-			m_vecKeyFrames.Remove( iVec );
-		}
-
-		m_vecKeyFrames.Insert( pFrame );
+		InsertAnimationFrame( &m_vecKeyFrames, pFrame );
 	}
 
 	CPanoramaSymbol GetName() const { return m_symName; }
 	CPanoramaSymbol GetStyleFile() const { return m_symStyleFile; }
 	uint GetFileLocation() const { return m_unFileLocation; }
+	uint GetFileOrder() const { return m_unFileOrder; }
 	const VecKeyFrames_t &GetFrames() const { return m_vecKeyFrames; }
+	VecKeyFrames_t *CopyKeyframes() const;
 
 #ifdef DBGFLAG_VALIDATE
 	void Validate( CValidator &validator, const tchar *pchName )
@@ -562,9 +631,25 @@ private:
 
 	CPanoramaSymbol m_symName;				// name of animation
 	CPanoramaSymbol m_symStyleFile;			// path to style file this animation was created from
+	uint m_unFileOrder;					// Order this was seen within the file
 	uint m_unFileLocation;				// location within style file for this animation
 	VecKeyFrames_t m_vecKeyFrames;		// frames for animation
 };
+
+
+//-----------------------------------------------------------------------------
+// Purpose: Represents the value of an @define
+//-----------------------------------------------------------------------------
+class CStyleDefine
+{
+public:
+	CStyleDefine() : m_unFileOrder( 0 ) {}
+	CStyleDefine( const char *pszValue, uint unFileOrder ) : m_strValue( pszValue ), m_unFileOrder( unFileOrder ) {}
+
+	CUtlString m_strValue;
+	uint m_unFileOrder;
+};
+
 
 //-----------------------------------------------------------------------------
 // Purpose: Position property
@@ -585,14 +670,9 @@ public:
 
 	virtual void MergeTo( CStyleProperty *pTarget ) const
 	{
-		if( pTarget->GetPropertySymbol() != GetPropertySymbol() )
-		{
-			AssertMsg( false, "Mismatched types to CStylePropertyPosition::MergeTo" );
+		if ( !BMergeToCommon( pTarget ) )
 			return;
-		}
-
-		CStyleProperty::MergeTo( pTarget );
-
+		
 		CStylePropertyPosition *p = (CStylePropertyPosition *)pTarget;
 
 		if( !p->x.IsSet() )
@@ -641,11 +721,11 @@ public:
 	}
 
 	// called when we are ready to apply any scaling factor to the values
-	virtual void ApplyUIScaleFactor( float flScaleFactor )
+	virtual void ApplyUIScaleFactor( const Vector &vScaleFactor, const Vector &vParentScaleFactor ) OVERRIDE
 	{
-		x.ScaleLengthValue( flScaleFactor );
-		y.ScaleLengthValue( flScaleFactor );
-		z.ScaleLengthValue( flScaleFactor );
+		x.ScaleLengthValue( vParentScaleFactor.x );
+		y.ScaleLengthValue( vParentScaleFactor.y );
+		z.ScaleLengthValue( vParentScaleFactor.z );
 	}
 
 	// Gets string representation of property
@@ -659,7 +739,7 @@ public:
 	}
 
 	// When applying styles to an element, used to determine if all data for this property has been set or if more fields should be found by looking at lower weight styles
-	virtual bool BFullySet()
+	virtual bool BFullySet() const
 	{
 		return (x.IsSet() && y.IsSet() && z.IsSet());
 	}
@@ -723,23 +803,38 @@ public:
 
 	CStylePropertyTransformOrigin() : CStyleProperty( CStylePropertyTransformOrigin::symbol )
 	{
-		GetDefault( &x, &y, &m_bParentRelative );
+		m_bParentRelative = false;
 	}
 
 	virtual void MergeTo( CStyleProperty *pTarget ) const
 	{
-		if( pTarget->GetPropertySymbol() != GetPropertySymbol() )
-		{
-			AssertMsg( false, "Mismatched types to CStylePropertyTransformOrigin::MergeTo" );
+		if ( !BMergeToCommon( pTarget ) )
 			return;
-		}
 
-		CStyleProperty::MergeTo( pTarget );
+		// all set at once
+		if ( pTarget->BFullySet() )
+			return;
 
 		CStylePropertyTransformOrigin *p = (CStylePropertyTransformOrigin *)pTarget;
 		p->x = x;
 		p->y = y;
 		p->m_bParentRelative = m_bParentRelative;
+	}
+
+	// Checks if fully set
+	virtual bool BFullySet() const
+	{
+		return (x.IsSet() && y.IsSet());
+	}
+
+	// called when applied to a panel before comparing with set values. Gives the style an opportunity to change any unset values to defaults
+	virtual void ResolveDefaultValues()
+	{
+		if ( BFullySet() )
+			return;
+
+		// set all at once
+		GetDefault( &x, &y, &m_bParentRelative );
 	}
 
 	// Can this property support animation?
@@ -762,10 +857,10 @@ public:
 	}
 
 	// called when we are ready to apply any scaling factor to the values
-	virtual void ApplyUIScaleFactor( float flScaleFactor )
+	virtual void ApplyUIScaleFactor( const Vector &vScaleFactor, const Vector &vParentScaleFactor ) OVERRIDE
 	{
-		x.ScaleLengthValue( flScaleFactor );
-		y.ScaleLengthValue( flScaleFactor );
+		x.ScaleLengthValue( vScaleFactor.x );
+		y.ScaleLengthValue( vScaleFactor.y );
 	}
 
 	// Gets string representation of property
@@ -822,23 +917,38 @@ public:
 
 	CStylePropertyPerspectiveOrigin() : CStyleProperty( CStylePropertyPerspectiveOrigin::symbol )
 	{
-		GetDefault( &x, &y, &m_bInvert );
+		m_bInvert = false;
 	}
 
 	virtual void MergeTo( CStyleProperty *pTarget ) const
 	{
-		if( pTarget->GetPropertySymbol() != GetPropertySymbol() )
-		{
-			AssertMsg( false, "Mismatched types to CStylePropertyPerspectiveOrigin::MergeTo" );
+		if ( !BMergeToCommon( pTarget ) )
 			return;
-		}
 
-		CStyleProperty::MergeTo( pTarget );
+		// all set at once
+		if ( pTarget->BFullySet() )
+			return;
 
 		CStylePropertyPerspectiveOrigin *p = (CStylePropertyPerspectiveOrigin *)pTarget;
 		p->x = x;
 		p->y = y;
 		p->m_bInvert = m_bInvert;
+	}
+
+	// Checks if fully set
+	virtual bool BFullySet() const
+	{
+		return (x.IsSet() && y.IsSet());
+	}
+
+	// called when applied to a panel before comparing with set values. Gives the style an opportunity to change any unset values to defaults
+	virtual void ResolveDefaultValues()
+	{
+		if ( BFullySet() )
+			return;
+
+		// set all at once
+		GetDefault( &x, &y, &m_bInvert );
 	}
 
 	// Can this property support animation?
@@ -860,10 +970,10 @@ public:
 	}
 
 	// called when we are ready to apply any scaling factor to the values
-	virtual void ApplyUIScaleFactor( float flScaleFactor )
+	virtual void ApplyUIScaleFactor( const Vector &vScaleFactor, const Vector &vParentScaleFactor ) OVERRIDE
 	{
-		x.ScaleLengthValue( flScaleFactor );
-		y.ScaleLengthValue( flScaleFactor );
+		x.ScaleLengthValue( vScaleFactor.x );
+		y.ScaleLengthValue( vScaleFactor.y );
 	}
 
 	// Handle getting applied to a panel
@@ -923,26 +1033,37 @@ public:
 
 	CStylePropertyPerspective() : CStyleProperty( CStylePropertyPerspective::symbol )
 	{
-		perspective = GetDefault();
+		perspective = k_flFloatNotSet;
 	}
 
 	virtual void MergeTo( CStyleProperty *pTarget ) const
 	{
-		if( pTarget->GetPropertySymbol() != GetPropertySymbol() )
-		{
-			AssertMsg( false, "Mismatched types to CStylePropertyPerspective::MergeTo" );
+		if ( !BMergeToCommon( pTarget ) )
 			return;
-		}
-
-		CStyleProperty::MergeTo( pTarget );
 
 		CStylePropertyPerspective *p = (CStylePropertyPerspective *)pTarget;
-		p->perspective = perspective;
+		if ( p->perspective == k_flFloatNotSet )
+			p->perspective = perspective;
 	}
 
-	virtual void ApplyUIScaleFactor( float flScaleFactor )
+	// Checks if fully set
+	virtual bool BFullySet() const
 	{
-		perspective *= flScaleFactor;
+		return (perspective != k_flFloatNotSet);
+	}
+
+	// called when applied to a panel before comparing with set values. Gives the style an opportunity to change any unset values to defaults
+	virtual void ResolveDefaultValues()
+	{
+		if ( BFullySet() )
+			return;
+
+		perspective = GetDefault();
+	}
+
+	virtual void ApplyUIScaleFactor( const Vector &vScaleFactor, const Vector &vParentScaleFactor ) OVERRIDE
+	{
+		perspective *= vScaleFactor.z;
 	}
 
 	// Can this property support animation?
@@ -965,9 +1086,8 @@ public:
 	virtual bool BSetFromString( CStyleSymbol symParsedName, const char *pchString )
 	{
 		if( !CSSHelpers::BParseNumber( &perspective, pchString ) )
-		{
 			return CSSHelpers::BParseLength( &perspective, pchString );
-		}
+		
 		return true;
 	}
 
@@ -1016,21 +1136,32 @@ public:
 
 	CStylePropertyZIndex() : CStyleProperty( CStylePropertyZIndex::symbol )
 	{
-		zindex = GetDefault();
+		zindex = k_flFloatNotSet;
 	}
 
 	virtual void MergeTo( CStyleProperty *pTarget ) const
 	{
-		if( pTarget->GetPropertySymbol() != GetPropertySymbol() )
-		{
-			AssertMsg( false, "Mismatched types to CStylePropertyZIndex::MergeTo" );
+		if ( !BMergeToCommon( pTarget ) )
 			return;
-		}
-
-		CStyleProperty::MergeTo( pTarget );
 
 		CStylePropertyZIndex *p = (CStylePropertyZIndex *)pTarget;
-		p->zindex = zindex;
+		if ( p->zindex == k_flFloatNotSet )
+			p->zindex = zindex;
+	}
+
+	// Checks if fully set
+	virtual bool BFullySet() const
+	{
+		return (zindex != k_flFloatNotSet);
+	}
+
+	// called when applied to a panel before comparing with set values. Gives the style an opportunity to change any unset values to defaults
+	virtual void ResolveDefaultValues()
+	{
+		if ( BFullySet() )
+			return;
+
+		zindex = GetDefault();
 	}
 
 	// Can this property support animation?
@@ -1039,7 +1170,7 @@ public:
 	// Interpolation func for animation of this property
 	virtual void Interpolate( IUIPanel *pPanel, const CStyleProperty &target, float flProgress /* 0.0->1.0 */ )
 	{
-		if( target.GetPropertySymbol() != GetPropertySymbol() )
+		if ( target.GetPropertySymbol() != GetPropertySymbol() )
 		{
 			AssertMsg( false, "Mismatched types to CStylePropertyZIndex::Interpolate" );
 			return;
@@ -1052,11 +1183,7 @@ public:
 	// Parses string and sets value
 	virtual bool BSetFromString( CStyleSymbol symParsedName, const char *pchString )
 	{
-		if( !CSSHelpers::BParseNumber( &zindex, pchString ) )
-		{
-			return false;
-		}
-		return true;
+		return CSSHelpers::BParseNumber( &zindex, pchString );
 	}
 
 	// Gets string representation of property
@@ -1081,7 +1208,7 @@ public:
 	// Comparison function
 	virtual bool operator==(const CStyleProperty &other) const
 	{
-		if( GetPropertySymbol() != other.GetPropertySymbol() )
+		if ( GetPropertySymbol() != other.GetPropertySymbol() )
 			return false;
 
 		const CStylePropertyZIndex &rhs = (const CStylePropertyZIndex&)other;
@@ -1106,21 +1233,32 @@ public:
 
 	CStylePropertyOpacity() : CStyleProperty( CStylePropertyOpacity::symbol )
 	{
-		opacity = GetDefault();
+		opacity = k_flFloatNotSet;
 	}
 
 	virtual void MergeTo( CStyleProperty *pTarget ) const
 	{
-		if( pTarget->GetPropertySymbol() != GetPropertySymbol() )
-		{
-			AssertMsg( false, "Mismatched types to CStylePropertyOpacity::MergeTo" );
+		if ( !BMergeToCommon( pTarget ) )
 			return;
-		}
-
-		CStyleProperty::MergeTo( pTarget );
 
 		CStylePropertyOpacity *p = (CStylePropertyOpacity *)pTarget;
-		p->opacity = opacity;
+		if ( p->opacity == k_flFloatNotSet )
+			p->opacity = opacity;
+	}
+
+	// Checks if fully set
+	virtual bool BFullySet() const
+	{
+		return (opacity != k_flFloatNotSet);
+	}
+
+	// called when applied to a panel before comparing with set values. Gives the style an opportunity to change any unset values to defaults
+	virtual void ResolveDefaultValues()
+	{
+		if ( BFullySet() )
+			return;
+
+		opacity = GetDefault();
 	}
 
 	// Can this property support animation?
@@ -1197,23 +1335,37 @@ public:
 
 	CStylePropertyScale2DCentered() : CStyleProperty( CStylePropertyScale2DCentered::symbol )
 	{
-		m_flX = GetDefaultX();
-		m_flY = GetDefaultY();
+		m_flX = k_flFloatNotSet;
+		m_flY = k_flFloatNotSet;
 	}
 
 	virtual void MergeTo( CStyleProperty *pTarget ) const
 	{
-		if( pTarget->GetPropertySymbol() != GetPropertySymbol() )
-		{
-			AssertMsg( false, "Mismatched types to CStylePropertyScale2DCentered::MergeTo" );
+		if ( !BMergeToCommon( pTarget ) )
 			return;
-		}
 
-		CStyleProperty::MergeTo( pTarget );
+		if ( pTarget->BFullySet() )
+			return;
 
 		CStylePropertyScale2DCentered *p = (CStylePropertyScale2DCentered *)pTarget;
 		p->m_flX = m_flX;
 		p->m_flY = m_flY;
+	}
+
+	// Checks if fully set
+	virtual bool BFullySet() const
+	{
+		return (m_flX != k_flFloatNotSet && m_flY != k_flFloatNotSet);
+	}
+
+	// called when applied to a panel before comparing with set values. Gives the style an opportunity to change any unset values to defaults
+	virtual void ResolveDefaultValues()
+	{
+		if ( BFullySet() )
+			return;
+
+		m_flX = GetDefaultX();
+		m_flY = GetDefaultY();
 	}
 
 	// Can this property support animation?
@@ -1308,21 +1460,34 @@ public:
 
 	CStylePropertyRotate2DCentered() : CStyleProperty( CStylePropertyRotate2DCentered::symbol )
 	{
-		m_flDegrees = GetDefault();
+		m_flDegrees = k_flFloatNotSet;
 	}
 
 	virtual void MergeTo( CStyleProperty *pTarget ) const
 	{
-		if( pTarget->GetPropertySymbol() != GetPropertySymbol() )
-		{
-			AssertMsg( false, "Mismatched types to CStylePropertyRotate2DCentered::MergeTo" );
+		if ( !BMergeToCommon( pTarget ) )
 			return;
-		}
 
-		CStyleProperty::MergeTo( pTarget );
+		if ( pTarget->BFullySet() )
+			return;
 
 		CStylePropertyRotate2DCentered *p = (CStylePropertyRotate2DCentered *)pTarget;
 		p->m_flDegrees = m_flDegrees;
+	}
+
+	// Checks if fully set
+	virtual bool BFullySet() const
+	{
+		return (m_flDegrees != k_flFloatNotSet);
+	}
+
+	// called when applied to a panel before comparing with set values. Gives the style an opportunity to change any unset values to defaults
+	virtual void ResolveDefaultValues()
+	{
+		if ( BFullySet() )
+			return;
+
+		m_flDegrees = GetDefault();
 	}
 
 	// Can this property support animation?
@@ -1392,34 +1557,42 @@ public:
 	float m_flDegrees;
 };
 
-
-
 //-----------------------------------------------------------------------------
-// Purpose: Perspective property
+// Purpose: Hue Shift property
 //-----------------------------------------------------------------------------
-class CStylePropertyDesaturation : public CStyleProperty
+class CStylePropertyHueShift : public CStyleProperty
 {
 public:
 	static const CStyleSymbol symbol;
+
 	static inline double GetDefault() { return 0.0f; }
 
-	CStylePropertyDesaturation() : CStyleProperty( CStylePropertyDesaturation::symbol )
+	CStylePropertyHueShift() : CStyleProperty( CStylePropertyHueShift::symbol )
 	{
-		desaturation = GetDefault();
+		hueShift = GetDefault();
+	}
+
+	// Checks if fully set
+	virtual bool BFullySet() const
+	{
+		return ( hueShift != k_flFloatNotSet );
+	}
+
+	virtual void ResolveDefaultValues()
+	{
+		if ( BFullySet() )
+			return;
+
+		hueShift = GetDefault();
 	}
 
 	virtual void MergeTo( CStyleProperty *pTarget ) const
 	{
-		if( pTarget->GetPropertySymbol() != GetPropertySymbol() )
-		{
-			AssertMsg( false, "Mismatched types to CStylePropertyDesaturation::MergeTo" );
+		if ( !BMergeToCommon( pTarget ) )
 			return;
-		}
 
-		CStyleProperty::MergeTo( pTarget );
-
-		CStylePropertyDesaturation *p = (CStylePropertyDesaturation *)pTarget;
-		p->desaturation = desaturation;
+		CStylePropertyHueShift *p = (CStylePropertyHueShift *)pTarget;
+		p->hueShift = hueShift;
 	}
 
 	// Can this property support animation?
@@ -1433,40 +1606,40 @@ public:
 	{
 		if( target.GetPropertySymbol() != GetPropertySymbol() )
 		{
-			AssertMsg( false, "Mismatched types to CStylePropertyDesaturation::Interpolate" );
+			AssertMsg( false, "Mismatched types to CStylePropertyHueShift::Interpolate" );
 			return;
 		}
 
-		const CStylePropertyDesaturation *p = (const CStylePropertyDesaturation *)&target;
-		desaturation = desaturation + (p->desaturation - desaturation) * flProgress;
+		const CStylePropertyHueShift *p = (const CStylePropertyHueShift *)&target;
+		hueShift = hueShift + ( p->hueShift - hueShift ) * flProgress;
 	}
 
 	// Parses string and sets value
 	virtual bool BSetFromString( CStyleSymbol symParsedName, const char *pchString )
 	{
-		if( V_strnicmp( pchString, "none", V_strlen( "none" ) ) == 0 )
-		{
-			desaturation = 0.0f;
-			return true;
-		}
+		float flDegrees = 0.0f;
+		if ( !CSSHelpers::BParseAngle( &flDegrees, pchString, &pchString ) )
+			return false;
 
-		return (CSSHelpers::BParseNumber( &desaturation, pchString, &pchString ));
+		hueShift = flDegrees / 360.0f;
+		return true;
 	}
 
 	// Gets string representation of property
 	virtual void ToString( CFmtStr1024 *pfmtBuffer ) const
 	{
-		CSSHelpers::AppendFloat( pfmtBuffer, desaturation );
+		float flDegrees = hueShift * 360.0f;
+		CSSHelpers::AppendFloat( pfmtBuffer, flDegrees );
 	}
 
 	// Return a description for this property which will be shown in the debugger
 	virtual const char *GetDescription( CStyleSymbol symProperty )
 	{
-		return "Sets the amount of desaturation to apply to the panel and all it's children during composition.  "
-			"Default of 0.0 means no adjustment, 1.0 means fully desaturated to gray scale.<br><br>"
+		return "Sets the hue rotation to apply to the panel and all it's children during composition. "
+			"Default of 0.0 means no adjustment, domain is in degrees.<br><br>"
 			"<b>Example:</b>"
 			"<pre>"
-			"desaturation: 0.6;"
+			"hue-rotation: 180deg;"
 			"</pre>";
 	}
 
@@ -1476,48 +1649,360 @@ public:
 		if( GetPropertySymbol() != other.GetPropertySymbol() )
 			return false;
 
-		const CStylePropertyDesaturation &rhs = (const CStylePropertyDesaturation&)other;
-		return (desaturation == rhs.desaturation);
+		const CStylePropertyHueShift &rhs = (const CStylePropertyHueShift &)other;
+		return (hueShift == rhs.hueShift);
 	}
 
 	// Layout pieces that can be invalidated when the property is applied to a panel
 	virtual EStyleInvalidateLayout GetInvalidateLayout( CStyleProperty *pCompareProperty ) const { return k_EStyleInvalidateLayoutNone; }
 
-	float desaturation;
+	float hueShift;
 };
 
 
 //-----------------------------------------------------------------------------
-// Purpose: Perspective property
+// Purpose: Saturation property
 //-----------------------------------------------------------------------------
-class CStylePropertyBlur : public CStyleProperty
+class CStylePropertySaturation : public CStyleProperty
 {
 public:
 	static const CStyleSymbol symbol;
-	static inline double GetDefaultStdDev() { return 0.0f; }
-	static inline double GetDefaultPasses() { return 1.0f; }
 
-	CStylePropertyBlur() : CStyleProperty( CStylePropertyBlur::symbol )
+	static inline double GetDefault() { return 1.0f; }
+
+	CStylePropertySaturation() : CStyleProperty( CStylePropertySaturation::symbol )
 	{
-		stddevhor = GetDefaultStdDev();
-		stddevver = GetDefaultStdDev();
-		passes = GetDefaultPasses();
+		saturation = GetDefault();
+	}
+
+	// Checks if fully set
+	virtual bool BFullySet() const
+	{
+		return ( saturation != k_flFloatNotSet );
+	}
+
+	virtual void ResolveDefaultValues()
+	{
+		if ( BFullySet() )
+			return;
+
+		saturation = GetDefault();
 	}
 
 	virtual void MergeTo( CStyleProperty *pTarget ) const
 	{
-		if( pTarget->GetPropertySymbol() != GetPropertySymbol() )
+		if ( !BMergeToCommon( pTarget ) )
+			return;
+
+		CStylePropertySaturation *p = (CStylePropertySaturation *)pTarget;
+		p->saturation = saturation;
+	}
+
+	// Can this property support animation?
+	virtual bool BCanTransition() { return true; }
+
+	// Does the style only affect compositing of it's panels and not drawing within a composition layer?
+	virtual bool BAffectsCompositionOnly() { return true; }
+
+	// Interpolation func for animation of this property
+	virtual void Interpolate( IUIPanel *pPanel, const CStyleProperty &target, float flProgress /* 0.0->1.0 */ )
+	{
+		if( target.GetPropertySymbol() != GetPropertySymbol() )
 		{
-			AssertMsg( false, "Mismatched types to CStylePropertyBlur::MergeTo" );
+			AssertMsg( false, "Mismatched types to CStylePropertySaturation::Interpolate" );
 			return;
 		}
 
-		CStyleProperty::MergeTo( pTarget );
+		const CStylePropertySaturation *p = (const CStylePropertySaturation *)&target;
+		saturation = saturation + ( p->saturation - saturation ) * flProgress;
+	}
+
+	// Parses string and sets value
+	virtual bool BSetFromString( CStyleSymbol symParsedName, const char *pchString )
+	{
+		return CSSHelpers::BParseNumber( &saturation, pchString, &pchString );
+	}
+
+	// Gets string representation of property
+	virtual void ToString( CFmtStr1024 *pfmtBuffer ) const
+	{
+		CSSHelpers::AppendFloat( pfmtBuffer, saturation );
+	}
+
+	// Return a description for this property which will be shown in the debugger
+	virtual const char *GetDescription( CStyleSymbol symProperty )
+	{
+		return "Sets the amount of saturation to apply to the panel and all it's children during composition.  "
+			"Default of 1.0 means no adjustment, 0.0 means fully desaturated to gray scale, greater than 1.0 means over-saturation.<br><br>"
+			"<b>Example:</b>"
+			"<pre>"
+			"saturation: 0.4;"
+			"</pre>";
+	}
+
+	// Comparison function
+	virtual bool operator==(const CStyleProperty &other) const
+	{
+		if( GetPropertySymbol() != other.GetPropertySymbol() )
+			return false;
+
+		const CStylePropertySaturation &rhs = (const CStylePropertySaturation &)other;
+		return (saturation == rhs.saturation);
+	}
+
+	// Layout pieces that can be invalidated when the property is applied to a panel
+	virtual EStyleInvalidateLayout GetInvalidateLayout( CStyleProperty *pCompareProperty ) const { return k_EStyleInvalidateLayoutNone; }
+
+	float saturation;
+};
+
+
+//-----------------------------------------------------------------------------
+// Purpose: Brightness property
+//-----------------------------------------------------------------------------
+class CStylePropertyBrightness : public CStyleProperty
+{
+public:
+	static const CStyleSymbol symbol;
+
+	static inline double GetDefault() { return 1.0f; }
+
+	CStylePropertyBrightness() : CStyleProperty( CStylePropertyBrightness::symbol )
+	{
+		brightness = GetDefault();
+	}
+
+	// Checks if fully set
+	virtual bool BFullySet() const
+	{
+		return ( brightness != k_flFloatNotSet );
+	}
+
+	virtual void ResolveDefaultValues()
+	{
+		if ( BFullySet() )
+			return;
+
+		brightness = GetDefault();
+	}
+
+	virtual void MergeTo( CStyleProperty *pTarget ) const
+	{
+		if ( !BMergeToCommon( pTarget ) )
+			return;
+
+		CStylePropertyBrightness *p = (CStylePropertyBrightness *)pTarget;
+		p->brightness = brightness;
+	}
+
+	// Can this property support animation?
+	virtual bool BCanTransition() { return true; }
+
+	// Does the style only affect compositing of it's panels and not drawing within a composition layer?
+	virtual bool BAffectsCompositionOnly() { return true; }
+
+	// Interpolation func for animation of this property
+	virtual void Interpolate( IUIPanel *pPanel, const CStyleProperty &target, float flProgress /* 0.0->1.0 */ )
+	{
+		if( target.GetPropertySymbol() != GetPropertySymbol() )
+		{
+			AssertMsg( false, "Mismatched types to CStylePropertyBrightness::Interpolate" );
+			return;
+		}
+
+		const CStylePropertyBrightness *p = (const CStylePropertyBrightness *)&target;
+		brightness = brightness + ( p->brightness - brightness ) * flProgress;
+	}
+
+	// Parses string and sets value
+	virtual bool BSetFromString( CStyleSymbol symParsedName, const char *pchString )
+	{
+		return CSSHelpers::BParseNumber( &brightness, pchString, &pchString );
+	}
+
+	// Gets string representation of property
+	virtual void ToString( CFmtStr1024 *pfmtBuffer ) const
+	{
+		CSSHelpers::AppendFloat( pfmtBuffer, brightness );
+	}
+
+	// Return a description for this property which will be shown in the debugger
+	virtual const char *GetDescription( CStyleSymbol symProperty )
+	{
+		return "Sets the brightness that applies to the panel and all it's children during composition. "
+			"The value is a multiplier on the HSB brightness value.<br><br>"
+			"<b>Example:</b>"
+			"<pre>"
+			"brightness: 1.5;"
+			"</pre>";
+	}
+
+	// Comparison function
+	virtual bool operator==(const CStyleProperty &other) const
+	{
+		if( GetPropertySymbol() != other.GetPropertySymbol() )
+			return false;
+
+		const CStylePropertyBrightness &rhs = (const CStylePropertyBrightness &)other;
+		return (brightness == rhs.brightness);
+	}
+
+	// Layout pieces that can be invalidated when the property is applied to a panel
+	virtual EStyleInvalidateLayout GetInvalidateLayout( CStyleProperty *pCompareProperty ) const { return k_EStyleInvalidateLayoutNone; }
+
+	float brightness;
+};
+
+
+//-----------------------------------------------------------------------------
+// Purpose: Contrast property
+//-----------------------------------------------------------------------------
+class CStylePropertyContrast : public CStyleProperty
+{
+public:
+	static const CStyleSymbol symbol;
+
+	static inline double GetDefault() { return 0.0f; }
+
+	CStylePropertyContrast() : CStyleProperty( CStylePropertyContrast::symbol )
+	{
+		contrast = GetDefault();
+	}
+
+	// Checks if fully set
+	virtual bool BFullySet() const
+	{
+		return ( contrast != k_flFloatNotSet );
+	}
+
+	virtual void ResolveDefaultValues()
+	{
+		if ( BFullySet() )
+			return;
+
+		contrast = GetDefault();
+	}
+
+	virtual void MergeTo( CStyleProperty *pTarget ) const
+	{
+		if ( !BMergeToCommon( pTarget ) )
+			return;
+
+		CStylePropertyContrast *p = (CStylePropertyContrast *)pTarget;
+		p->contrast = contrast;
+	}
+
+	// Can this property support animation?
+	virtual bool BCanTransition() { return true; }
+
+	// Does the style only affect compositing of it's panels and not drawing within a composition layer?
+	virtual bool BAffectsCompositionOnly() { return true; }
+
+	// Interpolation func for animation of this property
+	virtual void Interpolate( IUIPanel *pPanel, const CStyleProperty &target, float flProgress /* 0.0->1.0 */ )
+	{
+		if( target.GetPropertySymbol() != GetPropertySymbol() )
+		{
+			AssertMsg( false, "Mismatched types to CStylePropertyContrast::Interpolate" );
+			return;
+		}
+
+		const CStylePropertyContrast *p = (const CStylePropertyContrast *)&target;
+		contrast = contrast + ( p->contrast - contrast ) * flProgress;
+	}
+
+	// Parses string and sets value
+	virtual bool BSetFromString( CStyleSymbol symParsedName, const char *pchString )
+	{
+		return CSSHelpers::BParseNumber( &contrast, pchString, &pchString );
+	}
+
+	// Gets string representation of property
+	virtual void ToString( CFmtStr1024 *pfmtBuffer ) const
+	{
+		CSSHelpers::AppendFloat( pfmtBuffer, contrast );
+	}
+
+	// Return a description for this property which will be shown in the debugger
+	virtual const char *GetDescription( CStyleSymbol symProperty )
+	{
+		return "Sets the contrast that applies to the panel and all it's children during composition."
+			"<br><br>"
+			"<b>Example:</b>"
+			"<pre>"
+			"contrast: 1.5;"
+			"</pre>";
+	}
+
+	// Comparison function
+	virtual bool operator==(const CStyleProperty &other) const
+	{
+		if( GetPropertySymbol() != other.GetPropertySymbol() )
+			return false;
+
+		const CStylePropertyContrast &rhs = (const CStylePropertyContrast &)other;
+		return (contrast == rhs.contrast);
+	}
+
+	// Layout pieces that can be invalidated when the property is applied to a panel
+	virtual EStyleInvalidateLayout GetInvalidateLayout( CStyleProperty *pCompareProperty ) const { return k_EStyleInvalidateLayoutNone; }
+
+	float contrast;
+};
+
+
+//-----------------------------------------------------------------------------
+// Purpose: Blur property
+//-----------------------------------------------------------------------------
+
+class CStylePropertyBlur : public CStyleProperty
+{
+public:
+	static const CStyleSymbol symbol;
+	static inline float GetDefaultStdDev() { return 0.0f; }
+	static inline float GetDefaultPasses() { return 1.0f; }
+	static inline BlurType_t GetDefaultBlurType() { return BT_NORMAL; }
+
+	CStylePropertyBlur() : CStyleProperty( CStylePropertyBlur::symbol )
+	{
+		stddevhor = k_flFloatNotSet;
+		stddevver = k_flFloatNotSet;
+		passes = k_flFloatNotSet;
+		blurType = BT_NORMAL;
+	}
+
+	virtual void MergeTo( CStyleProperty *pTarget ) const
+	{
+		if ( !BMergeToCommon( pTarget ) )
+			return;
+
+		// set all at once
+		if ( pTarget->BFullySet() )
+			return;
 
 		CStylePropertyBlur *p = (CStylePropertyBlur *)pTarget;
 		p->stddevhor = stddevhor;
 		p->stddevver = stddevver;
 		p->passes = passes;
+		p->blurType = blurType;
+	}
+
+	// Checks if fully set
+	virtual bool BFullySet() const
+	{
+		return (stddevhor != k_flFloatNotSet && stddevver != k_flFloatNotSet && passes != k_flFloatNotSet);
+	}
+
+	// called when applied to a panel before comparing with set values. Gives the style an opportunity to change any unset values to defaults
+	virtual void ResolveDefaultValues()
+	{
+		if ( BFullySet() )
+			return;
+
+		stddevhor = GetDefaultStdDev();
+		stddevver = GetDefaultStdDev();
+		passes = GetDefaultPasses();
+		blurType = GetDefaultBlurType();
 	}
 
 	// Can this property support animation?
@@ -1536,12 +2021,13 @@ public:
 		stddevhor = stddevhor + (p->stddevhor - stddevhor) * flProgress;
 		stddevver = stddevver + (p->stddevver - stddevver) * flProgress;
 		passes = passes + (p->passes - passes) * flProgress;
+		// we don't interpolate blurType
 	}
 
 	// Parses string and sets value
 	virtual bool BSetFromString( CStyleSymbol symParsedName, const char *pchString )
 	{
-		if( !CSSHelpers::BParseGaussianBlur( passes, stddevhor, stddevver, pchString, &pchString ) )
+		if( !CSSHelpers::BParseGaussianBlur( blurType, passes, stddevhor, stddevver, pchString, &pchString ) )
 			return false;
 
 		return true;
@@ -1556,7 +2042,22 @@ public:
 		}
 		else
 		{
-			pfmtBuffer->Append( "gaussian( " );
+			const char* pszFunc;
+
+			switch (blurType)
+			{
+			case BT_FAST:
+				pszFunc = "fastgaussian( ";
+				break;
+			case BT_FASTANIM:
+				pszFunc = "fastanimgaussian( ";
+				break;
+			default:
+				pszFunc = "gaussian( ";
+				break;
+			}
+
+			pfmtBuffer->Append( pszFunc );
 			CSSHelpers::AppendFloat( pfmtBuffer, stddevhor );
 			pfmtBuffer->Append( ", " );
 			CSSHelpers::AppendFloat( pfmtBuffer, stddevver );
@@ -1579,6 +2080,8 @@ public:
 			"<pre>"
 			"blur: gaussian( 2.5 );\n"
 			"blur: gaussian( 6, 6, 1 );"
+			"blur: fastgaussian( 6, 6, 1 );"
+			"blur: fastanimgaussian( 6, 6, 1 );"
 			"</pre>";
 	}
 
@@ -1589,16 +2092,119 @@ public:
 			return false;
 
 		const CStylePropertyBlur &rhs = (const CStylePropertyBlur&)other;
-		return (stddevhor == rhs.stddevhor && stddevver == rhs.stddevver && passes == rhs.passes);
+		return (stddevhor == rhs.stddevhor && stddevver == rhs.stddevver && passes == rhs.passes && blurType == rhs.blurType);
 	}
 
 	// Layout pieces that can be invalidated when the property is applied to a panel
 	virtual EStyleInvalidateLayout GetInvalidateLayout( CStyleProperty *pCompareProperty ) const { return k_EStyleInvalidateLayoutNone; }
 
+	BlurType_t blurType;
 	float stddevhor;
 	float stddevver;
 	float passes;
 };
+
+
+//-----------------------------------------------------------------------------
+// Purpose: BackgroundImgOpacity property
+//-----------------------------------------------------------------------------
+
+class CStylePropertyBackgroundImgOpacity : public CStyleProperty
+{
+public:
+	static const CStyleSymbol symbol;
+	static inline float GetDefault() { return 1.0f; }
+	static inline float GetDefaultBackgroundImgOpacity() { return GetDefault(); }
+
+	CStylePropertyBackgroundImgOpacity() : CStyleProperty( CStylePropertyBackgroundImgOpacity::symbol )
+	{
+		backgroundImgOpacity = k_flFloatNotSet;
+	}
+
+	virtual void MergeTo( CStyleProperty *pTarget ) const
+	{
+		if ( !BMergeToCommon( pTarget ) )
+			return;
+
+		// set all at once
+		if ( pTarget->BFullySet() )
+			return;
+
+		CStylePropertyBackgroundImgOpacity *p = (CStylePropertyBackgroundImgOpacity *)pTarget;
+		p->backgroundImgOpacity = backgroundImgOpacity;
+	}
+
+	// Checks if fully set
+	virtual bool BFullySet() const
+	{
+		return ( backgroundImgOpacity != k_flFloatNotSet );
+	}
+
+	// called when applied to a panel before comparing with set values. Gives the style an opportunity to change any unset values to defaults
+	virtual void ResolveDefaultValues()
+	{
+		if ( BFullySet() )
+			return;
+
+		backgroundImgOpacity = GetDefaultBackgroundImgOpacity();
+	}
+
+	// Can this property support animation?
+	virtual bool BCanTransition() { return true; }
+
+	// Interpolation func for animation of this property
+	virtual void Interpolate( IUIPanel *pPanel, const CStyleProperty &target, float flProgress /* 0.0->1.0 */ )
+	{
+		if ( target.GetPropertySymbol() != GetPropertySymbol() )
+		{
+			AssertMsg( false, "Mismatched types to CStylePropertyBackgroundImgOpacity::Interpolate" );
+			return;
+		}
+
+		const CStylePropertyBackgroundImgOpacity *p = (const CStylePropertyBackgroundImgOpacity *)&target;
+		backgroundImgOpacity = backgroundImgOpacity + ( p->backgroundImgOpacity - backgroundImgOpacity ) * flProgress;
+	}
+
+	// Parses string and sets value
+	virtual bool BSetFromString( CStyleSymbol symParsedName, const char *pchString )
+	{
+		return ( CSSHelpers::BParseNumber( &backgroundImgOpacity, pchString, &pchString ) );
+	}
+
+	// Gets string representation of property
+	virtual void ToString( CFmtStr1024 *pfmtBuffer ) const
+	{
+		CSSHelpers::AppendFloat( pfmtBuffer, backgroundImgOpacity );
+	}
+
+	// Return a description for this property which will be shown in the debugger
+	virtual const char *GetDescription( CStyleSymbol symProperty )
+	{
+		return 
+			"Sets the Opacity of background-image<br><br>"
+			"<b>Examples:</b>"
+			"<pre>"
+			"background-img-opacity: 0.5;"
+			"</pre>";
+	}
+
+	// Comparison function
+	virtual bool operator==( const CStyleProperty &other ) const
+	{
+		if ( GetPropertySymbol() != other.GetPropertySymbol() )
+			return false;
+
+		const CStylePropertyBackgroundImgOpacity &rhs = (const CStylePropertyBackgroundImgOpacity&)other;
+		return ( backgroundImgOpacity == rhs.backgroundImgOpacity );
+	}
+
+	// Layout pieces that can be invalidated when the property is applied to a panel
+	virtual EStyleInvalidateLayout GetInvalidateLayout( CStyleProperty *pCompareProperty ) const { return k_EStyleInvalidateLayoutNone; }
+
+	float backgroundImgOpacity;
+};
+
+
 
 
 //-----------------------------------------------------------------------------
@@ -1619,17 +2225,18 @@ public:
 		m_VerticalOffset.SetLength( 0 );
 		m_SpreadDistance.SetLength( 0 );
 		m_BlurRadius.SetLength( 0 );
+		
+		m_bSet = false;
 	}
 
 	virtual void MergeTo( CStyleProperty *pTarget ) const
 	{
-		if( pTarget->GetPropertySymbol() != GetPropertySymbol() )
-		{
-			AssertMsg( false, "Mismatched types to CStylePropertyBoxShadow::MergeTo" );
+		if ( !BMergeToCommon( pTarget ) )
 			return;
-		}
 
-		CStyleProperty::MergeTo( pTarget );
+		// set all at once
+		if ( pTarget->BFullySet() )
+			return;
 
 		CStylePropertyBoxShadow *p = (CStylePropertyBoxShadow *)pTarget;
 		p->m_bInset = m_bInset;
@@ -1639,6 +2246,23 @@ public:
 		p->m_SpreadDistance = m_SpreadDistance;
 		p->m_BlurRadius = m_BlurRadius;
 		p->m_ShadowColor = m_ShadowColor;
+		p->m_bSet = m_bSet;
+	}
+
+	// Checks if fully set
+	virtual bool BFullySet() const
+	{
+		return m_bSet;
+	}
+
+	// called when applied to a panel before comparing with set values. Gives the style an opportunity to change any unset values to defaults
+	virtual void ResolveDefaultValues()
+	{
+		if ( BFullySet() )
+			return;
+
+		// already set to defaults, just mark as set
+		m_bSet = true;
 	}
 
 	// Can this property support animation?
@@ -1664,6 +2288,7 @@ public:
 			m_VerticalOffset.SetLength( 0.0f );
 			m_ShadowColor.SetColor( 0, 0, 0, 0 );
 			m_SpreadDistance.SetLength( 0.0f );
+			m_bSet = true;
 			return true;
 		}
 
@@ -1716,6 +2341,7 @@ public:
 				// Lengths are the only thing required, if we get here and have them, we are good.
 				if( bLengthsParsed )
 				{
+					m_bSet = true;
 					return true;
 				}
 
@@ -1723,20 +2349,22 @@ public:
 			}
 
 		}
+
+		m_bSet = true;
 		return true;
 	}
 
 	// called when we are ready to apply any scaling factor to the values
-	virtual void ApplyUIScaleFactor( float flScaleFactor )
+	virtual void ApplyUIScaleFactor( const Vector &vScaleFactor, const Vector &vParentScaleFactor ) OVERRIDE
 	{
-		m_HorizontalOffset.ScaleLengthValue( flScaleFactor );
-		m_VerticalOffset.ScaleLengthValue( flScaleFactor );
+		m_HorizontalOffset.ScaleLengthValue( vScaleFactor.x );
+		m_VerticalOffset.ScaleLengthValue( vScaleFactor.y );
 
 		// Although this is a blur pixel radius in css terminology it's really a stddev for our gaussian blur internally,
 		// hence it should not scale.
-
 		//m_BlurRadius.ScaleLengthValue( flScaleFactor );
-		m_SpreadDistance.ScaleLengthValue( flScaleFactor );
+
+		m_SpreadDistance.ScaleLengthValue( vScaleFactor.x );
 	}
 
 	// Gets string representation of property
@@ -1781,7 +2409,7 @@ public:
 			return false;
 
 		const CStylePropertyBoxShadow &rhs = (const CStylePropertyBoxShadow&)other;
-		return (m_bFill == rhs.m_bFill && m_bInset == rhs.m_bInset && m_HorizontalOffset == rhs.m_HorizontalOffset &&
+		return (m_bSet == rhs.m_bSet && m_bFill == rhs.m_bFill && m_bInset == rhs.m_bInset && m_HorizontalOffset == rhs.m_HorizontalOffset &&
 			m_VerticalOffset == rhs.m_VerticalOffset && m_BlurRadius == rhs.m_BlurRadius && m_SpreadDistance == rhs.m_SpreadDistance &&
 			m_ShadowColor == rhs.m_ShadowColor);
 	}
@@ -1789,6 +2417,7 @@ public:
 	// Layout pieces that can be invalidated when the property is applied to a panel
 	virtual EStyleInvalidateLayout GetInvalidateLayout( CStyleProperty *pCompareProperty ) const { return k_EStyleInvalidateLayoutNone; }
 
+	bool m_bSet;
 	bool m_bFill;
 	bool m_bInset;
 	CUILength m_HorizontalOffset;
@@ -1796,7 +2425,6 @@ public:
 	CUILength m_BlurRadius;
 	CUILength m_SpreadDistance;
 	Color m_ShadowColor;
-
 };
 
 
@@ -1807,10 +2435,12 @@ class CStylePropertyTextShadow : public CStyleProperty
 {
 public:
 	static const CStyleSymbol symbol;
+	static const CStyleSymbol symbolFast;	// "text-shadow-fast"
 	static Color GetDefaultShadowColor() { return Color( 33, 33, 33, 80 ); }
 
 	CStylePropertyTextShadow() : CStyleProperty( CStylePropertyTextShadow::symbol )
 	{
+		m_bSet = false;
 		m_ShadowColor = GetDefaultShadowColor();
 		m_HorizontalOffset.SetLength( 0 );
 		m_VerticalOffset.SetLength( 0 );
@@ -1820,13 +2450,12 @@ public:
 
 	virtual void MergeTo( CStyleProperty *pTarget ) const
 	{
-		if ( pTarget->GetPropertySymbol() != GetPropertySymbol() )
-		{
-			AssertMsg( false, "Mismatched types to CStylePropertyTextShadow::MergeTo" );
+		if ( !BMergeToCommon( pTarget ) )
 			return;
-		}
 
-		CStyleProperty::MergeTo( pTarget );
+		// set all at once
+		if ( pTarget->BFullySet() )
+			return;
 
 		CStylePropertyTextShadow *p = (CStylePropertyTextShadow *)pTarget;
 		p->m_HorizontalOffset = m_HorizontalOffset;
@@ -1834,6 +2463,23 @@ public:
 		p->m_BlurRadius = m_BlurRadius;
 		p->m_ShadowColor = m_ShadowColor;
 		p->m_flStrength = m_flStrength;
+		p->m_bSet = m_bSet;
+	}
+
+	// Checks if fully set
+	virtual bool BFullySet() const
+	{
+		return m_bSet;
+	}
+
+	// called when applied to a panel before comparing with set values. Gives the style an opportunity to change any unset values to defaults
+	virtual void ResolveDefaultValues()
+	{
+		if ( BFullySet() )
+			return;
+
+		// already set to defaults
+		m_bSet = true;
 	}
 
 	// Can this property support animation?
@@ -1855,6 +2501,7 @@ public:
 			m_HorizontalOffset.SetLength( 0.0f );
 			m_VerticalOffset.SetLength( 0.0f );
 			m_ShadowColor.SetColor( 0, 0, 0, 0 );
+			m_bSet = true;
 			return true;
 		}
 
@@ -1891,25 +2538,33 @@ public:
 				// Lengths are the only thing required, if we get here and have them, we are good.
 				if ( bLengthsParsed )
 				{
+					// Override blur radius and strength for text-shadow-fast
+					if( symParsedName == symbolFast )
+					{
+						m_BlurRadius.SetLength( -1.0f );
+						m_flStrength = -1.0f;
+					}
+
+					m_bSet = true;
 					return true;
 				}
 
 				return false;
 			}
-
 		}
+
+		m_bSet = true;
 		return true;
 	}
 
 	// called when we are ready to apply any scaling factor to the values
-	virtual void ApplyUIScaleFactor( float flScaleFactor )
+	virtual void ApplyUIScaleFactor( const Vector &vScaleFactor, const Vector &vParentScaleFactor ) OVERRIDE
 	{
-		m_HorizontalOffset.ScaleLengthValue( flScaleFactor );
-		m_VerticalOffset.ScaleLengthValue( flScaleFactor );
+		m_HorizontalOffset.ScaleLengthValue( vScaleFactor.x );
+		m_VerticalOffset.ScaleLengthValue( vScaleFactor.y );
 
 		// Although this is a blur pixel radius in css terminology it's really a stddev for our gaussian blur internally,
 		// hence it should not scale.
-
 		//m_BlurRadius.ScaleLengthValue( flScaleFactor );
 	}
 
@@ -1931,6 +2586,17 @@ public:
 	// Return a description for this property which will be shown in the debugger
 	virtual const char *GetDescription( CStyleSymbol symProperty )
 	{
+		if( symProperty == symbolFast )
+		{
+			return "Specifies basic text drop shadows for fast rendering. "
+				"Only meaningful for labels. Syntax takes horizontal offset pixels, "
+				"vertical offset pixels and then shadow color.<br>"
+				"<b>Example:</b>"
+				"<pre>"
+				"text-shadow-fast: 2px 2px #333333b0;"
+				"</pre>";
+		}
+
 		return "Specifies text shadows.  The shadow shape will match the text the panel can generate,"
 			"and this is only meaningful for labels.  Syntax takes horizontal offset pixels, "
 			"vertical offset pixels, blur radius pixels, strength, and then shadow color.<br><br>"
@@ -1957,6 +2623,7 @@ public:
 	// Layout pieces that can be invalidated when the property is applied to a panel
 	virtual EStyleInvalidateLayout GetInvalidateLayout( CStyleProperty *pCompareProperty ) const { return k_EStyleInvalidateLayoutNone; }
 
+	bool m_bSet;
 	CUILength m_HorizontalOffset;
 	CUILength m_VerticalOffset;
 	CUILength m_BlurRadius;
@@ -1964,6 +2631,189 @@ public:
 	Color m_ShadowColor;
 };
 
+//-----------------------------------------------------------------------------
+// Purpose: Image shadow property
+//-----------------------------------------------------------------------------
+class CStylePropertyImageShadow : public CStyleProperty
+{
+public:
+	static const CStyleSymbol symbol;
+	static Color GetDefaultShadowColor() { return Color( 33, 33, 33, 80 ); }
+
+	CStylePropertyImageShadow() : CStyleProperty( CStylePropertyImageShadow::symbol )
+	{
+		m_bSet = false;
+		m_ShadowColor = GetDefaultShadowColor();
+		m_HorizontalOffset.SetLength( 0 );
+		m_VerticalOffset.SetLength( 0 );
+		m_BlurRadius.SetLength( 0 );
+		m_flStrength = 1.0f;
+	}
+
+	virtual void MergeTo( CStyleProperty *pTarget ) const
+	{
+		if ( !BMergeToCommon( pTarget ) )
+			return;
+
+		// set all at once
+		if ( pTarget->BFullySet() )
+			return;
+
+		CStylePropertyImageShadow *p = ( CStylePropertyImageShadow * )pTarget;
+		p->m_HorizontalOffset = m_HorizontalOffset;
+		p->m_VerticalOffset = m_VerticalOffset;
+		p->m_BlurRadius = m_BlurRadius;
+		p->m_ShadowColor = m_ShadowColor;
+		p->m_flStrength = m_flStrength;
+		p->m_bSet = m_bSet;
+	}
+
+	// Checks if fully set
+	virtual bool BFullySet() const
+	{
+		return m_bSet;
+	}
+
+	// called when applied to a panel before comparing with set values. Gives the style an opportunity to change any unset values to defaults
+	virtual void ResolveDefaultValues()
+	{
+		if ( BFullySet() )
+			return;
+
+		// already set to defaults
+		m_bSet = true;
+	}
+
+	// Can this property support animation?
+	virtual bool BCanTransition() { return true; }
+
+	// Does the style only affect compositing of it's panels and not drawing within a composition layer?
+	virtual bool BAffectsCompositionOnly() { return false; }
+
+	// Interpolation func for animation of this property
+	virtual void Interpolate( IUIPanel *pPanel, const CStyleProperty &target, float flProgress /* 0.0->1.0 */ );
+
+	// Parses string and sets value
+	virtual bool BSetFromString( CStyleSymbol symParsedName, const char *pchString )
+	{
+		if ( V_strnicmp_fast( pchString, "none", V_strlen( "none" ) ) == 0 )
+		{
+			m_BlurRadius.SetLength( 0.0f );
+			m_flStrength = 1.0f;
+			m_HorizontalOffset.SetLength( 0.0f );
+			m_VerticalOffset.SetLength( 0.0f );
+			m_ShadowColor.SetColor( 0, 0, 0, 0 );
+			m_bSet = true;
+			return true;
+		}
+
+		bool bColorParsed = false;
+		bool bLengthsParsed = false;
+		while ( 1 )
+		{
+			pchString = CSSHelpers::SkipSpaces( pchString );
+
+			if ( !bColorParsed && CSSHelpers::BParseColor( &m_ShadowColor, pchString, &pchString ) )
+			{
+				bColorParsed = true;
+				continue;
+			}
+			else if ( !bLengthsParsed )
+			{
+				bLengthsParsed = true;
+				if ( !CSSHelpers::BParseIntoUILength( &m_HorizontalOffset, pchString, &pchString ) )
+				{
+					return false;
+				}
+
+				if ( !CSSHelpers::BParseIntoUILength( &m_VerticalOffset, pchString, &pchString ) )
+				{
+					return false;
+				}
+
+				// These two are optional
+				CSSHelpers::BParseIntoUILength( &m_BlurRadius, pchString, &pchString );
+				CSSHelpers::BParseNumber( &m_flStrength, pchString, &pchString );
+			}
+			else
+			{
+				// Lengths are the only thing required, if we get here and have them, we are good.
+				if ( bLengthsParsed )
+				{
+					m_bSet = true;
+					return true;
+				}
+
+				return false;
+			}
+		}
+
+		m_bSet = true;
+		return true;
+	}
+
+	// called when we are ready to apply any scaling factor to the values
+	virtual void ApplyUIScaleFactor( const Vector &vScaleFactor, const Vector &vParentScaleFactor ) OVERRIDE
+	{
+		m_HorizontalOffset.ScaleLengthValue( vScaleFactor.x );
+		m_VerticalOffset.ScaleLengthValue( vScaleFactor.y );
+
+		// Although this is a blur pixel radius in css terminology it's really a stddev for our gaussian blur internally,
+		// hence it should not scale.
+		//m_BlurRadius.ScaleLengthValue( flScaleFactor );
+	}
+
+	// Gets string representation of property
+	virtual void ToString( CFmtStr1024 *pfmtBuffer ) const
+	{
+		CSSHelpers::AppendUILength( pfmtBuffer, m_HorizontalOffset );
+		pfmtBuffer->Append( " " );
+		CSSHelpers::AppendUILength( pfmtBuffer, m_VerticalOffset );
+		pfmtBuffer->Append( " " );
+		CSSHelpers::AppendUILength( pfmtBuffer, m_BlurRadius );
+		pfmtBuffer->Append( " " );
+		CSSHelpers::AppendFloat( pfmtBuffer, m_flStrength );
+		pfmtBuffer->Append( " " );
+
+		CSSHelpers::AppendColor( pfmtBuffer, m_ShadowColor );
+	}
+
+	// Return a description for this property which will be shown in the debugger
+	virtual const char *GetDescription( CStyleSymbol symProperty )
+	{
+		return "Specifies image shadows.  The shadow shape will match the image the panel can generate,"
+			"and this is only meaningful for images.  Syntax takes horizontal offset pixels, "
+			"vertical offset pixels, blur radius pixels, strength, and then shadow color.<br><br>"
+			"<b>Example:</b>"
+			"<pre>"
+			"img-shadow: 2px 2px 8px 3.0 #333333b0;"
+			"</pre>";
+	}
+
+	// Comparison function
+	virtual bool operator==( const CStyleProperty &other ) const
+	{
+		if ( GetPropertySymbol() != other.GetPropertySymbol() )
+			return false;
+
+		const CStylePropertyImageShadow &rhs = ( const CStylePropertyImageShadow& )other;
+		return ( m_HorizontalOffset == rhs.m_HorizontalOffset &&
+			m_VerticalOffset == rhs.m_VerticalOffset &&
+			m_BlurRadius == rhs.m_BlurRadius &&
+			m_ShadowColor == rhs.m_ShadowColor &&
+			m_flStrength == rhs.m_flStrength );
+	}
+
+	// Layout pieces that can be invalidated when the property is applied to a panel
+	virtual EStyleInvalidateLayout GetInvalidateLayout( CStyleProperty *pCompareProperty ) const { return k_EStyleInvalidateLayoutNone; }
+
+	bool m_bSet;
+	CUILength m_HorizontalOffset;
+	CUILength m_VerticalOffset;
+	CUILength m_BlurRadius;
+	float m_flStrength;
+	Color m_ShadowColor;
+};
 
 class CStylePropertyClip : public CStyleProperty
 {
@@ -1972,29 +2822,50 @@ public:
 
 	CStylePropertyClip() : CStyleProperty( CStylePropertyClip::symbol )
 	{
-
+		m_bRectClip = false;
+		m_bRadialClip = false;
+		m_flRadialStartAngle = k_flFloatNotSet;
+		m_flRadialSectorAngle = k_flFloatNotSet;
 	}
 
 	virtual void MergeTo( CStyleProperty *pTarget ) const
 	{
-		if( pTarget->GetPropertySymbol() != GetPropertySymbol() )
-		{
-			AssertMsg( false, "Mismatched types to CStylePropertyClip::MergeTo" );
+		if ( !BMergeToCommon( pTarget ) )
 			return;
-		}
-
-		CStyleProperty::MergeTo( pTarget );
 
 		CStylePropertyClip *p = (CStylePropertyClip *)pTarget;
 
-		if ( !p->m_Left.IsSet() )
-			p->m_Left = m_Left;
-		if( !p->m_Top.IsSet() )
-			p->m_Top = m_Top;
-		if( !p->m_Right.IsSet() )
-			p->m_Right = m_Right;
-		if( !p->m_Bottom.IsSet() )
-			p->m_Bottom = m_Bottom;
+		if ( m_bRectClip )
+		{
+			p->m_bRectClip = m_bRectClip;
+			if ( !p->m_Left.IsSet() )
+				p->m_Left = m_Left;
+			if( !p->m_Top.IsSet() )
+				p->m_Top = m_Top;
+			if( !p->m_Right.IsSet() )
+				p->m_Right = m_Right;
+			if( !p->m_Bottom.IsSet() )
+				p->m_Bottom = m_Bottom;
+		}
+		
+		if ( m_bRadialClip )
+		{
+			p->m_bRadialClip = m_bRadialClip;
+			if ( p->m_flRadialStartAngle == k_flFloatNotSet )
+				p->m_flRadialStartAngle = m_flRadialStartAngle;
+			if ( p->m_flRadialSectorAngle == k_flFloatNotSet )
+				p->m_flRadialSectorAngle = m_flRadialSectorAngle;
+			if( !p->m_RadialCenterX.IsSet() )
+				p->m_RadialCenterX = m_RadialCenterX;
+			if( !p->m_RadialCenterY.IsSet() )
+				p->m_RadialCenterY = m_RadialCenterY;
+		}
+	}
+
+	// Checks if fully set
+	virtual bool BFullySet() const
+	{
+		return ( m_Left.IsSet() && m_Top.IsSet() && m_Right.IsSet() && m_Bottom.IsSet() ) && m_bRadialClip;
 	}
 
 	// Can this property support animation?
@@ -2014,40 +2885,80 @@ public:
 			return true;
 		}
 
-		return CSSHelpers::BParseRect( &m_Top, &m_Right, &m_Bottom, &m_Left, pchString );
+		bool bSet = false;
+		while ( true )
+		{
+			if ( CSSHelpers::BParseRect( &m_Top, &m_Right, &m_Bottom, &m_Left, pchString, &pchString ) )
+			{
+				bSet = true;
+				m_bRectClip = true;
+			}
+			else if ( CSSHelpers::BParseRadialClip( &m_RadialCenterX, &m_RadialCenterY, &m_flRadialStartAngle, &m_flRadialSectorAngle, pchString, &pchString ) )
+			{
+				bSet = true;
+				m_bRadialClip = true;
+			}
+			else
+			{
+				break;
+			}
+		}
+		
+		return bSet;
 	}
 
+
 	// called when we are ready to apply any scaling factor to the values
-	virtual void ApplyUIScaleFactor( float flScaleFactor )
+	virtual void ApplyUIScaleFactor( const Vector &vScaleFactor, const Vector &vParentScaleFactor ) OVERRIDE
 	{
-		m_Left.ScaleLengthValue( flScaleFactor );
-		m_Top.ScaleLengthValue( flScaleFactor );
-		m_Right.ScaleLengthValue( flScaleFactor );
-		m_Bottom.ScaleLengthValue( flScaleFactor );
+		m_Left.ScaleLengthValue( vScaleFactor.x );
+		m_Top.ScaleLengthValue( vScaleFactor.y );
+		m_Right.ScaleLengthValue( vScaleFactor.x );
+		m_Bottom.ScaleLengthValue( vScaleFactor.y );
+		m_RadialCenterX.ScaleLengthValue( vScaleFactor.x );
+		m_RadialCenterY.ScaleLengthValue( vScaleFactor.y );
 	}
 
 	// Gets string representation of property
 	virtual void ToString( CFmtStr1024 *pfmtBuffer ) const
 	{
-		pfmtBuffer->Append( "rect( " );
-		CSSHelpers::AppendUILength( pfmtBuffer, m_Top );
-		pfmtBuffer->Append( ", " );
-		CSSHelpers::AppendUILength( pfmtBuffer, m_Right );
-		pfmtBuffer->Append( ", " );
-		CSSHelpers::AppendUILength( pfmtBuffer, m_Bottom );
-		pfmtBuffer->Append( ", " );
-		CSSHelpers::AppendUILength( pfmtBuffer, m_Left );
-		pfmtBuffer->Append( ")" );
+		if ( m_bRectClip )
+		{
+			pfmtBuffer->Append( "rect( " );
+			CSSHelpers::AppendUILength( pfmtBuffer, m_Top );
+			pfmtBuffer->Append( ", " );
+			CSSHelpers::AppendUILength( pfmtBuffer, m_Right );
+			pfmtBuffer->Append( ", " );
+			CSSHelpers::AppendUILength( pfmtBuffer, m_Bottom );
+			pfmtBuffer->Append( ", " );
+			CSSHelpers::AppendUILength( pfmtBuffer, m_Left );
+			pfmtBuffer->Append( ") " );
+		}
+
+		if ( m_bRadialClip )
+		{
+			pfmtBuffer->Append( "radial( " );
+			CSSHelpers::AppendUILength( pfmtBuffer, m_RadialCenterX );
+			pfmtBuffer->Append( " " );
+			CSSHelpers::AppendUILength( pfmtBuffer, m_RadialCenterY );
+			pfmtBuffer->Append( ", " );
+			CSSHelpers::AppendAngle( pfmtBuffer, m_flRadialStartAngle );
+			pfmtBuffer->Append( ", " );
+			CSSHelpers::AppendAngle( pfmtBuffer, m_flRadialSectorAngle );
+			pfmtBuffer->Append( ")" );
+		}
 	}
 
 	// Return a description for this property which will be shown in the debugger
 	virtual const char *GetDescription( CStyleSymbol symProperty )
 	{
 		return "Specifies a clip region within the panel, where contents will be clipped at render time. "
-			"This clipping has no impact on layout, and is fast and supported for transitions/animations.<br><br>"
+			"This clipping has no impact on layout, and is fast and supported for transitions/animations. "
+			"Radial clip mode takes a center point, start angle and angular width of the revealed sector.<br><br>"
 			"<b>Example:</b>"
 			"<pre>"
 			"clip: rect( 10%, 90%, 90%, 10% );"
+			"clip: radial( 50% %50, 0deg, 90deg );"
 			"</pre>";
 	}
 
@@ -2058,35 +2969,77 @@ public:
 			return false;
 
 		const CStylePropertyClip &rhs = (const CStylePropertyClip&)other;
-		return (m_Left == rhs.m_Left &&
-			m_Right == rhs.m_Right &&
-			m_Top == rhs.m_Top &&
-			m_Bottom == rhs.m_Bottom );
+		if ( m_bRadialClip != rhs.m_bRadialClip ||
+			m_bRectClip != rhs.m_bRectClip )
+			return false;
+
+		if ( m_bRadialClip && ( m_RadialCenterX != rhs.m_RadialCenterX ||
+				m_RadialCenterY != rhs.m_RadialCenterY || 
+				m_flRadialStartAngle != rhs.m_flRadialStartAngle ||
+				m_flRadialSectorAngle != rhs.m_flRadialSectorAngle ) )
+		{
+			return false;
+		}
+
+		if ( m_bRectClip && ( m_Left != rhs.m_Left ||
+				m_Right != rhs.m_Right ||
+				m_Top != rhs.m_Top ||
+				m_Bottom != rhs.m_Bottom ) )
+		{
+			return false;
+		}
+
+		return true;
 	}
 
 	// called when applied to a panel. Gives the style an opportunity to change any unset values to defaults
 	virtual void ResolveDefaultValues()
 	{
-		if( !m_Left.IsSet() ) 
-			m_Left.SetPercent( 0 );
+		if ( m_bRectClip )
+		{
+			if( !m_Left.IsSet() ) 
+				m_Left.SetPercent( 0 );
 
-		if( !m_Top.IsSet() )
-			m_Top.SetPercent( 0 );
+			if( !m_Top.IsSet() )
+				m_Top.SetPercent( 0 );
 
-		if( !m_Right.IsSet() )
-			m_Right.SetPercent( 100 );
+			if( !m_Right.IsSet() )
+				m_Right.SetPercent( 100 );
 
-		if( !m_Bottom.IsSet() )
-			m_Bottom.SetPercent( 100 );
+			if( !m_Bottom.IsSet() )
+				m_Bottom.SetPercent( 100 );
+		}
+
+		if ( m_bRadialClip )
+		{
+			if ( !m_RadialCenterX.IsSet() )
+				m_RadialCenterX.SetPercent( 50 );
+
+			if ( !m_RadialCenterY.IsSet() )
+				m_RadialCenterY.SetPercent( 50 );
+
+			if ( m_flRadialStartAngle == k_flFloatNotSet )
+				m_flRadialStartAngle = 0.0f;
+
+			if ( m_flRadialSectorAngle == k_flFloatNotSet )
+				m_flRadialSectorAngle = 360.0f;
+		}
 	}
 
 	// Layout pieces that can be invalidated when the property is applied to a panel
 	virtual EStyleInvalidateLayout GetInvalidateLayout( CStyleProperty *pCompareProperty ) const { return k_EStyleInvalidateLayoutNone; }
 
+	bool m_bRectClip;
 	CUILength m_Left;
 	CUILength m_Top;
 	CUILength m_Right;
 	CUILength m_Bottom;
+
+	bool m_bRadialClip;
+	CUILength m_RadialCenterX;
+	CUILength m_RadialCenterY;
+	float m_flRadialStartAngle;
+	float m_flRadialSectorAngle;
 };
 
 
@@ -2099,25 +3052,46 @@ class CStylePropertyWashColor : public CStyleProperty
 {
 public:
 	static const CStyleSymbol symbol;
+	static const CStyleSymbol symbolFast;
 	static inline Color GetDefault() { return Color( 255, 255, 255, 255 ); }
 
 	CStylePropertyWashColor() : CStyleProperty( CStylePropertyWashColor::symbol )
 	{
 		m_color = GetDefault();
+		m_bSet = false;
+		m_bFast = false;
 	}
 
 	virtual void MergeTo( CStyleProperty *pTarget ) const
 	{
-		if( pTarget->GetPropertySymbol() != GetPropertySymbol() )
-		{
-			AssertMsg( false, "Mismatched types to CStylePropertyWashColor::MergeTo" );
+		if ( !BMergeToCommon( pTarget ) )
 			return;
-		}
 
-		CStyleProperty::MergeTo( pTarget );
+		// set all at once
+		if ( pTarget->BFullySet() )
+			return;
 
 		CStylePropertyWashColor *p = (CStylePropertyWashColor *)pTarget;
 		p->m_color = m_color;
+		p->m_bSet = m_bSet;
+		p->m_bFast = m_bFast;
+	}
+
+	// Checks if fully set
+	virtual bool BFullySet() const
+	{
+		return m_bSet;
+	}
+
+	// called when applied to a panel before comparing with set values. Gives the style an opportunity to change any unset values to defaults
+	virtual void ResolveDefaultValues()
+	{
+		if ( BFullySet() )
+			return;
+
+		// already set to default
+		m_bSet = true;
+		m_bFast = false;
 	}
 
 	// Can this property support animation?
@@ -2147,16 +3121,29 @@ public:
 	// Parses string and sets value
 	virtual bool BSetFromString( CStyleSymbol symParsedName, const char *pchString )
 	{
-		if( CSSHelpers::BParseColor( &m_color, pchString ) )
+		if ( symParsedName == symbolFast )
 		{
-			return true;
+			m_bFast = true;
 		}
-		else if( V_stricmp( "transparent", pchString ) == 0 )
+		
+		if ( V_stricmp( "transparent", pchString ) == 0 )
 		{
 			m_color.SetColor( 0, 0, 0, 0 );
+			m_bSet = true;
 			return true;
 		}
-
+		else if ( V_stricmp( "None", pchString ) == 0 )
+		{
+			m_color.SetColor( 255, 255, 255, 255 );
+			m_bSet = true;
+			return true;
+		}
+		else if( CSSHelpers::BParseColor( &m_color, pchString ) )
+		{
+			m_bSet = true;
+			return true;
+		}
+		
 		return false;
 	}
 
@@ -2190,7 +3177,20 @@ public:
 	// Layout pieces that can be invalidated when the property is applied to a panel
 	virtual EStyleInvalidateLayout GetInvalidateLayout( CStyleProperty *pCompareProperty ) const { return k_EStyleInvalidateLayoutNone; }
 
+	Color GetColor() { return m_color; }
+	void SetColor( Color value )
+	{
+		m_color = value;
+		m_bSet = true;
+	}
+
+	bool BIsFast() const { return m_bFast; }
+	void SetFast( bool bFast ) { m_bFast = bFast; }
+
+private:
 	Color m_color;
+	bool m_bSet;
+	bool m_bFast;
 };
 
 
@@ -2207,21 +3207,37 @@ public:
 	{
 		m_eHorizontal = k_EOverflowSquish;
 		m_eVertical = k_EOverflowSquish;
+		m_bSet = false;
 	}
 
 	virtual void MergeTo( CStyleProperty *pTarget ) const
 	{
-		if( pTarget->GetPropertySymbol() != GetPropertySymbol() )
-		{
-			AssertMsg( false, "Mismatched types to CStylePropertyOverflow::MergeTo" );
+		if ( !BMergeToCommon( pTarget ) )
 			return;
-		}
 
-		CStyleProperty::MergeTo( pTarget );
+		// set all at once
+		if ( pTarget->BFullySet() )
+			return;
 
 		CStylePropertyOverflow *p = (CStylePropertyOverflow *)pTarget;
 		p->m_eHorizontal = m_eHorizontal;
 		p->m_eVertical = m_eVertical;
+		p->m_bSet = m_bSet;
+	}
+
+	// Checks if fully set
+	virtual bool BFullySet() const
+	{
+		return m_bSet;
+	}
+
+	// called when applied to a panel before comparing with set values. Gives the style an opportunity to change any unset values to defaults
+	virtual void ResolveDefaultValues()
+	{
+		if ( BFullySet() )
+			return;
+
+		m_bSet = true;
 	}
 
 	// Can this property support animation?
@@ -2241,6 +3257,7 @@ public:
 		if( pchString[0] == '\0' )
 		{
 			m_eVertical = m_eHorizontal;
+			m_bSet = true;
 			return true;
 		}
 
@@ -2248,6 +3265,7 @@ public:
 		if( !BParseOverflow( &m_eVertical, pchString, &pchString ) )
 			return false;
 
+		m_bSet = true;
 		return true;
 	}
 
@@ -2305,6 +3323,7 @@ public:
 			"\"squish\" - Children are squished to fit within the panel's bounds if needed (default)<br>"
 			"\"clip\" - Children maintain their desired size but their contents are clipped<br>"
 			"\"scroll\" - Children maintain their desired size and a scrollbar is added to this panel<br><br>"
+			"\"noclip\" - Children maintain their desired size and content is allowed to overflow this panel<br><br>"
 			"<b>Examples:</b>"
 			"<pre>"
 			"overflow: squish squish; // squishes contents in horizontal and vertical directions\n"
@@ -2333,6 +3352,7 @@ public:
 
 	EOverflowValue m_eHorizontal;
 	EOverflowValue m_eVertical;
+	bool m_bSet;
 };
 
 
@@ -2358,13 +3378,8 @@ public:
 
 	virtual void MergeTo( CStyleProperty *pTarget ) const
 	{
-		if( pTarget->GetPropertySymbol() != GetPropertySymbol() )
-		{
-			AssertMsg( false, "Mismatched types to CStylePropertyFont::MergeTo" );
+		if ( !BMergeToCommon( pTarget ) )
 			return;
-		}
-
-		CStyleProperty::MergeTo( pTarget );
 
 		CStylePropertyFont *p = (CStylePropertyFont *)pTarget;
 		if( p->m_strFontFamily.IsEmpty() )
@@ -2459,10 +3474,10 @@ public:
 	}
 
 	// called when we are ready to apply any scaling factor to the values
-	virtual void ApplyUIScaleFactor( float flScaleFactor )
+	virtual void ApplyUIScaleFactor( const Vector &vScaleFactor, const Vector &vParentScaleFactor ) OVERRIDE
 	{
 		if( m_flFontSize != k_flFloatNotSet )
-			m_flFontSize *= flScaleFactor;
+			m_flFontSize *= vScaleFactor.y;
 	}
 
 	// Get suggested values based on current text for style property value
@@ -2517,7 +3532,7 @@ public:
 
 	// When applying styles to an element, used to determine if all data for this property has been set or if more fields should be found
 	// by looking at lower weight styles
-	virtual bool BFullySet()
+	virtual bool BFullySet() const
 	{
 		return (m_flFontSize != k_flFloatNotSet &&
 			!m_strFontFamily.IsEmpty() &&
@@ -2528,7 +3543,7 @@ public:
 	// called when applied to a panel. Gives the style an opportunity to change any unset values to defaults
 	virtual void ResolveDefaultValues()
 	{
-		// leave unset rather than defaulting. We will fix things up when accessed		
+		// leave unset rather than defaulting. We will fix things up when accessed
 	}
 
 	// Return a description for this property which will be shown in the debugger
@@ -2624,16 +3639,13 @@ public:
 
 	virtual void MergeTo( CStyleProperty *pTarget ) const
 	{
-		if( pTarget->GetPropertySymbol() != GetPropertySymbol() )
-		{
-			AssertMsg( false, "Mismatched types to CStylePropertyTextAlign::MergeTo" );
+		if ( !BMergeToCommon( pTarget ) )
 			return;
-		}
 
-		CStyleProperty::MergeTo( pTarget );
 
 		CStylePropertyTextAlign *p = (CStylePropertyTextAlign *)pTarget;
-		p->m_eAlign = m_eAlign;
+		if ( p->m_eAlign == k_ETextAlignUnset )
+			p->m_eAlign = m_eAlign;
 	}
 
 	// Can this property support animation?
@@ -2670,7 +3682,7 @@ public:
 
 	// When applying styles to an element, used to determine if all data for this property has been set or if more fields should be found
 	// by looking at lower weight styles
-	virtual bool BFullySet()
+	virtual bool BFullySet() const
 	{
 		return (m_eAlign != k_ETextAlignUnset);
 	}
@@ -2729,18 +3741,36 @@ public:
 	CStylePropertyTextLetterSpacing() : CStyleProperty( CStylePropertyTextLetterSpacing::symbol )
 	{
 		m_nLetterSpacing = 0;
+		m_bSet = false;
 	}
 
 	virtual void MergeTo( CStyleProperty *pTarget ) const
 	{
-		if ( pTarget->GetPropertySymbol() != GetPropertySymbol() )
-		{
-			AssertMsg( false, "Mismatched types to CStylePropertyTextLetterSpacing::MergeTo" );
+		if ( !BMergeToCommon( pTarget ) )
 			return;
-		}
+
+		// set all at once
+		if ( pTarget->BFullySet() )
+			return;
 
 		CStylePropertyTextLetterSpacing *p = (CStylePropertyTextLetterSpacing *)pTarget;
 		p->m_nLetterSpacing = m_nLetterSpacing;
+		p->m_bSet = m_bSet;
+	}
+
+	// Checks if fully set
+	virtual bool BFullySet() const
+	{
+		return m_bSet;
+	}
+
+	// called when applied to a panel before comparing with set values. Gives the style an opportunity to change any unset values to defaults
+	virtual void ResolveDefaultValues()
+	{
+		if ( BFullySet() )
+			return;
+
+		m_bSet = true;
 	}
 
 	// Can this property support animation?
@@ -2764,13 +3794,17 @@ public:
 			bSuccess = CSSHelpers::BParseLength( &flLength, pchString, NULL );
 			m_nLetterSpacing = roundf(flLength);
 		}
+
+		if ( bSuccess )
+			m_bSet = true;
+
 		return bSuccess;
 	}
 
 	// called when we are ready to apply any scaling factor to the values
-	virtual void ApplyUIScaleFactor( float flScaleFactor )
+	virtual void ApplyUIScaleFactor( const Vector &vScaleFactor, const Vector &vParentScaleFactor ) OVERRIDE
 	{
-		m_nLetterSpacing = (float)roundf(m_nLetterSpacing*flScaleFactor);
+		m_nLetterSpacing = (float)roundf(m_nLetterSpacing*vScaleFactor.x);
 	}
 
 	// Gets string representation of property
@@ -2808,6 +3842,7 @@ public:
 	}
 
 	int m_nLetterSpacing;
+	bool m_bSet;
 };
 
 
@@ -2822,21 +3857,32 @@ public:
 
 	CStylePropertyTextDecoration() : CStyleProperty( CStylePropertyTextDecoration::symbol )
 	{
-		m_eDecoration = GetDefault();
+		m_eDecoration = k_ETextDecorationUnset;
 	}
 
 	virtual void MergeTo( CStyleProperty *pTarget ) const
 	{
-		if( pTarget->GetPropertySymbol() != GetPropertySymbol() )
-		{
-			AssertMsg( false, "Mismatched types to CStylePropertyTextDecoration::MergeTo" );
+		if ( !BMergeToCommon( pTarget ) )
 			return;
-		}
-
-		CStyleProperty::MergeTo( pTarget );
 
 		CStylePropertyTextDecoration *p = (CStylePropertyTextDecoration *)pTarget;
-		p->m_eDecoration = m_eDecoration;
+		if ( p->m_eDecoration == k_ETextDecorationUnset )
+			p->m_eDecoration = m_eDecoration;
+	}
+
+	// Checks if fully set
+	virtual bool BFullySet() const
+	{
+		return (m_eDecoration != k_ETextDecorationUnset);
+	}
+
+	// called when applied to a panel before comparing with set values. Gives the style an opportunity to change any unset values to defaults
+	virtual void ResolveDefaultValues()
+	{
+		if ( BFullySet() )
+			return;
+
+		m_eDecoration = GetDefault();
 	}
 
 	// Can this property support animation?
@@ -2861,19 +3907,7 @@ public:
 	virtual void ToString( CFmtStr1024 *pfmtBuffer ) const
 	{
 		pfmtBuffer->Append( PchNameFromETextDecoration( m_eDecoration ) );
-	}
-
-	// When applying styles to an element, used to determine if all data for this property has been set or if more fields should be found
-	// by looking at lower weight styles
-	virtual bool BFullySet()
-	{
-		return (m_eDecoration != k_ETextDecorationUnset);
-	}
-
-	// called when applied to a panel. Gives the style an opportunity to change any unset values to defaults
-	virtual void ResolveDefaultValues()
-	{
-	}
+	}	
 
 	// Return a description for this property which will be shown in the debugger
 	virtual const char *GetDescription( CStyleSymbol symProperty )
@@ -2919,28 +3953,24 @@ public:
 
 	CStylePropertyTextTransform() : CStyleProperty( CStylePropertyTextTransform::symbol )
 	{
-		m_eTransform = GetDefault();
+		m_eTransform = k_ETextTransformUnset;
 	}
 
 	virtual void MergeTo( CStyleProperty *pTarget ) const
 	{
-		if( pTarget->GetPropertySymbol() != GetPropertySymbol() )
-		{
-			AssertMsg( false, "Mismatched types to CStylePropertyTextDecoration::MergeTo" );
+		if ( !BMergeToCommon( pTarget ) )
 			return;
-		}
-
-		CStyleProperty::MergeTo( pTarget );
 
 		CStylePropertyTextTransform *p = (CStylePropertyTextTransform *)pTarget;
-		p->m_eTransform = m_eTransform;
+		if ( p->m_eTransform == k_ETextTransformUnset )
+			p->m_eTransform = m_eTransform;
 	}
 
 	// Can this property support animation?
 	virtual bool BCanTransition() { return false; }
 
 	// Interpolation func for animation of this property
-	virtual void Interpolate( IUIPanel *pPanel, const CStyleProperty &target, float flProgress /* 0.0->1.0 */ ) { Assert( !"You can't interpolate a text-decorations" ); }
+	virtual void Interpolate( IUIPanel *pPanel, const CStyleProperty &target, float flProgress /* 0.0->1.0 */ ) { Assert( !"You can't interpolate a text-transform" ); }
 
 	// Parses string and sets value
 	virtual bool BSetFromString( CStyleSymbol symParsedName, const char *pchString )
@@ -2962,7 +3992,7 @@ public:
 
 	// When applying styles to an element, used to determine if all data for this property has been set or if more fields should be found
 	// by looking at lower weight styles
-	virtual bool BFullySet()
+	virtual bool BFullySet() const
 	{
 		return (m_eTransform != k_ETextTransformUnset);
 	}
@@ -2970,6 +4000,10 @@ public:
 	// called when applied to a panel. Gives the style an opportunity to change any unset values to defaults
 	virtual void ResolveDefaultValues()
 	{
+		if ( BFullySet() )
+			return;
+
+		m_eTransform = GetDefault();
 	}
 
 	// Return a description for this property which will be shown in the debugger
@@ -3017,20 +4051,20 @@ public:
 	CStylePropertyLineHeight() : CStyleProperty( CStylePropertyLineHeight::symbol )
 	{
 		m_flLineHeight = k_flFloatNotSet;
+		m_bSet = false;
 	}
 
 	virtual void MergeTo( CStyleProperty *pTarget ) const
 	{
-		if( pTarget->GetPropertySymbol() != GetPropertySymbol() )
-		{
-			AssertMsg( false, "Mismatched types to CStylePropertyLineHeight::MergeTo" );
+		if ( !BMergeToCommon( pTarget ) )
 			return;
-		}
 
-		CStyleProperty::MergeTo( pTarget );
+		if ( pTarget->BFullySet() )
+			return;
 
 		CStylePropertyLineHeight *p = (CStylePropertyLineHeight *)pTarget;
 		p->m_flLineHeight = m_flLineHeight;
+		p->m_bSet = m_bSet;
 	}
 
 	// Can this property support animation?
@@ -3042,29 +4076,30 @@ public:
 	// Parses string and sets value
 	virtual bool BSetFromString( CStyleSymbol symParsedName, const char *pchString )
 	{
-		if( symParsedName == symbol )
+		if ( symParsedName != symbol )
+			return false;
+		
+		bool bSuccess = false;
+		if( !CSSHelpers::BParseNumber( &m_flLineHeight, pchString ) )
 		{
-			bool bSuccess = false;
-			if( !CSSHelpers::BParseNumber( &m_flLineHeight, pchString ) )
-			{
-				bSuccess = CSSHelpers::BParseLength( &m_flLineHeight, pchString );
-			}
-			else
-			{
-				bSuccess = true;
-			}
-
-			return bSuccess;
+			bSuccess = CSSHelpers::BParseLength( &m_flLineHeight, pchString );
+		}
+		else
+		{
+			bSuccess = true;
 		}
 
-		return false;
+		if ( bSuccess )
+			m_bSet = true;
+
+		return bSuccess;
 	}
 
 	// called when we are ready to apply any scaling factor to the values
-	virtual void ApplyUIScaleFactor( float flScaleFactor )
+	virtual void ApplyUIScaleFactor( const Vector &vScaleFactor, const Vector &vParentScaleFactor ) OVERRIDE
 	{
 		if( m_flLineHeight != k_flFloatNotSet )
-			m_flLineHeight *= flScaleFactor;
+			m_flLineHeight *= vScaleFactor.y;
 	}
 
 	// Gets string representation of property
@@ -3075,15 +4110,19 @@ public:
 
 	// When applying styles to an element, used to determine if all data for this property has been set or if more fields should be found
 	// by looking at lower weight styles
-	virtual bool BFullySet()
+	virtual bool BFullySet() const
 	{
-		return (m_flLineHeight != k_flFloatNotSet);
+		return m_bSet;
 	}
 
 	// called when applied to a panel. Gives the style an opportunity to change any unset values to defaults
 	virtual void ResolveDefaultValues()
 	{
 		// Leave unset rather than defaulting, will mean don't apply and let font-size set
+		if ( BFullySet() )
+			return;
+
+		m_bSet = true;
 	}
 
 	// Return a description for this property which will be shown in the debugger
@@ -3116,6 +4155,8 @@ public:
 		return k_EStyleInvalidateLayoutNone;
 	}
 
+	// m_bSet is required as k_flFloatNotSet is a valid value for m_flLineHeight
+	bool m_bSet;
 	float m_flLineHeight;
 };
 
@@ -3136,16 +4177,26 @@ public:
 
 	virtual void MergeTo( CStyleProperty *pTarget ) const
 	{
-		if( pTarget->GetPropertySymbol() != GetPropertySymbol() )
-		{
-			AssertMsg( false, "Mismatched types to CStylePropertyFillColor::MergeTo" );
+		if ( !BMergeToCommon( pTarget ) )
 			return;
-		}
 
-		CStyleProperty::MergeTo( pTarget );
+		if ( pTarget->BFullySet() )
+			return;
 
 		CStylePropertyFillColor *p = (CStylePropertyFillColor *)pTarget;
 		p->m_FillBrushCollection = m_FillBrushCollection;
+	}
+
+	// Checks if fully set
+	virtual bool BFullySet() const
+	{
+		return m_FillBrushCollection.GetBrushCount() > 0;
+	}
+
+	// called when applied to a panel before comparing with set values. Gives the style an opportunity to change any unset values to defaults
+	virtual void ResolveDefaultValues()
+	{
+		// nothing to do
 	}
 
 	// Can this property support animation?
@@ -3162,9 +4213,9 @@ public:
 	}
 
 	// called when we are ready to apply any scaling factor to the values
-	virtual void ApplyUIScaleFactor( float flScaleFactor )
+	virtual void ApplyUIScaleFactor( const Vector &vScaleFactor, const Vector &vParentScaleFactor ) OVERRIDE
 	{
-		m_FillBrushCollection.ScaleLengthValues( flScaleFactor );
+		m_FillBrushCollection.ScaleLengthValues( vScaleFactor.x, vScaleFactor.y );
 	}
 
 	// Gets string representation of property
@@ -3228,10 +4279,10 @@ public:
 		bool bResult = CStylePropertyFillColor::BSetFromString( symParsedName, pchString );
 
 #ifdef _DEBUG
-		const CUtlVectorFixed< CFillBrushCollection::FillBrush_t, MAX_FILL_BRUSHES_PER_COLLECTION > &vecBrushes = m_FillBrushCollection.AccessBrushes();
-		FOR_EACH_VEC( vecBrushes, i )
+		CFillBrushCollection::BrushVec_t &vecBrushes = m_FillBrushCollection.AccessBrushes();
+		for ( CFillBrushCollection::FillBrush_t &brush : vecBrushes )
 		{
-			AssertMsg( vecBrushes[i].m_Brush.GetType() != CFillBrush::k_EStrokeTypeParticleSystem, "Particle systems not supported as foreground color, only background.  Won't render." );
+			AssertMsg( brush.m_Brush.GetType() != CFillBrush::k_EStrokeTypeParticleSystem, "Particle systems not supported as foreground color, only background.  Won't render." );
 		}
 #endif
 
@@ -3256,7 +4307,26 @@ public:
 		m_Matrix = VMatrix::GetIdentityMatrix();
 		m_flCachedParentWidth = 0.0f;
 		m_flCachedParentHeight = 0.0f;
+
+		m_bSet = false;
 	};
+
+	CStylePropertyTransform3D( const CStylePropertyTransform3D &src )
+	: 
+		CStyleProperty( src ),
+		m_flCachedParentWidth( src.m_flCachedParentWidth ),
+		m_flCachedParentHeight( src.m_flCachedParentHeight ),
+		m_bDirty( src.m_bDirty ),
+		m_Matrix( src.m_Matrix ),
+		m_bInterpolated( src.m_bInterpolated ),
+		m_bSet( src.m_bSet )
+	{
+		m_vecTransforms.EnsureCapacity( src.m_vecTransforms.Count() );
+		FOR_EACH_VEC( src.m_vecTransforms, i )
+		{
+			m_vecTransforms.AddToTail( src.m_vecTransforms[i]->Clone() );
+		}
+	}
 
 	virtual ~CStylePropertyTransform3D()
 	{
@@ -3266,13 +4336,12 @@ public:
 	virtual void MergeTo( CStyleProperty *pTarget ) const
 	{
 		Assert( !m_bInterpolated );
-		if( pTarget->GetPropertySymbol() != GetPropertySymbol() )
-		{
-			AssertMsg( false, "Mismatched types to CStylePropertyTransform3D::MergeTo" );
+		if ( !BMergeToCommon( pTarget ) )
 			return;
-		}
 
-		CStyleProperty::MergeTo( pTarget );
+		// set all at once
+		if ( pTarget->BFullySet() )
+			return;
 
 		CStylePropertyTransform3D *p = (CStylePropertyTransform3D *)pTarget;
 		p->m_bDirty = true;
@@ -3282,7 +4351,27 @@ public:
 		{
 			p->m_vecTransforms.AddToTail( m_vecTransforms[i]->Clone() );
 		}
+		p->m_bSet = m_bSet;
 	}
+
+	// Checks if fully set
+	virtual bool BFullySet() const
+	{
+		return m_bSet;
+	}
+
+	// called when applied to a panel before comparing with set values. Gives the style an opportunity to change any unset values to defaults
+	virtual void ResolveDefaultValues()
+	{
+		if ( BFullySet() )
+			return;
+
+		 // defaults already set
+		m_bSet = true;
+	}
+
+	// called by code
+	void MarkSet() { m_bSet = true; }
 
 	// Can this property support animation?
 	virtual bool BCanTransition() { return true; }
@@ -3336,6 +4425,7 @@ public:
 		Assert( !m_bInterpolated );
 		m_bDirty = true;
 		m_vecTransforms.AddToTail( pTransform );
+		m_bSet = true;
 	}
 
 	// Parses string and sets value
@@ -3346,8 +4436,11 @@ public:
 		m_vecTransforms.PurgeAndDeleteElements();
 
 		// special case none
-		if( V_stricmp( pchString, "none" ) == 0 )
+		if ( V_stricmp( pchString, "none" ) == 0 )
+		{
+			m_bSet = true;
 			return true;
+		}
 
 		// space separated string of transform-functions
 		while( pchString[0] != '\0' )
@@ -3361,20 +4454,21 @@ public:
 			pchString = CSSHelpers::SkipSpaces( pchString );
 		}
 
+		m_bSet = true;
 		return true;
 	}
 
 	// called when we are ready to apply any scaling factor to the values
-	virtual void ApplyUIScaleFactor( float flScaleFactor )
+	virtual void ApplyUIScaleFactor( const Vector &vScaleFactor, const Vector &vParentScaleFactor ) OVERRIDE
 	{
-		if( flScaleFactor == 1.0f )
+		if ( vScaleFactor == Vector( 1.0f, 1.0f, 1.0f ) )
 			return;
 
 		if( !m_bInterpolated )
 		{
 			FOR_EACH_VEC( m_vecTransforms, i )
 			{
-				m_vecTransforms[i]->ScaleLengthValues( flScaleFactor );
+				m_vecTransforms[i]->ScaleLengthValues( vParentScaleFactor );
 				m_bDirty = true;
 			}
 		}
@@ -3386,9 +4480,9 @@ public:
 			// Can't make an interpolated matrix dirty as we don't have data to recreate it fully, must
 			// decompose and scale the appropriate values that way
 			DecomposedMatrix_t current = DecomposeTransformMatrix( m_Matrix );
-			current.m_flTranslationXYZ[0] *= flScaleFactor;
-			current.m_flTranslationXYZ[1] *= flScaleFactor;
-			current.m_flTranslationXYZ[2] *= flScaleFactor;
+			current.m_flTranslationXYZ[0] *= vParentScaleFactor.x;
+			current.m_flTranslationXYZ[1] *= vParentScaleFactor.y;
+			current.m_flTranslationXYZ[2] *= vParentScaleFactor.z;
 			m_Matrix = RecomposeTransformMatrix( current );
 		}
 	}
@@ -3454,6 +4548,9 @@ public:
 			ETransform3DType eType2 = pRHS->GetType();
 			Assert( eType2 == k_ETransform3DRotate || eType2 == k_ETransform3DTranslate || eType2 == k_ETransform3DScale );
 
+			eType1;
+			eType2;
+
 			if( *pLHS != *pRHS )
 				return false;
 		}
@@ -3480,14 +4577,24 @@ public:
 	}
 #endif
 
+	void GetTransforms( CUtlVector<CTransform3D*>& inTransforms )
+	{
+		inTransforms.Purge();
+		FOR_EACH_VEC( m_vecTransforms, i )
+		{
+			inTransforms.AddToTail( m_vecTransforms[i]->Clone() );
+		}
+	}
+
 private:
-	CUtlVector<CTransform3D *> m_vecTransforms;
+	CUtlVectorFixedGrowable<CTransform3D *, 3> m_vecTransforms;
 
 	mutable float m_flCachedParentWidth;
 	mutable float m_flCachedParentHeight;
 	mutable bool m_bDirty;
 	mutable VMatrix m_Matrix;
 	bool m_bInterpolated;			// once interpolated, only m_Matrix will be set. m_vecTransforms will be empty.
+	bool m_bSet;
 };
 
 
@@ -3503,18 +4610,22 @@ public:
 	static const CStyleSymbol symbolDuration;
 	static const CStyleSymbol symbolTiming;
 	static const CStyleSymbol symbolDelay;
+	static const CStyleSymbol symbolFillMode;
 
 	CStylePropertyTransitionProperties() : CStyleProperty( CStylePropertyTransitionProperties::symbol ) { m_bImmediate = false; }
+	
+	CStylePropertyTransitionProperties( const CStylePropertyTransitionProperties &src )
+	:
+		CStyleProperty( src ),
+		m_bImmediate( src.m_bImmediate )
+	{
+		m_vecTransitionProperties.CopyArray( src.m_vecTransitionProperties.Base(), src.m_vecTransitionProperties.Count() );
+	}
 
 	virtual void MergeTo( CStyleProperty *pTarget ) const
 	{
-		if( pTarget->GetPropertySymbol() != GetPropertySymbol() )
-		{
-			AssertMsg( false, "Mismatched types to CStylePropertyTransitionProperties::MergeTo" );
+		if ( !BMergeToCommon( pTarget ) )
 			return;
-		}
-
-		CStyleProperty::MergeTo( pTarget );
 
 		CStylePropertyTransitionProperties *p = (CStylePropertyTransitionProperties *)pTarget;
 
@@ -3622,8 +4733,8 @@ public:
 
 				transition.m_symProperty = panorama::CStyleSymbol( rgchProperty );
 
-				if( !BCanPropertyTransition( transition.m_symProperty ) )
-					return false;
+				if ( !BCanPropertyTransition( transition.m_symProperty ) )
+					continue;
 
 				// get rest
 				if( !CSSHelpers::BParseTime( &transition.m_flTransitionSeconds, pchString, &pchString ) ||
@@ -3650,7 +4761,7 @@ public:
 		{
 			// comma separated list of porperty names
 			CUtlVector< panorama::CStyleSymbol > vecProperties;
-			if( !CSSHelpers::BParseCommaSepList( &vecProperties, CSSHelpers::BParseIdentToStyleSymbol, pchString ) )
+			if( !CSSHelpers::BParseCommaSepList( &vecProperties, CSSHelpers::BParseIdentToStyleSymbol, pchString, true ) )
 				return false;
 
 			// if we have less properties specified than other params, error
@@ -3658,19 +4769,23 @@ public:
 				return false;
 
 			m_vecTransitionProperties.EnsureCapacity( vecProperties.Count() );
+			int curTransitionIdx = 0;
 			FOR_EACH_VEC( vecProperties, i )
 			{
 				if( vecProperties[i] == "none" )
 					continue;
 
-				if( !BCanPropertyTransition( vecProperties[i] ) )
-					return false;
+				if ( !BCanPropertyTransition( vecProperties[i] ) )
+					return false; // treat non-transitionable properties as error
+
+				if ( curTransitionIdx != i )
+					return false; 
 
 				// new property?
-				if( m_vecTransitionProperties.Count() <= i )
+				if ( m_vecTransitionProperties.Count() <= i )
 					AddNewProperty();
 
-				m_vecTransitionProperties[i].m_symProperty = vecProperties[i];
+				m_vecTransitionProperties[ curTransitionIdx++ ].m_symProperty = vecProperties[ i ];
 			}
 
 			return true;
@@ -3785,13 +4900,13 @@ public:
 	}
 
 	// When applying styles to an element, used to determine if all data for this property has been set or if more fields should be found by looking at lower weight styles
-	virtual bool BFullySet()
+	virtual bool BFullySet() const
 	{
 		if( m_vecTransitionProperties.Count() < 1 )
 			return false;
 
 		// if the first transition property is fully set, all other transition properties should be set
-		TransitionProperty_t &transitionProperty = m_vecTransitionProperties[0];
+		const TransitionProperty_t &transitionProperty = m_vecTransitionProperties[0];
 		return (transitionProperty.m_symProperty.IsValid() &&
 			transitionProperty.m_flTransitionSeconds != k_flFloatNotSet &&
 			transitionProperty.m_eTimingFunction != k_EAnimationUnset &&
@@ -4052,13 +5167,8 @@ public:
 
 	virtual void MergeTo( CStyleProperty *pTarget ) const
 	{
-		if( pTarget->GetPropertySymbol() != GetPropertySymbol() )
-		{
-			AssertMsg( false, "Mismatched types to CStylePropertyBorder::MergeTo" );
+		if ( !BMergeToCommon( pTarget ) )
 			return;
-		}
-
-		CStyleProperty::MergeTo( pTarget );
 
 		CStylePropertyBorder *pBorderTarget = (CStylePropertyBorder*)pTarget;
 		for( int i = 0; i < 4; i++ )
@@ -4337,13 +5447,21 @@ public:
 		return false;
 	}
 
-	// called when we are ready to apply any scaling factor to the values
-	virtual void ApplyUIScaleFactor( float flScaleFactor )
+	// helper function to set single border color 
+	bool BSetBorderColor( const Color &c )
 	{
-		m_rgBorderWidth[0].ScaleLengthValue( flScaleFactor );
-		m_rgBorderWidth[1].ScaleLengthValue( flScaleFactor );
-		m_rgBorderWidth[2].ScaleLengthValue( flScaleFactor );
-		m_rgBorderWidth[3].ScaleLengthValue( flScaleFactor );
+		m_rgBorderColor[ 1 ] = m_rgBorderColor[ 2 ] = m_rgBorderColor[ 3 ] = m_rgBorderColor[ 0 ] = c;
+		m_rgColorsSet[ 0 ] = m_rgColorsSet[ 1 ] = m_rgColorsSet[ 2 ] = m_rgColorsSet[ 3 ] = true;
+		return true;
+	}
+
+	// called when we are ready to apply any scaling factor to the values
+	virtual void ApplyUIScaleFactor( const Vector &vScaleFactor, const Vector &vParentScaleFactor ) OVERRIDE
+	{
+		m_rgBorderWidth[0].ScaleLengthValue( vScaleFactor.y );
+		m_rgBorderWidth[1].ScaleLengthValue( vScaleFactor.x );
+		m_rgBorderWidth[2].ScaleLengthValue( vScaleFactor.y );
+		m_rgBorderWidth[3].ScaleLengthValue( vScaleFactor.x );
 	}
 
 	// Gets string representation of property
@@ -4406,7 +5524,7 @@ public:
 
 	// When applying styles to an element, used to determine if all data for this property has been set or if more fields should be found
 	// by looking at lower weight styles
-	virtual bool BFullySet()
+	virtual bool BFullySet() const
 	{
 		for( int i = 0; i < 4; ++i )
 		{
@@ -4685,13 +5803,8 @@ public:
 
 	virtual void MergeTo( CStyleProperty *pTarget ) const
 	{
-		if( pTarget->GetPropertySymbol() != GetPropertySymbol() )
-		{
-			AssertMsg( false, "Mismatched types to CStylePropertyBorderRadius::MergeTo" );
+		if ( !BMergeToCommon( pTarget ) )
 			return;
-		}
-
-		CStyleProperty::MergeTo( pTarget );
 
 		CStylePropertyBorderRadius *p = (CStylePropertyBorderRadius *)pTarget;
 		for( int i = 0; i < k_ECornerMax; ++i )
@@ -4857,16 +5970,16 @@ public:
 	}
 
 	// called when we are ready to apply any scaling factor to the values
-	virtual void ApplyUIScaleFactor( float flScaleFactor )
+	virtual void ApplyUIScaleFactor( const Vector &vScaleFactor, const Vector &vParentScaleFactor ) OVERRIDE
 	{
-		m_rgCornerRaddi[k_ECornerTopLeft].m_HorizontalRadii.ScaleLengthValue( flScaleFactor );
-		m_rgCornerRaddi[k_ECornerTopLeft].m_VerticalRadii.ScaleLengthValue( flScaleFactor );
-		m_rgCornerRaddi[k_ECornerTopRight].m_HorizontalRadii.ScaleLengthValue( flScaleFactor );
-		m_rgCornerRaddi[k_ECornerTopRight].m_VerticalRadii.ScaleLengthValue( flScaleFactor );
-		m_rgCornerRaddi[k_ECornerBottomRight].m_HorizontalRadii.ScaleLengthValue( flScaleFactor );
-		m_rgCornerRaddi[k_ECornerBottomRight].m_VerticalRadii.ScaleLengthValue( flScaleFactor );
-		m_rgCornerRaddi[k_ECornerBottomLeft].m_HorizontalRadii.ScaleLengthValue( flScaleFactor );
-		m_rgCornerRaddi[k_ECornerBottomLeft].m_VerticalRadii.ScaleLengthValue( flScaleFactor );
+		m_rgCornerRaddi[k_ECornerTopLeft].m_HorizontalRadii.ScaleLengthValue( vScaleFactor.x );
+		m_rgCornerRaddi[k_ECornerTopLeft].m_VerticalRadii.ScaleLengthValue( vScaleFactor.y );
+		m_rgCornerRaddi[k_ECornerTopRight].m_HorizontalRadii.ScaleLengthValue( vScaleFactor.x );
+		m_rgCornerRaddi[k_ECornerTopRight].m_VerticalRadii.ScaleLengthValue( vScaleFactor.y );
+		m_rgCornerRaddi[k_ECornerBottomRight].m_HorizontalRadii.ScaleLengthValue( vScaleFactor.x );
+		m_rgCornerRaddi[k_ECornerBottomRight].m_VerticalRadii.ScaleLengthValue( vScaleFactor.y );
+		m_rgCornerRaddi[k_ECornerBottomLeft].m_HorizontalRadii.ScaleLengthValue( vScaleFactor.x );
+		m_rgCornerRaddi[k_ECornerBottomLeft].m_VerticalRadii.ScaleLengthValue( vScaleFactor.y );
 	}
 
 	// Gets string representation of property
@@ -4893,7 +6006,7 @@ public:
 
 	// When applying styles to an element, used to determine if all data for this property has been set or if more fields should be found
 	// by looking at lower weight styles
-	virtual bool BFullySet()
+	virtual bool BFullySet() const
 	{
 		for( int i = 0; i < (int)k_ECornerMax; ++i )
 		{
@@ -5033,258 +6146,6 @@ public:
 
 
 //-----------------------------------------------------------------------------
-// Purpose: border image property
-//-----------------------------------------------------------------------------
-class CStylePropertyBorderImage : public CStyleProperty
-{
-public:
-
-	// forward decl
-	struct BorderImageWidth_t;
-
-	static const CStyleSymbol symbol;
-	static const CStyleSymbol symImageSource;
-	static const CStyleSymbol symImageSlice;
-	static const CStyleSymbol symImageWidth;
-	static const CStyleSymbol symImageOutset;
-	static const CStyleSymbol symImageRepeat;
-
-	CStylePropertyBorderImage() : CStyleProperty( CStylePropertyBorderImage::symbol )
-	{
-		m_bFillCenter = false;
-		m_pImage = NULL;
-		m_bSlicesSet = false;
-		m_bWidthsSet = false;
-		m_bOutsetsSet = false;
-		m_bStretchSet = false;
-		for( int i = 0; i < 4; ++i )
-		{
-			m_Width[i].m_eType = k_EBorderImageWidthNumber;
-			m_Width[i].m_flValue = 1.0f;
-			m_Outsets[i].SetLength( 0.0f );
-			m_Slices[i].SetPercent( 100.0f );
-		}
-		m_Stretch[0] = k_EBorderImageStretchStretch;
-		m_Stretch[1] = k_EBorderImageStretchStretch;
-	}
-
-	virtual ~CStylePropertyBorderImage()
-	{
-		SAFE_RELEASE( m_pImage );
-	}
-
-	// Merge properties
-	virtual void MergeTo( CStyleProperty *pTarget ) const;
-
-	// Can this property support animation?
-	virtual bool BCanTransition() { return false; }
-
-	// Interpolation func for animation of this property
-	virtual void Interpolate( IUIPanel *pPanel, const CStyleProperty &target, float flProgress /* 0.0->1.0 */ ) { }
-
-	// Parses string and sets value
-	virtual bool BSetFromString( CStyleSymbol symParsedName, const char *pchString );
-
-	// Parse image source
-	bool BParseImageSource( const char *pchString, const char **pchAfterParse );
-
-	// Parse image slices
-	bool BParseImageSlices( const char *pchString, const char **pchAfterParse );
-
-	// Parse image widths
-	bool BParseImageWidths( const char *pchString, const char **pchAfterParse );
-
-	// Parse image outsets
-	bool BParseImageOutsets( const char *pchString, const char **pchAfterParse );
-
-	// Parse image repeats
-	bool BParseImageRepeats( const char *pchString, const char **pchAfterParse );
-
-	// Parse individual border image width
-	bool BParseImageWidth( BorderImageWidth_t *pWidth, const char *pchString, const char **pchAfterParse );
-
-	// Parse individual repeat
-	bool BParseRepeat( EBorderImageRepeatType *pRepeat, const char *pchString, const char **pchAfterParse );
-
-	// Gets string representation of property
-	virtual void ToString( CFmtStr1024 *pfmtBuffer ) const;
-
-	// When applying styles to an element, used to determine if all data for this property has been set or if more fields should be found
-	// by looking at lower weight styles
-	virtual bool BFullySet()
-	{
-		if( m_bSlicesSet && m_bStretchSet && m_bWidthsSet && m_bOutsetsSet && !m_sURLPath.IsEmpty() )
-			return true;
-
-		return false;
-	}
-
-	// called when we are ready to apply any scaling factor to the values
-	virtual void ApplyUIScaleFactor( float flScaleFactor );
-
-	// called when applied to a panel after comparing with set values
-	virtual void OnAppliedToPanel( IUIPanel *pPanel, float flScaleFactor );
-
-	// Return a description for this property which will be shown in the debugger
-	virtual const char *GetDescription( CStyleSymbol symProperty )
-	{
-		if( symProperty == symbol )
-		{
-			return "Shorthand for specifying all the border-image related properties at once.\n"
-				"Technical syntax is: &lt;border-image-source&gt; || &lt;border-image-slice&gt; [ / &lt;border-image-width&gt;? [ / &lt;border-image-outset&gt; ]? ]? || &lt;border-image-repeat&gt;, "
-				"see the explanations for individual properties for details on each.<br><br>"
-				"<b>Examples:</b>"
-				"<pre>"
-				"border-image: url( \"file://message_border.tga\" ) 25% repeat;\n"
-				"border-image: url( \"file://message_border.tga\" ) 25% / 1 / 20px repeat;"
-				"</pre>";
-		}
-		else if( symProperty == symImageSource )
-		{
-			return "Specifies the source image to use as the 9-slice border-image.<br><br>"
-				"<b>Examples:</b>"
-				"<pre>"
-				"border-image-source: url( \"file://message_border.tga\" );\n"
-				"border-image-source: url( \"http://store.steampowered.com/public/images/steam/message_border.tga\" );"
-				"</pre>";
-		}
-		else if( symProperty == symImageSlice )
-		{
-			return "Specifies the insets for top, right, bottom, and left (in order) slice offsets to use for slicing the source image into 9 regions.  "
-				"The 'fill' keyword may optionally appear before or after the length values and specifies to draw the middle region as a fill for the body "
-				"background of the panel, without it the middle region will not be drawn.<br><br>"
-				"<b>Examples:</b>"
-				"<pre>"
-				"border-image-slice: 10px 10px 10px 10px;\n"
-				"border-image-slice: 20% 10% 20% 10% fill;"
-				"</pre>";
-		}
-		else if( symProperty == symImageWidth )
-		{
-			return "By default after slicing the image as specified in border-image-slice the 9 regions will be used to fill the space specified "
-				"by the standard border-width property.  This border-image-width property may be used to override that and specify different widths.  "
-				"The values appear in top, right, bottom, left order, the 2nd through 4th may be ommited and corresponding earlier values will be used.  "
-				"Values may be straight floats which specify a multiple of the corresponding border-width value, a percentage (which is relative "
-				"to the size of the border image in the corresponding dimension), or 'auto' which means to use the intrinsic size of the corresponding "
-				"border-image-slice.<br><br>"
-				"<b>Examples:</b>"
-				"<pre>"
-				"border-image-width: 1 1 1 1;\n"
-				"border-image-slice: 50% 50% 50% 50%;\n"
-				"border-image-slice: auto;"
-				"</pre>";
-		}
-		else if( symProperty == symImageOutset )
-		{
-			return "Specifies the amount by which the border image should draw outside of the normal content/border box, this allows the border image "
-				"to extend into the margin area and draw outside the panels bounds.  This may still result in clipping of the image by a parent panel if "
-				"the parents bounds are too close to the edges of the panel with the border-image.  Values are specified as px or % in top, right, bottom, left "
-				"order with the 2nd through 4th values optional.<br><br>"
-				"<b>Examples:</b>"
-				"<pre>"
-				"border-image-outset: 0px;\n"
-				"border-image-outset: 20px 20px 20px 20px;"
-				"</pre>";
-		}
-		else if( symProperty == symImageRepeat )
-		{
-			return "Specifies how the top/right/bottom/left/middle images of the 9 slice regions are stretched to fit the available space.  "
-				"Options are stretch, repeat, round or space.  Stretch/repeat are self explanatory, round means tile (repeat) but scale first"
-				"to ensure that a whole number of tiles is used with no partial tile at the edge of the space, space means tile (repeat) but add "
-				"padding between tiles to ensure a whole number of tiles with no partial tile at the edge is needed.\n"
-				"Two values are specified, the first applies to how we stretch the top/middle/bottom horizontally to fill space, the second "
-				"applies to how we stretch the left/middle/right vertically to fill space.<br><br>"
-				"<b>Examples:</b>"
-				"<pre>"
-				"border-image-repeat: stretch stretch;\n"
-				"border-image-outset: repeat;\n"
-				"border-image-outset: round;\n"
-				"border-image-outset: stetch space;"
-				"</pre>";
-		}
-
-		return CStyleProperty::GetDescription( symProperty );
-	}
-
-	// Comparison function
-	virtual bool operator==(const CStyleProperty &other) const
-	{
-		if( GetPropertySymbol() != other.GetPropertySymbol() )
-			return false;
-
-		const CStylePropertyBorderImage &rhs = (const CStylePropertyBorderImage &)other;
-
-		if( m_sURLPath != rhs.m_sURLPath || m_bSlicesSet != rhs.m_bSlicesSet )
-			return false;
-
-		for( int i = 0; i < V_ARRAYSIZE( m_Slices ); i++ )
-		{
-			if( m_Slices[i] != rhs.m_Slices[i] )
-				return false;
-		}
-
-		if( m_bFillCenter != rhs.m_bFillCenter )
-			return false;
-
-		if( m_bWidthsSet != rhs.m_bWidthsSet )
-			return false;
-
-		if( m_bWidthsSet && V_memcmp( m_Width, rhs.m_Width, sizeof( m_Width ) ) != 0 )
-			return false;
-
-		if( m_bOutsetsSet != rhs.m_bOutsetsSet )
-			return false;
-
-		if( m_bOutsetsSet )
-		{
-			for( int i = 0; i < V_ARRAYSIZE( m_Outsets ); i++ )
-			{
-				if( m_Outsets[i] != rhs.m_Outsets[i] )
-					return false;
-			}
-		}
-
-		if( m_bStretchSet != rhs.m_bStretchSet )
-			return false;
-
-		if( m_bStretchSet && V_memcmp( m_Stretch, rhs.m_Stretch, sizeof( m_Stretch ) ) != 0 )
-			return false;
-
-		return true;
-	}
-
-	// Layout pieces that can be invalidated when the property is applied to a panel	
-	virtual EStyleInvalidateLayout GetInvalidateLayout( CStyleProperty *pCompareProperty ) const { return k_EStyleInvalidateLayoutNone; }
-
-	// border image source
-	IImageSource *m_pImage;
-	CUtlString m_sURLPath;
-
-	// border image slice
-	bool m_bSlicesSet;
-	CUILength m_Slices[4];
-	bool m_bFillCenter;
-
-	// border image width
-	struct BorderImageWidth_t
-	{
-		EBorderImageWidthType m_eType;
-		float m_flValue;
-	};
-	bool m_bWidthsSet;
-	BorderImageWidth_t m_Width[4];
-
-	// border image outsets
-	bool m_bOutsetsSet;
-	CUILength m_Outsets[4];
-
-	// border image stretch values
-	bool m_bStretchSet;
-	EBorderImageRepeatType m_Stretch[2];
-};
-
-
-//-----------------------------------------------------------------------------
 // Purpose: Background-image property
 //-----------------------------------------------------------------------------
 class CStylePropertyBackgroundImage : public CStyleProperty
@@ -5296,19 +6157,34 @@ public:
 	static const CStyleSymbol backgroundRepeat;
 
 	CStylePropertyBackgroundImage();
+	CStylePropertyBackgroundImage( const CStylePropertyBackgroundImage &src ) : CStyleProperty( src )
+	{
+		// make sure the target has at least as many layers as we do
+		m_vecLayers.EnsureCapacity( src.m_vecLayers.Count() );
+		for ( int i = 0; i < src.m_vecLayers.Count(); i++ )
+			AddLayer();
+
+		// use the first layer in the target 
+		FOR_EACH_VEC( src.m_vecLayers, i )
+		{
+			src.m_vecLayers[i]->MergeTo( m_vecLayers[i] );
+		}
+	}
 	virtual ~CStylePropertyBackgroundImage();
 
 	// from CStyleProperty
 	virtual void MergeTo( CStyleProperty *pTarget ) const;
-	virtual bool BCanTransition() { return false; }
-	virtual void Interpolate( IUIPanel *pPanel, const CStyleProperty &target, float flProgress /* 0.0->1.0 */ ) { Assert( !"You can't interpolate an image" ); }
+	virtual bool BCanTransition() { return true; }
+	virtual void Interpolate( IUIPanel *pPanel, const CStyleProperty &target, float flProgress /* 0.0->1.0 */ );
+	virtual void OnStartingTransition( CStyleProperty *pPreviousStyleProperty );
+	virtual void OnFinishedTransition();
 	virtual bool BSetFromString( CStyleSymbol symParsedName, const char *pchString );
 	virtual void ToString( CFmtStr1024 *pfmtBuffer ) const;
-	virtual bool BFullySet();
+	virtual bool BFullySet() const;
 	virtual void ResolveDefaultValues();
 	virtual EStyleInvalidateLayout GetInvalidateLayout( CStyleProperty *pCompareProperty ) const { return k_EStyleInvalidateLayoutNone; }
 	virtual bool operator==(const CStyleProperty &rhs) const;
-	virtual void ApplyUIScaleFactor( float flScaleFactor );
+	virtual void ApplyUIScaleFactor( const Vector &vScaleFactor, const Vector &vParentScaleFactor ) OVERRIDE;
 	virtual void OnAppliedToPanel( IUIPanel *pPanel );
 	virtual const char *GetDescription( CStyleSymbol symProperty );
 
@@ -5369,12 +6245,8 @@ public:
 
 	virtual void MergeTo( CStyleProperty *pTarget ) const
 	{
-		if( pTarget->GetPropertySymbol() != GetPropertySymbol() )
-		{
-			AssertMsg( false, "Mismatched types to CStylePropertyOpacityMask::MergeTo" );
+		if ( !BMergeToCommon( pTarget ) )
 			return;
-		}
-
 
 		CStylePropertyOpacityMask *p = (CStylePropertyOpacityMask *)pTarget;
 		if( !p->m_bWasSet )
@@ -5394,7 +6266,23 @@ public:
 			p->m_sURLUpDown = m_sURLUpDown;
 			p->m_pImageUpDown = m_pImageUpDown;
 			p->m_sURLUpDown = m_sURLUpDown;
+			p->m_bWasSet = m_bWasSet;
 		}
+	}
+
+	// Checks if fully set
+	virtual bool BFullySet() const
+	{
+		return m_bWasSet;
+	}
+
+	// called when applied to a panel before comparing with set values. Gives the style an opportunity to change any unset values to defaults
+	virtual void ResolveDefaultValues()
+	{
+		if ( BFullySet() )
+			return;
+
+		m_bWasSet = true;
 	}
 
 	// Does the style only affect compositing of it's panels and not drawing within a composition layer?
@@ -5588,11 +6476,8 @@ public:
 
 	virtual void MergeTo( CStyleProperty *pTarget ) const
 	{
-		if( pTarget->GetPropertySymbol() != GetPropertySymbol() )
-		{
-			AssertMsg( false, "Mismatched types to CStylePropertyWhiteSpace::MergeTo" );
+		if ( !BMergeToCommon( pTarget ) )
 			return;
-		}
 
 		CStylePropertyWhiteSpace *p = (CStylePropertyWhiteSpace *)pTarget;
 		if( !p->m_bSet )
@@ -5600,6 +6485,21 @@ public:
 			p->m_bWrap = m_bWrap;
 			p->m_bSet = m_bSet;
 		}
+	}
+
+	// Checks if fully set
+	virtual bool BFullySet() const
+	{
+		return m_bSet;
+	}
+
+	// called when applied to a panel before comparing with set values. Gives the style an opportunity to change any unset values to defaults
+	virtual void ResolveDefaultValues()
+	{
+		if ( BFullySet() )
+			return;
+
+		m_bSet = true;
 	}
 
 	// Can this property support animation?
@@ -5680,26 +6580,42 @@ class CStylePropertyTextOverflow : public CStyleProperty
 public:
 
 	static const CStyleSymbol symbol;
-	CStylePropertyTextOverflow() : CStyleProperty( CStylePropertyTextOverflow::symbol )
+	CStylePropertyTextOverflow()
+		: CStyleProperty( CStylePropertyTextOverflow::symbol )
+		, m_eTextOverflow( k_ETextOverflowUnset )
 	{
-		m_bSet = false;
-		m_bEllipsis = true;
+	}
+
+	static inline ETextOverflow GetDefault()
+	{
+		return k_ETextOverflowEllipsis;
 	}
 
 	virtual void MergeTo( CStyleProperty *pTarget ) const
 	{
-		if( pTarget->GetPropertySymbol() != GetPropertySymbol() )
-		{
-			AssertMsg( false, "Mismatched types to CStylePropertyTextOverflow::MergeTo" );
+		if ( !BMergeToCommon( pTarget ) )
 			return;
-		}
 
 		CStylePropertyTextOverflow *p = (CStylePropertyTextOverflow *)pTarget;
-		if( !p->m_bSet )
+		if ( p->m_eTextOverflow == k_ETextOverflowUnset )
 		{
-			p->m_bEllipsis = m_bEllipsis;
-			p->m_bSet = m_bSet;
+			p->m_eTextOverflow = m_eTextOverflow;
 		}
+	}
+
+	// Checks if fully set
+	virtual bool BFullySet() const
+	{
+		return m_eTextOverflow != k_ETextOverflowUnset;
+	}
+
+	// called when applied to a panel before comparing with set values. Gives the style an opportunity to change any unset values to defaults
+	virtual void ResolveDefaultValues()
+	{
+		if ( BFullySet() )
+			return;
+
+		m_eTextOverflow = GetDefault();
 	}
 
 	// Can this property support animation?
@@ -5714,16 +6630,24 @@ public:
 	virtual bool BSetFromString( CStyleSymbol symParsedName, const char *pchString )
 	{
 		pchString = CSSHelpers::SkipSpaces( pchString );
-		if( V_strnicmp( pchString, "clip", V_ARRAYSIZE( "clip" ) ) == 0 )
+		if ( V_strnicmp( pchString, "clip", V_ARRAYSIZE( "clip" ) ) == 0 )
 		{
-			m_bEllipsis = false;
-			m_bSet = true;
+			m_eTextOverflow = k_ETextOverflowClip;
 			return true;
 		}
-		else if( V_strnicmp( pchString, "ellipsis", V_ARRAYSIZE( "ellipsis" ) ) == 0 )
+		else if ( V_strnicmp( pchString, "ellipsis", V_ARRAYSIZE( "ellipsis" ) ) == 0 )
 		{
-			m_bEllipsis = true;
-			m_bSet = true;
+			m_eTextOverflow = k_ETextOverflowEllipsis;
+			return true;
+		}
+		else if ( V_strnicmp( pchString, "shrink", V_ARRAYSIZE( "shrink" ) ) == 0 )
+		{
+			m_eTextOverflow = k_ETextOverflowShrink;
+			return true;
+		}
+		else if ( V_strnicmp( pchString, "noclip", V_ARRAYSIZE( "noclip" ) ) == 0 )
+		{
+			m_eTextOverflow = k_ETextOverflowNoClip;
 			return true;
 		}
 
@@ -5733,10 +6657,14 @@ public:
 	// Gets string representation of property
 	virtual void ToString( CFmtStr1024 *pfmtBuffer ) const
 	{
-		if( m_bEllipsis )
-			pfmtBuffer->Append( "ellipsis" );
-		else
-			pfmtBuffer->Append( "clip" );
+		switch ( m_eTextOverflow )
+		{
+			case k_ETextOverflowClip:		pfmtBuffer->Append( "clip" );		break;
+			case k_ETextOverflowEllipsis:	pfmtBuffer->Append( "ellipsis" );	break;
+			case k_ETextOverflowShrink:		pfmtBuffer->Append( "shrink" );		break;
+			case k_ETextOverflowNoClip:		pfmtBuffer->Append( "noclip" );		break;
+			default:						pfmtBuffer->Append( "unknown" );	break;
+		}
 	}
 
 	// Return a description for this property which will be shown in the debugger
@@ -5744,12 +6672,14 @@ public:
 	{
 		if( symProperty == symbol )
 		{
-			return "Controls truncation of text that doesn't fit in a panel.  \"clip\" means to simply truncate (on char boundaries), \"ellipsis\" means to end with '...'.\n"
+			return "Controls truncation of text that doesn't fit in a panel.  \"clip\" means to simply truncate (on char boundaries), \"ellipsis\" means to end with '...', and \"shrink\" means lower the font size to fit.  \"noclip\" allows the text to overflow based on the \"overflow\" style.\n"
 				"We default to ellipsis, which is contrary to the normal CSS spec.<br><br>"
 				"<b>Examples:</b>"
 				"<pre>"
 				"text-overflow: ellipsis;\n"
-				"text-overflow: clip;"
+				"text-overflow: clip;\n"
+				"text-overflow: shrink;\n"
+				"text-overflow: noclip;\n"
 				"</pre>";
 		}
 		return "";
@@ -5762,14 +6692,13 @@ public:
 			return false;
 
 		const CStylePropertyTextOverflow &rhs = (const CStylePropertyTextOverflow &)other;
-		return (m_bEllipsis == rhs.m_bEllipsis && m_bSet == rhs.m_bSet);
+		return m_eTextOverflow == rhs.m_eTextOverflow;
 	}
 
 	// Layout pieces that can be invalidated when the property is applied to a panel	
 	virtual EStyleInvalidateLayout GetInvalidateLayout( CStyleProperty *pCompareProperty ) const { return k_EStyleInvalidateLayoutNone; }
 
-	bool m_bEllipsis;
-	bool m_bSet;
+	ETextOverflow m_eTextOverflow;
 };
 
 
@@ -5784,19 +6713,31 @@ public:
 	static const CStyleSymbol symbol;
 	CStylePropertyWidth() : CStyleProperty( CStylePropertyWidth::symbol )
 	{
-		m_Length.SetFitChildren();
 	}
 
 	virtual void MergeTo( CStyleProperty *pTarget ) const
 	{
-		if( pTarget->GetPropertySymbol() != GetPropertySymbol() )
-		{
-			AssertMsg( false, "Mismatched types to CStylePropertyWidth::MergeTo" );
+		if ( !BMergeToCommon( pTarget ) )
 			return;
-		}
 
 		CStylePropertyWidth *p = (CStylePropertyWidth *)pTarget;
-		p->m_Length = m_Length;
+		if ( !p->m_Length.IsSet() )
+			p->m_Length = m_Length;
+	}
+
+	// Checks if fully set
+	virtual bool BFullySet() const
+	{
+		return m_Length.IsSet();
+	}
+
+	// called when applied to a panel before comparing with set values. Gives the style an opportunity to change any unset values to defaults
+	virtual void ResolveDefaultValues()
+	{
+		if ( BFullySet() )
+			return;
+
+		m_Length.SetFitChildren();
 	}
 
 	// Can this property support animation?
@@ -5825,9 +6766,9 @@ public:
 	}
 
 	// called when we are ready to apply any scaling factor to the values
-	virtual void ApplyUIScaleFactor( float flScaleFactor )
+	virtual void ApplyUIScaleFactor( const Vector &vScaleFactor, const Vector &vParentScaleFactor ) OVERRIDE
 	{
-		m_Length.ScaleLengthValue( flScaleFactor );
+		m_Length.ScaleLengthValue( vScaleFactor.x );
 	}
 
 	// Gets string representation of property
@@ -5881,19 +6822,31 @@ public:
 	static const CStyleSymbol symbol;
 	CStylePropertyHeight() : CStyleProperty( CStylePropertyHeight::symbol )
 	{
-		m_Height.SetFitChildren();
 	}
 
 	virtual void MergeTo( CStyleProperty *pTarget ) const
 	{
-		if( pTarget->GetPropertySymbol() != GetPropertySymbol() )
-		{
-			AssertMsg( false, "Mismatched types to CStylePropertyHeight::MergeTo" );
+		if ( !BMergeToCommon( pTarget ) )
 			return;
-		}
 
 		CStylePropertyHeight *p = (CStylePropertyHeight *)pTarget;
-		p->m_Height = m_Height;
+		if ( !p->m_Height.IsSet() )
+			p->m_Height = m_Height;
+	}
+
+	// Checks if fully set
+	virtual bool BFullySet() const
+	{
+		return m_Height.IsSet();
+	}
+
+	// called when applied to a panel before comparing with set values. Gives the style an opportunity to change any unset values to defaults
+	virtual void ResolveDefaultValues()
+	{
+		if ( BFullySet() )
+			return;
+
+		m_Height.SetFitChildren();
 	}
 
 	// Can this property support animation?
@@ -5922,9 +6875,9 @@ public:
 	}
 
 	// called when we are ready to apply any scaling factor to the values
-	virtual void ApplyUIScaleFactor( float flScaleFactor )
+	virtual void ApplyUIScaleFactor( const Vector &vScaleFactor, const Vector &vParentScaleFactor ) OVERRIDE
 	{
-		m_Height.ScaleLengthValue( flScaleFactor );
+		m_Height.ScaleLengthValue( vScaleFactor.y );
 	}
 
 	// Gets string representation of property
@@ -5977,18 +6930,36 @@ public:
 	static const CStyleSymbol symbol;
 	CStylePropertyMinWidth() : CStyleProperty( CStylePropertyMinWidth::symbol )
 	{
+		m_bSet = false;
 	}
 
 	virtual void MergeTo( CStyleProperty *pTarget ) const
 	{
-		if( pTarget->GetPropertySymbol() != GetPropertySymbol() )
-		{
-			AssertMsg( false, "Mismatched types to CStylePropertyMinWidth::MergeTo" );
+		if ( !BMergeToCommon( pTarget ) )
 			return;
-		}
+
+		// set all at once
+		if ( pTarget->BFullySet() )
+			return;
 
 		CStylePropertyMinWidth *p = (CStylePropertyMinWidth *)pTarget;
 		p->m_minWidth = m_minWidth;
+		p->m_bSet = m_bSet;
+	}
+
+	// Checks if fully set
+	virtual bool BFullySet() const
+	{
+		return m_bSet;
+	}
+
+	// called when applied to a panel before comparing with set values. Gives the style an opportunity to change any unset values to defaults
+	virtual void ResolveDefaultValues()
+	{
+		if ( BFullySet() )
+			return;
+
+		m_bSet = true;
 	}
 
 	// Can this property support animation?
@@ -6000,14 +6971,19 @@ public:
 	// Parses string and sets value
 	virtual bool BSetFromString( CStyleSymbol symParsedName, const char *pchString )
 	{
-		bool bSuccess = CSSHelpers::BParseIntoUILengthForSizing( &m_minWidth, pchString, NULL );
-		return bSuccess;
+		if ( CSSHelpers::BParseIntoUILengthForSizing( &m_minWidth, pchString, NULL ) )
+		{
+			m_bSet = true;
+			return true;
+		}
+
+		return false;
 	}
 
 	// called when we are ready to apply any scaling factor to the values
-	virtual void ApplyUIScaleFactor( float flScaleFactor )
+	virtual void ApplyUIScaleFactor( const Vector &vScaleFactor, const Vector &vParentScaleFactor ) OVERRIDE
 	{
-		m_minWidth.ScaleLengthValue( flScaleFactor );
+		m_minWidth.ScaleLengthValue( vScaleFactor.x );
 	}
 
 	// Gets string representation of property
@@ -6023,7 +6999,7 @@ public:
 			return false;
 
 		const CStylePropertyMinWidth &rhs = (const CStylePropertyMinWidth &)other;
-		return (m_minWidth == rhs.m_minWidth);
+		return (m_bSet == rhs.m_bSet && m_minWidth == rhs.m_minWidth);
 	}
 
 	// Layout pieces that can be invalidated when the property is applied to a panel	
@@ -6035,6 +7011,16 @@ public:
 		return k_EStyleInvalidateLayoutNone;
 	}
 
+	CUILength GetMinWidth() { return m_minWidth; }
+	void SetMinWidth( CUILength value )
+	{
+		m_minWidth = value;
+		m_bSet = true;
+	}
+
+private:
+	// Unset is a valid m_minWidth value
+	bool m_bSet;
 	CUILength m_minWidth;
 };
 
@@ -6048,18 +7034,36 @@ public:
 	static const CStyleSymbol symbol;
 	CStylePropertyMinHeight() : CStyleProperty( CStylePropertyMinHeight::symbol )
 	{
+		m_bSet = false;
 	}
 
 	virtual void MergeTo( CStyleProperty *pTarget ) const
 	{
-		if( pTarget->GetPropertySymbol() != GetPropertySymbol() )
-		{
-			AssertMsg( false, "Mismatched types to CStylePropertyMinHeight::MergeTo" );
+		if ( !BMergeToCommon( pTarget ) )
 			return;
-		}
+
+		// set all at once
+		if ( pTarget->BFullySet() )
+			return;
 
 		CStylePropertyMinHeight *p = (CStylePropertyMinHeight *)pTarget;
 		p->m_minHeight = m_minHeight;
+		p->m_bSet = m_bSet;
+	}
+
+	// Checks if fully set
+	virtual bool BFullySet() const
+	{
+		return m_bSet;
+	}
+
+	// called when applied to a panel before comparing with set values. Gives the style an opportunity to change any unset values to defaults
+	virtual void ResolveDefaultValues()
+	{
+		if ( BFullySet() )
+			return;
+
+		m_bSet = true;
 	}
 
 	// Can this property support animation?
@@ -6071,14 +7075,19 @@ public:
 	// Parses string and sets value
 	virtual bool BSetFromString( CStyleSymbol symParsedName, const char *pchString )
 	{
-		bool bSuccess = CSSHelpers::BParseIntoUILengthForSizing( &m_minHeight, pchString, NULL );
-		return bSuccess;
+		if ( CSSHelpers::BParseIntoUILengthForSizing( &m_minHeight, pchString, NULL ) )
+		{
+			m_bSet = true;
+			return true;
+		}
+
+		return false;
 	}
 
 	// called when we are ready to apply any scaling factor to the values
-	virtual void ApplyUIScaleFactor( float flScaleFactor )
+	virtual void ApplyUIScaleFactor( const Vector &vScaleFactor, const Vector &vParentScaleFactor ) OVERRIDE
 	{
-		m_minHeight.ScaleLengthValue( flScaleFactor );
+		m_minHeight.ScaleLengthValue( vScaleFactor.y );
 	}
 
 	// Gets string representation of property
@@ -6094,7 +7103,7 @@ public:
 			return false;
 
 		const CStylePropertyMinHeight &rhs = (const CStylePropertyMinHeight &)other;
-		return (m_minHeight == rhs.m_minHeight);
+		return (m_bSet == rhs.m_bSet && m_minHeight == rhs.m_minHeight);
 	}
 
 	// Layout pieces that can be invalidated when the property is applied to a panel	
@@ -6106,6 +7115,16 @@ public:
 		return k_EStyleInvalidateLayoutNone;
 	}
 
+	CUILength GetMinHeight() { return m_minHeight; }
+	void SetMinHeight( CUILength value )
+	{
+		m_minHeight = value;
+		m_bSet = true;
+	}
+
+private:
+	// Unset is a valid m_minWidth value
+	bool m_bSet;
 	CUILength m_minHeight;
 };
 
@@ -6119,18 +7138,36 @@ public:
 	static const CStyleSymbol symbol;
 	CStylePropertyMaxWidth() : CStyleProperty( CStylePropertyMaxWidth::symbol )
 	{
+		m_bSet = false;
 	}
 
 	virtual void MergeTo( CStyleProperty *pTarget ) const
 	{
-		if( pTarget->GetPropertySymbol() != GetPropertySymbol() )
-		{
-			AssertMsg( false, "Mismatched types to CStylePropertyMaxWidth::MergeTo" );
+		if ( !BMergeToCommon( pTarget ) )
 			return;
-		}
+
+		// set all at once
+		if ( pTarget->BFullySet() )
+			return;
 
 		CStylePropertyMaxWidth *p = (CStylePropertyMaxWidth *)pTarget;
 		p->m_maxWidth = m_maxWidth;
+		p->m_bSet = m_bSet;
+	}
+
+	// Checks if fully set
+	virtual bool BFullySet() const
+	{
+		return m_bSet;
+	}
+
+	// called when applied to a panel before comparing with set values. Gives the style an opportunity to change any unset values to defaults
+	virtual void ResolveDefaultValues()
+	{
+		if ( BFullySet() )
+			return;
+
+		m_bSet = true;
 	}
 
 	// Can this property support animation?
@@ -6149,14 +7186,19 @@ public:
 	// Parses string and sets value
 	virtual bool BSetFromString( CStyleSymbol symParsedName, const char *pchString )
 	{
-		bool bSuccess = CSSHelpers::BParseIntoUILengthForSizing( &m_maxWidth, pchString, NULL );
-		return bSuccess;
+		if ( CSSHelpers::BParseIntoUILengthForSizing( &m_maxWidth, pchString, NULL ) )
+		{
+			m_bSet = true;
+			return true;
+		}
+
+		return false;
 	}
 
 	// called when we are ready to apply any scaling factor to the values
-	virtual void ApplyUIScaleFactor( float flScaleFactor )
+	virtual void ApplyUIScaleFactor( const Vector &vScaleFactor, const Vector &vParentScaleFactor ) OVERRIDE
 	{
-		m_maxWidth.ScaleLengthValue( flScaleFactor );
+		m_maxWidth.ScaleLengthValue( vScaleFactor.x );
 	}
 
 	// Gets string representation of property
@@ -6172,7 +7214,7 @@ public:
 			return false;
 
 		const CStylePropertyMaxWidth &rhs = (const CStylePropertyMaxWidth &)other;
-		return (m_maxWidth == rhs.m_maxWidth);
+		return (m_bSet == rhs.m_bSet && m_maxWidth == rhs.m_maxWidth);
 	}
 
 	// Layout pieces that can be invalidated when the property is applied to a panel	
@@ -6184,6 +7226,16 @@ public:
 		return k_EStyleInvalidateLayoutNone;
 	}
 
+	CUILength GetMaxWidth() { return m_maxWidth; }
+	void SetMaxWidth( CUILength value )
+	{
+		m_maxWidth = value;
+		m_bSet = true;
+	}
+
+private:
+	// Unset is a valid m_minWidth value
+	bool m_bSet;
 	CUILength m_maxWidth;
 };
 
@@ -6197,18 +7249,36 @@ public:
 	static const CStyleSymbol symbol;
 	CStylePropertyMaxHeight() : CStyleProperty( CStylePropertyMaxHeight::symbol )
 	{
+		m_bSet = false;
 	}
 
 	virtual void MergeTo( CStyleProperty *pTarget ) const
 	{
-		if( pTarget->GetPropertySymbol() != GetPropertySymbol() )
-		{
-			AssertMsg( false, "Mismatched types to CStylePropertyMaxHeight::MergeTo" );
+		if ( !BMergeToCommon( pTarget ) )
 			return;
-		}
+
+		// set all at once
+		if ( pTarget->BFullySet() )
+			return;
 
 		CStylePropertyMaxHeight *p = (CStylePropertyMaxHeight*)pTarget;
 		p->m_maxHeight = m_maxHeight;
+		p->m_bSet = m_bSet;
+	}
+
+	// Checks if fully set
+	virtual bool BFullySet() const
+	{
+		return m_bSet;
+	}
+
+	// called when applied to a panel before comparing with set values. Gives the style an opportunity to change any unset values to defaults
+	virtual void ResolveDefaultValues()
+	{
+		if ( BFullySet() )
+			return;
+
+		m_bSet = true;
 	}
 
 	// Can this property support animation?
@@ -6227,14 +7297,19 @@ public:
 	// Parses string and sets value
 	virtual bool BSetFromString( CStyleSymbol symParsedName, const char *pchString )
 	{
-		bool bSuccess = CSSHelpers::BParseIntoUILengthForSizing( &m_maxHeight, pchString, NULL );
-		return bSuccess;
+		if ( CSSHelpers::BParseIntoUILengthForSizing( &m_maxHeight, pchString, NULL ) )
+		{
+			m_bSet = true;
+			return true;
+		}
+
+		return false;
 	}
 
 	// called when we are ready to apply any scaling factor to the values
-	virtual void ApplyUIScaleFactor( float flScaleFactor )
+	virtual void ApplyUIScaleFactor( const Vector &vScaleFactor, const Vector &vParentScaleFactor ) OVERRIDE
 	{
-		m_maxHeight.ScaleLengthValue( flScaleFactor );
+		m_maxHeight.ScaleLengthValue( vScaleFactor.y );
 	}
 
 	// Gets string representation of property
@@ -6246,22 +7321,32 @@ public:
 	// Comparison function
 	virtual bool operator==(const CStyleProperty &other) const
 	{
-		if( GetPropertySymbol() != other.GetPropertySymbol() )
+		if ( GetPropertySymbol() != other.GetPropertySymbol() )
 			return false;
 
 		const CStylePropertyMaxHeight &rhs = (const CStylePropertyMaxHeight &)other;
-		return (m_maxHeight == rhs.m_maxHeight);
+		return (m_bSet == rhs.m_bSet && m_maxHeight == rhs.m_maxHeight);
 	}
 
 	// Layout pieces that can be invalidated when the property is applied to a panel	
 	virtual EStyleInvalidateLayout GetInvalidateLayout( CStyleProperty *pCompareProperty ) const
 	{
-		if( !pCompareProperty || !(*this == *pCompareProperty) )
+		if ( !pCompareProperty || !(*this == *pCompareProperty) )
 			return k_EStyleInvalidateLayoutSizeAndPosition;
 
 		return k_EStyleInvalidateLayoutNone;
 	}
 
+	CUILength GetMaxHeight() { return m_maxHeight; }
+	void SetMaxHeight( CUILength value )
+	{
+		m_maxHeight = value;
+		m_bSet = true;
+	}
+
+private:
+	// Unset is a valid m_minWidth value
+	bool m_bSet;
 	CUILength m_maxHeight;
 };
 
@@ -6277,18 +7362,36 @@ public:
 	CStylePropertyVisible() : CStyleProperty( CStylePropertyVisible::symbol )
 	{
 		m_bVisible = true;
+		m_bSet = false;
 	}
 
 	virtual void MergeTo( CStyleProperty *pTarget ) const
 	{
-		if( pTarget->GetPropertySymbol() != GetPropertySymbol() )
-		{
-			AssertMsg( false, "Mismatched types to CStylePropertyHeight::MergeTo" );
+		if ( !BMergeToCommon( pTarget ) )
 			return;
-		}
+
+		// set all at once
+		if ( pTarget->BFullySet() )
+			return;
 
 		CStylePropertyVisible *p = (CStylePropertyVisible *)pTarget;
 		p->m_bVisible = m_bVisible;
+		p->m_bSet = m_bSet;
+	}
+
+	// Checks if fully set
+	virtual bool BFullySet() const
+	{
+		return m_bSet;
+	}
+
+	// called when applied to a panel before comparing with set values. Gives the style an opportunity to change any unset values to defaults
+	virtual void ResolveDefaultValues()
+	{
+		if ( BFullySet() )
+			return;
+
+		m_bSet = true;
 	}
 
 	// Can this property support animation?
@@ -6303,11 +7406,13 @@ public:
 		if( V_stricmp( "visible", pchString ) == 0 )
 		{
 			m_bVisible = true;
+			m_bSet = true;
 			return true;
 		}
 		else if( V_stricmp( "collapse", pchString ) == 0 )
 		{
 			m_bVisible = false;
+			m_bSet = true;
 			return true;
 		}
 
@@ -6356,6 +7461,15 @@ public:
 		return k_EStyleInvalidateLayoutNone;
 	}
 
+	bool GetVisibility() { return m_bVisible; }
+	void SetVisibility( bool bValue )
+	{
+		m_bVisible = bValue;
+		m_bSet = true;
+	}
+
+private:
+	bool m_bSet;
 	bool m_bVisible;
 };
 
@@ -6370,19 +7484,35 @@ public:
 	static const CStyleSymbol symbol;
 	CStylePropertyFlowChildren() : CStyleProperty( CStylePropertyFlowChildren::symbol )
 	{
-		m_eFlowDirection = k_EFlowNone;
+		m_eFlowDirection = k_EFlowUnset;
 	}
 
 	virtual void MergeTo( CStyleProperty *pTarget ) const
 	{
-		if( pTarget->GetPropertySymbol() != GetPropertySymbol() )
-		{
-			AssertMsg( false, "Mismatched types to CStylePropertyFlow::MergeTo" );
+		if ( !BMergeToCommon( pTarget ) )
 			return;
-		}
+
+		// set all at once
+		if ( pTarget->BFullySet() )
+			return;
 
 		CStylePropertyFlowChildren *p = (CStylePropertyFlowChildren *)pTarget;
 		p->m_eFlowDirection = m_eFlowDirection;
+	}
+
+	// Checks if fully set
+	virtual bool BFullySet() const
+	{
+		return (m_eFlowDirection != k_EFlowUnset);
+	}
+
+	// called when applied to a panel before comparing with set values. Gives the style an opportunity to change any unset values to defaults
+	virtual void ResolveDefaultValues()
+	{
+		if ( BFullySet() )
+			return;
+
+		m_eFlowDirection = k_EFlowNone;
 	}
 
 	// Can this property support animation?
@@ -6400,10 +7530,18 @@ public:
 			m_eFlowDirection = k_EFlowDown;
 		else if( V_stricmp( "right", pchString ) == 0 )
 			m_eFlowDirection = k_EFlowRight;
+		else if( V_stricmp( "up", pchString ) == 0 )
+			m_eFlowDirection = k_EFlowUp;
+		else if( V_stricmp( "left", pchString ) == 0 )
+			m_eFlowDirection = k_EFlowLeft;
 		else if ( V_stricmp( "down-wrap", pchString ) == 0 )
 			m_eFlowDirection = k_EFlowDownWrap;
 		else if ( V_stricmp( "right-wrap", pchString ) == 0 )
 			m_eFlowDirection = k_EFlowRightWrap;
+		else if ( V_stricmp( "up-wrap", pchString ) == 0 )
+			m_eFlowDirection = k_EFlowUpWrap;
+		else if ( V_stricmp( "left-wrap", pchString ) == 0 )
+			m_eFlowDirection = k_EFlowLeftWrap;
 		else
 			return false;
 
@@ -6419,10 +7557,18 @@ public:
 			pfmtBuffer->Append( "down" );
 		else if( m_eFlowDirection == k_EFlowRight )
 			pfmtBuffer->Append( "right" );
+		else if( m_eFlowDirection == k_EFlowUp )
+			pfmtBuffer->Append( "up" );
+		else if( m_eFlowDirection == k_EFlowLeft )
+			pfmtBuffer->Append( "left" );
 		else if ( m_eFlowDirection == k_EFlowDownWrap )
 			pfmtBuffer->Append( "down-wrap" );
 		else if ( m_eFlowDirection == k_EFlowRightWrap )
 			pfmtBuffer->Append( "right-wrap" );
+		else if ( m_eFlowDirection == k_EFlowUpWrap )
+			pfmtBuffer->Append( "up-wrap" );
+		else if ( m_eFlowDirection == k_EFlowLeftWrap )
+			pfmtBuffer->Append( "left-wrap" );
 	}
 
 	// Comparison function
@@ -6461,11 +7607,8 @@ public:
 
 	virtual void MergeTo( CStyleProperty *pTarget ) const
 	{
-		if( pTarget->GetPropertySymbol() != GetPropertySymbol() )
-		{
-			AssertMsg( false, "Mismatched types to CStylePropertyDimensionsBase::MergeTo" );
+		if ( !BMergeToCommon( pTarget ) )
 			return;
-		}
 
 		T *p = (T *)pTarget;
 		if( !p->m_left.IsSet() )
@@ -6545,15 +7688,6 @@ public:
 		return false;
 	}
 
-	// called when we are ready to apply any scaling factor to the values
-	virtual void ApplyUIScaleFactor( float flScaleFactor )
-	{
-		m_left.ScaleLengthValue( flScaleFactor );
-		m_top.ScaleLengthValue( flScaleFactor );
-		m_bottom.ScaleLengthValue( flScaleFactor );
-		m_right.ScaleLengthValue( flScaleFactor );
-	}
-
 	// Gets string representation of property
 	virtual void ToString( CFmtStr1024 *pfmtBuffer ) const
 	{
@@ -6568,7 +7702,7 @@ public:
 
 	// When applying styles to an element, used to determine if all data for this property has been set or if more fields should be found
 	// by looking at lower weight styles
-	virtual bool BFullySet()
+	virtual bool BFullySet() const
 	{
 		return (m_left.IsSet() && m_top.IsSet() && m_bottom.IsSet() && m_right.IsSet());
 	}
@@ -6630,19 +7764,25 @@ public:
 	static const CStyleSymbol symbolIteration;
 	static const CStyleSymbol symbolDirection;
 	static const CStyleSymbol symbolDelay;
+	static const CStyleSymbol symbolFillMode;
 
 	CStylePropertyAnimationProperties() : CStyleProperty( CStylePropertyAnimationProperties::symbol )
 	{
 		m_bNone = false;
 	}
 
+	CStylePropertyAnimationProperties( const CStylePropertyAnimationProperties &src )
+	:
+		CStyleProperty( src ),
+		m_bNone( src.m_bNone )
+	{
+		m_vecAnimationProperties.CopyArray( src.m_vecAnimationProperties.Base(), src.m_vecAnimationProperties.Count() );
+	}
+
 	virtual void MergeTo( CStyleProperty *pTarget ) const
 	{
-		if( pTarget->GetPropertySymbol() != GetPropertySymbol() )
-		{
-			AssertMsg( false, "Mismatched types to CStylePropertyAnimationProperties::MergeTo" );
+		if ( !BMergeToCommon( pTarget ) )
 			return;
-		}
 
 		CStylePropertyAnimationProperties *p = (CStylePropertyAnimationProperties *)pTarget;
 
@@ -6700,6 +7840,13 @@ public:
 
 			if( animOther.m_flIteration == k_flFloatNotSet )
 				animOther.m_flIteration = animUs.m_flIteration;
+
+			if ( animOther.m_eAnimationFillMode == k_EAnimationFillModeNone )
+				animOther.m_eAnimationFillMode = animUs.m_eAnimationFillMode;
+
+
+
+
 		}
 	}
 
@@ -6723,6 +7870,7 @@ public:
 
 			transition.m_flIteration = k_flFloatNotSet;
 			transition.m_eAnimationDirection = k_EAnimationDirectionUnset;
+			transition.m_eAnimationFillMode = k_EAnimationFillModeNone;
 			transition.m_flDelay = k_flFloatNotSet;
 		}
 		else
@@ -6732,7 +7880,7 @@ public:
 		}
 	}
 
-	void SetAnimation( const char *pchAnimationName, float flDuration, float flDelay, EAnimationTimingFunction eTimingFunc, CCubicBezierCurve< Vector2D > cubicBezier, EAnimationDirection eDirection, float flIterations )
+	void SetAnimation( const char *pchAnimationName, float flDuration, float flDelay, EAnimationTimingFunction eTimingFunc, CCubicBezierCurve< Vector2D > cubicBezier, EAnimationDirection eDirection, EAnimationFillMode eFillMode, float flIterations )
 	{
 		m_bNone = false;
 		m_vecAnimationProperties.RemoveAll();
@@ -6742,6 +7890,7 @@ public:
 		animation.m_eTimingFunction = eTimingFunc;
 		animation.m_CubicBezier = cubicBezier;
 		animation.m_eAnimationDirection = eDirection;
+		animation.m_eAnimationFillMode = eFillMode;
 		animation.m_flDuration = flDuration;
 		animation.m_flDelay = flDelay;
 		animation.m_flIteration = flIterations;
@@ -6752,13 +7901,13 @@ public:
 	// Parses string and sets value
 	virtual bool BSetFromString( CStyleSymbol symParsedName, const char *pchString )
 	{
-		static CPanoramaSymbol k_symNone = "none";
+		static const CPanoramaSymbol k_symNone = "none";
 
 		if( symParsedName == symbol )
 		{
 			m_vecAnimationProperties.RemoveAll();
 
-			// transition property format: name duration timing-function delay iteration-count animation-direction [,*]
+			// transition property format: name duration timing-function delay iteration-count animation-direction animation-fill-mode [,*]
 			m_bNone = false;
 			while( *pchString != '\0' )
 			{
@@ -6774,11 +7923,12 @@ public:
 					return false;
 
 				// get rest
-				if( !CSSHelpers::BParseTime( &animation.m_flDuration, pchString, &pchString ) ||
+				if ( !CSSHelpers::BParseTime( &animation.m_flDuration, pchString, &pchString ) ||
 					!CSSHelpers::BParseTimingFunction( &animation.m_eTimingFunction, &animation.m_CubicBezier, pchString, &pchString ) ||
 					!CSSHelpers::BParseTime( &animation.m_flDelay, pchString, &pchString ) ||
 					!BParseIterationCount( &animation.m_flIteration, pchString, &pchString ) ||
-					!CSSHelpers::BParseAnimationDirectionFunction( &animation.m_eAnimationDirection, pchString, &pchString ) )
+					!CSSHelpers::BParseAnimationDirectionFunction( &animation.m_eAnimationDirection, pchString, &pchString ) ||
+					!CSSHelpers::BParseAnimationFillModeFunction( &animation.m_eAnimationFillMode, pchString, &pchString ) )
 				{
 					return false;
 				}
@@ -6849,6 +7999,10 @@ public:
 		{
 			return BParseAndAddProperty( &AnimationProperty_t::m_eAnimationDirection, CSSHelpers::BParseAnimationDirectionFunction, pchString );
 		}
+		else if( symParsedName == symbolFillMode )
+		{
+			return BParseAndAddProperty( &AnimationProperty_t::m_eAnimationFillMode, CSSHelpers::BParseAnimationFillModeFunction, pchString );
+		}
 
 		return false;
 	}
@@ -6903,6 +8057,19 @@ public:
 				pfmtBuffer->Append( "unset" );
 			else
 				AssertMsg( false, "Unknown animation direction" );
+
+			// fill mode
+			pfmtBuffer->Append( " " );
+			if ( prop.m_eAnimationFillMode == k_EAnimationFillModeNone )
+				pfmtBuffer->Append( "none" );
+			else if ( prop.m_eAnimationFillMode == k_EAnimationFillModeForwards )
+				pfmtBuffer->Append( "forwards" );
+			else if ( prop.m_eAnimationFillMode == k_EAnimationFillModeBackwards )
+				pfmtBuffer->Append( "backwards" );
+			else if ( prop.m_eAnimationFillMode == k_EAnimationFillModeBoth )
+				pfmtBuffer->Append( "both" );
+			else
+				AssertMsg( false, "Unknown animation fill mode" );
 		}
 	}
 
@@ -6977,7 +8144,7 @@ public:
 	}
 
 	// When applying styles to an element, used to determine if all data for this property has been set or if more fields should be found by looking at lower weight styles
-	virtual bool BFullySet()
+	virtual bool BFullySet() const
 	{
 		if( m_bNone )
 			return true;
@@ -6986,7 +8153,7 @@ public:
 			return false;
 
 		// if the first transition property is fully set, all other transition properties should be set
-		AnimationProperty_t &animationProperty = m_vecAnimationProperties[0];
+		const AnimationProperty_t &animationProperty = m_vecAnimationProperties[0];
 		return (animationProperty.m_symName.IsValid() &&
 			animationProperty.m_flDuration != k_flFloatNotSet &&
 			animationProperty.m_eTimingFunction != k_EAnimationUnset &&
@@ -7086,6 +8253,15 @@ public:
 	static const CStyleSymbol symbolRight;
 
 	CStylePropertyPadding() : CStylePropertyDimensionsBase<CStylePropertyPadding>() {}
+
+	// called when we are ready to apply any scaling factor to the values
+	virtual void ApplyUIScaleFactor( const Vector &vScaleFactor, const Vector &vParentScaleFactor ) OVERRIDE
+	{
+		m_left.ScaleLengthValue( vScaleFactor.x );
+		m_top.ScaleLengthValue( vScaleFactor.y );
+		m_bottom.ScaleLengthValue( vScaleFactor.y );
+		m_right.ScaleLengthValue( vScaleFactor.x );
+	}
 };
 
 
@@ -7102,6 +8278,15 @@ public:
 	static const CStyleSymbol symbolRight;
 
 	CStylePropertyMargin() : CStylePropertyDimensionsBase<CStylePropertyMargin>() {}
+
+	// called when we are ready to apply any scaling factor to the values
+	virtual void ApplyUIScaleFactor( const Vector &vScaleFactor, const Vector &vParentScaleFactor ) OVERRIDE
+	{
+		m_left.ScaleLengthValue( vParentScaleFactor.x );
+		m_top.ScaleLengthValue( vParentScaleFactor.y );
+		m_bottom.ScaleLengthValue( vParentScaleFactor.y );
+		m_right.ScaleLengthValue( vParentScaleFactor.x );
+	}
 };
 
 
@@ -7111,8 +8296,6 @@ public:
 class CStylePropertyMixBlendMode : public CStyleProperty
 {
 public:
-
-
 	static const CStyleSymbol symbol;
 	CStylePropertyMixBlendMode() : CStyleProperty( CStylePropertyMixBlendMode::symbol )
 	{
@@ -7122,11 +8305,8 @@ public:
 
 	virtual void MergeTo( CStyleProperty *pTarget ) const
 	{
-		if( pTarget->GetPropertySymbol() != GetPropertySymbol() )
-		{
-			AssertMsg( false, "Mismatched types to CStylePropertyMixBlendMode::MergeTo" );
+		if ( !BMergeToCommon( pTarget ) )
 			return;
-		}
 
 		CStylePropertyMixBlendMode *p = (CStylePropertyMixBlendMode *)pTarget;
 		if( !p->m_bSet )
@@ -7134,6 +8314,21 @@ public:
 			p->m_eMixBlendMode = m_eMixBlendMode;
 			p->m_bSet = m_bSet;
 		}
+	}
+
+	// Checks if fully set
+	virtual bool BFullySet() const
+	{
+		return m_bSet;
+	}
+
+	// called when applied to a panel before comparing with set values. Gives the style an opportunity to change any unset values to defaults
+	virtual void ResolveDefaultValues()
+	{
+		if ( BFullySet() )
+			return;
+
+		m_bSet = true;
 	}
 
 	// Can this property support animation?
@@ -7166,6 +8361,24 @@ public:
 			m_bSet = true;
 			return true;
 		}
+		else if ( V_strnicmp( pchString, "additive", V_ARRAYSIZE( "additive" ) ) == 0 )
+		{
+			m_eMixBlendMode = k_EMixBlendModeAdditive;
+			m_bSet = true;
+			return true;
+		}
+		else if ( V_strnicmp( pchString, "SRGBadditive", V_ARRAYSIZE( "SRGBadditive" ) ) == 0 )
+		{
+			m_eMixBlendMode = k_EMixBlendModeAdditiveSRGB;
+			m_bSet = true;
+			return true;
+		}
+		else if ( V_strnicmp( pchString, "opaque", V_ARRAYSIZE( "opaque" ) ) == 0 )
+		{
+			m_eMixBlendMode = k_EMixBlendModeOpaque;
+			m_bSet = true;
+			return true;
+		}
 
 		return false;
 	}
@@ -7179,6 +8392,12 @@ public:
 			pfmtBuffer->Append( "multiply" );
 		else if( m_eMixBlendMode == k_EMixBlendModeScreen )
 			pfmtBuffer->Append( "screen" );
+		else if ( m_eMixBlendMode == k_EMixBlendModeAdditive )
+			pfmtBuffer->Append( "additive" );
+		else if ( m_eMixBlendMode == k_EMixBlendModeAdditiveSRGB )
+			pfmtBuffer->Append( "SRGBadditive" );
+		else if ( m_eMixBlendMode == k_EMixBlendModeOpaque )
+			pfmtBuffer->Append( "opaque" );
 	}
 
 	// Return a description for this property which will be shown in the debugger
@@ -7191,7 +8410,10 @@ public:
 				"<pre>"
 				"-s2-mix-blend-mode: normal;\n"
 				"-s2-mix-blend-mode: multiply;\n"
-				"-s2-mix-blend-mode: screen;"
+				"-s2-mix-blend-mode: screen;\n"
+				"-s2-mix-blend-mode: additive\n;"
+				"-s2-mix-blend-mode: SRGBadditive\n;"
+				"-s2-mix-blend-mode: opaque;"
 				"</pre>";
 		}
 		return "";
@@ -7230,11 +8452,8 @@ public:
 
 	virtual void MergeTo( CStyleProperty *pTarget ) const
 	{
-		if ( pTarget->GetPropertySymbol() != GetPropertySymbol() )
-		{
-			AssertMsg( false, "Mismatched types to CStylePropertyTextureSampleMode::MergeTo" );
+		if ( !BMergeToCommon( pTarget ) )
 			return;
-		}
 
 		CStylePropertyTextureSampleMode *p = (CStylePropertyTextureSampleMode *)pTarget;
 		if ( !p->m_bSet )
@@ -7242,6 +8461,21 @@ public:
 			p->m_eTextureSampleMode = m_eTextureSampleMode;
 			p->m_bSet = m_bSet;
 		}
+	}
+
+	// Checks if fully set
+	virtual bool BFullySet() const
+	{
+		return m_bSet;
+	}
+
+	// called when applied to a panel before comparing with set values. Gives the style an opportunity to change any unset values to defaults
+	virtual void ResolveDefaultValues()
+	{
+		if ( BFullySet() )
+			return;
+
+		m_bSet = true;
 	}
 
 	// Can this property support animation?
@@ -7332,11 +8566,8 @@ public:
 
 	virtual void MergeTo( CStyleProperty *pTarget ) const
 	{
-		if( pTarget->GetPropertySymbol() != GetPropertySymbol() )
-		{
-			AssertMsg( false, "Mismatched types to CStylePropertyAlign::MergeTo" );
+		if ( !BMergeToCommon( pTarget ) )
 			return;
-		}
 
 		CStylePropertyAlign *p = (CStylePropertyAlign *)pTarget;
 		if( p->m_eHorizontalAlignment == k_EHorizontalAlignmentUnset )
@@ -7379,7 +8610,7 @@ public:
 
 	// When applying styles to an element, used to determine if all data for this property has been set or if more fields should be found
 	// by looking at lower weight styles
-	virtual bool BFullySet()
+	virtual bool BFullySet() const
 	{
 		return (m_eHorizontalAlignment != k_EHorizontalAlignmentUnset && m_eVerticalAlignment != k_EVerticalAlignmentUnset);
 	}
@@ -7434,11 +8665,8 @@ public:
 
 	virtual void MergeTo( CStyleProperty *pTarget ) const
 	{
-		if ( pTarget->GetPropertySymbol() != GetPropertySymbol() )
-		{
-			AssertMsg( false, "Mismatched types to CStylePropertyTooltipPosition::MergeTo" );
+		if ( !BMergeToCommon( pTarget ) )
 			return;
-		}
 
 		CStylePropertyContextUIPosition *p = ( CStylePropertyContextUIPosition * )pTarget;
 		for ( int i = 0; i < V_ARRAYSIZE( m_ePositions ); ++i )
@@ -7506,7 +8734,7 @@ public:
 
 	// When applying styles to an element, used to determine if all data for this property has been set or if more fields should be found
 	// by looking at lower weight styles
-	virtual bool BFullySet()
+	virtual bool BFullySet() const
 	{
 		for ( EContextUIPosition ePosition : m_ePositions )
 		{
@@ -7675,11 +8903,8 @@ public:
 
 	virtual void MergeTo( CStyleProperty *pTarget ) const
 	{
-		if ( pTarget->GetPropertySymbol() != GetPropertySymbol() )
-		{
-			AssertMsg( false, "Mismatched types to CStylePropertyTooltipComponentPosition::MergeTo" );
+		if( !BMergeToCommon( pTarget ) )
 			return;
-		}
 
 		CStylePropertyContextUIComponentPosition *p = ( CStylePropertyContextUIComponentPosition * )pTarget;
 		if ( !p->m_HorizontalPosition.IsSet() )
@@ -7714,10 +8939,10 @@ public:
 
 	// When applying styles to an element, used to determine if all data for this property has been set or if more fields should be found
 	// by looking at lower weight styles
-	virtual bool BFullySet()
+	virtual bool BFullySet() const
 	{
 		return m_HorizontalPosition.IsSet() && m_VerticalPosition.IsSet();
-	}
+	}	
 
 	// Comparison function
 	virtual bool operator==( const CStyleProperty &other ) const
@@ -7911,17 +9136,19 @@ public:
 	{
 	}
 
+	CStylePropertySound( const CStylePropertySound &src ) :	CStyleProperty( src )
+	{
+		m_vecSoundNames.CopyArray( src.m_vecSoundNames.Base(), src.m_vecSoundNames.Count() );
+	}
+
 	virtual void MergeTo( CStyleProperty *pTarget ) const
 	{
-		if ( pTarget->GetPropertySymbol() != GetPropertySymbol() )
-		{
-			AssertMsg( false, "Mismatched types to CStylePropertySound::MergeTo" );
+		if ( !BMergeToCommon( pTarget ) )
 			return;
-		}
 
 		CStylePropertySound *p = ( CStylePropertySound * )pTarget;
-		if ( p->m_strSoundName.IsEmpty() )
-			p->m_strSoundName = m_strSoundName;
+		if ( p->m_vecSoundNames.Count() == 0 )
+			p->m_vecSoundNames.AddVectorToTail( m_vecSoundNames );
 	}
 
 	// Can this property support animation?
@@ -7933,26 +9160,45 @@ public:
 	// Parses string and sets value
 	virtual bool BSetFromString( CStyleSymbol symParsedName, const char *pchString )
 	{
-		return CSSHelpers::BParseQuotedString( m_strSoundName, pchString );
+		do 
+		{
+			CUtlString strSoundName;
+			if ( !CSSHelpers::BParseQuotedString( strSoundName, pchString, &pchString ) )
+				return false;
+
+			m_vecSoundNames.AddToTail( strSoundName );
+
+			if ( !CSSHelpers::BSkipComma( pchString, &pchString ) )
+				break;
+
+		} while ( true );
+
+		return m_vecSoundNames.Count() > 0;
 	}
 
 	// Gets string representation of property
 	virtual void ToString( CFmtStr1024 *pfmtBuffer ) const
 	{
-		pfmtBuffer->AppendFormat( "\"%s\"", m_strSoundName.Get() );
+		for ( const CUtlString &strSoundName : m_vecSoundNames )
+		{
+			if ( pfmtBuffer->Length() != 0 )
+			{
+				pfmtBuffer->Append( ", " );
+			}
+
+			pfmtBuffer->AppendFormat( "\"%s\"", strSoundName.Get() );
+		}
 	}
 
 	// When applying styles to an element, used to determine if all data for this property has been set or if more fields should be found
 	// by looking at lower weight styles
-	virtual bool BFullySet()
+	virtual bool BFullySet() const
 	{
-		return !m_strSoundName.IsEmpty();
+		return m_vecSoundNames.Count() > 0;
 	}
 
 	// called when applied to a panel. Gives the style an opportunity to change any unset values to defaults
-	virtual void ResolveDefaultValues()
-	{
-	}
+	virtual void ResolveDefaultValues();
 
 	// Comparison function
 	virtual bool operator==( const CStyleProperty &other ) const
@@ -7961,7 +9207,17 @@ public:
 			return false;
 
 		const CStylePropertySound &rhs = ( const CStylePropertySound & )other;
-		return m_strSoundName == rhs.m_strSoundName;
+
+		if ( m_vecSoundNames.Count() != rhs.m_vecSoundNames.Count() )
+			return false;
+
+		for ( int i = 0; i < m_vecSoundNames.Count(); ++i )
+		{
+			if ( m_vecSoundNames[ i ] != rhs.m_vecSoundNames[ i ] )
+				return false;
+		}
+
+		return true;
 	}
 
 	// Layout pieces that can be invalidated when the property is applied to a panel	
@@ -7970,7 +9226,10 @@ public:
 		return k_EStyleInvalidateLayoutNone;
 	}
 
-	CUtlString m_strSoundName;
+	void PlaySoundOnPanel(IUIPanel *pPanel);
+	void PlaySoundOnPanel( IUIPanel *pPanel, CStyleProperty* pPrev );
+
+	CUtlVector< CUtlString > m_vecSoundNames;
 };
 
 
@@ -7996,6 +9255,29 @@ public:
 	}
 };
 
+//-----------------------------------------------------------------------------
+// Purpose: Transition sound property
+//-----------------------------------------------------------------------------
+class CStylePropertyTransitionSound : public CStylePropertySound
+{
+public:
+	static const CStyleSymbol symbol;
+	CStylePropertyTransitionSound() : CStylePropertySound(CStylePropertyTransitionSound::symbol)
+	{
+	}
+
+	// Return a description for this property which will be shown in the debugger
+	virtual const char *GetDescription(CStyleSymbol symProperty)
+	{
+		return "Specifies a sound name to play when this selector is applied and the value was previously set.<br><br>"
+			"<b>Example:</b>"
+			"<pre>"
+			"sound-trans: \"whoosh_in\";"
+			"</pre>";
+	}
+};
+
+
 
 //-----------------------------------------------------------------------------
 // Purpose: Exit sound property
@@ -8017,6 +9299,186 @@ public:
 			"sound-out: \"whoosh_out\";"
 			"</pre>";
 	}
+};
+
+
+//-----------------------------------------------------------------------------
+// Purpose: UI Scale
+//-----------------------------------------------------------------------------
+class CStylePropertyUIScale : public CStyleProperty
+{
+public:
+	static const CStyleSymbol symbol;
+	static const CStyleSymbol symbolX;
+	static const CStyleSymbol symbolY;
+	static const CStyleSymbol symbolZ;
+
+	CStylePropertyUIScale() 
+		: CStyleProperty( CStylePropertyUIScale::symbol )
+		, m_vUIScale( k_flFloatNotSet, k_flFloatNotSet, k_flFloatNotSet )
+	{
+	}
+
+
+	static inline const Vector &GetDefault()
+	{
+		static Vector s_vDefault( 1.0f, 1.0f, 1.0f );
+		return s_vDefault;
+	}
+
+	static inline float GetDefaultX() { return GetDefault().x; }
+	static inline float GetDefaultY() { return GetDefault().y; }
+	static inline float GetDefaultZ() { return GetDefault().z; }
+
+	virtual void MergeTo( CStyleProperty *pTarget ) const
+	{
+		if ( !BMergeToCommon( pTarget ) )
+			return;
+
+		CStylePropertyUIScale *p = ( CStylePropertyUIScale * )pTarget;
+		
+		if ( p->m_vUIScale.x == k_flFloatNotSet )
+			p->m_vUIScale.x = m_vUIScale.x;
+		if ( p->m_vUIScale.y == k_flFloatNotSet )
+			p->m_vUIScale.y = m_vUIScale.y;
+		if ( p->m_vUIScale.z == k_flFloatNotSet )
+			p->m_vUIScale.z = m_vUIScale.z;
+	}
+
+	// Can this property support animation?
+	virtual bool BCanTransition() { return true; }
+
+	// Interpolation func for animation of this property
+	virtual void Interpolate( IUIPanel *pPanel, const CStyleProperty &target, float flProgress /* 0.0->1.0 */ )
+	{ 
+		if ( target.GetPropertySymbol() != GetPropertySymbol() )
+		{
+			AssertMsg( false, "Mismatched types to CStylePropertyUIScale::Interpolate" );
+			return;
+		}
+
+		const CStylePropertyUIScale *p = ( const CStylePropertyUIScale * )&target;
+		m_vUIScale = Lerp( flProgress, m_vUIScale, p->m_vUIScale );
+	}
+
+	// Parses string and sets value
+	virtual bool BSetFromString( CStyleSymbol symParsedName, const char *pchString )
+	{
+		if ( symParsedName == symbol )
+		{
+			if ( !CSSHelpers::BParsePercent( &m_vUIScale.x, pchString, &pchString ) )
+				return false;
+			m_vUIScale.x /= 100.0f;
+
+			pchString = CSSHelpers::SkipSpaces( pchString );
+			if ( !pchString || pchString[ 0 ] == '\0' )
+			{
+				m_vUIScale.y = m_vUIScale.x;
+				m_vUIScale.z = m_vUIScale.x;
+				return true;
+			}
+
+			if ( !CSSHelpers::BParsePercent( &m_vUIScale.y, pchString, &pchString ) )
+				return false;
+			m_vUIScale.y /= 100.0f;
+
+			if ( !CSSHelpers::BParsePercent( &m_vUIScale.z, pchString, &pchString ) )
+				return false;
+			m_vUIScale.z /= 100.0f;
+
+			return true;
+		}
+		else if ( symParsedName == symbolX )
+		{
+			if ( !CSSHelpers::BParsePercent( &m_vUIScale.x, pchString, &pchString ) )
+				return false;
+			m_vUIScale.x /= 100.0f;
+			return true;
+		}
+		else if ( symParsedName == symbolY )
+		{
+			if ( !CSSHelpers::BParsePercent( &m_vUIScale.y, pchString, &pchString ) )
+				return false;
+			m_vUIScale.y /= 100.0f;
+			return true;
+		}
+		else if ( symParsedName == symbolZ )
+		{
+			if ( !CSSHelpers::BParsePercent( &m_vUIScale.z, pchString, &pchString ) )
+				return false;
+			m_vUIScale.z /= 100.0f;
+			return true;
+		}
+		else
+		{
+			return false;
+		}
+	}
+
+	// Gets string representation of property
+	virtual void ToString( CFmtStr1024 *pfmtBuffer ) const
+	{
+		CSSHelpers::AppendPercent( pfmtBuffer, m_vUIScale.x * 100.0f );
+		pfmtBuffer->Append( " " );
+		CSSHelpers::AppendPercent( pfmtBuffer, m_vUIScale.y * 100.0f );
+		pfmtBuffer->Append( " " );
+		CSSHelpers::AppendPercent( pfmtBuffer, m_vUIScale.z * 100.0f );
+	}
+
+	// When applying styles to an element, used to determine if all data for this property has been set or if more fields should be found
+	// by looking at lower weight styles
+	virtual bool BFullySet() const
+	{
+		return m_vUIScale.x != k_flFloatNotSet && m_vUIScale.y != k_flFloatNotSet && m_vUIScale.z != k_flFloatNotSet;
+	}
+
+	// called when applied to a panel. Gives the style an opportunity to change any unset values to defaults
+	virtual void ResolveDefaultValues()
+	{
+		if ( m_vUIScale.x == k_flFloatNotSet )
+			m_vUIScale.y = GetDefaultX();
+
+		if ( m_vUIScale.y == k_flFloatNotSet )
+			m_vUIScale.y = GetDefaultY();
+
+		if ( m_vUIScale.x == k_flFloatNotSet )
+			m_vUIScale.z = GetDefaultZ();
+	}
+
+	// Comparison function
+	virtual bool operator==( const CStyleProperty &other ) const
+	{
+		if ( GetPropertySymbol() != other.GetPropertySymbol() )
+			return false;
+
+		const CStylePropertyUIScale &rhs = ( const CStylePropertyUIScale & )other;
+
+		return m_vUIScale == rhs.m_vUIScale;
+	}
+
+	// Layout pieces that can be invalidated when the property is applied to a panel	
+	virtual EStyleInvalidateLayout GetInvalidateLayout( CStyleProperty *pCompareProperty ) const
+	{
+		if ( !pCompareProperty || !( *this == *pCompareProperty ) )
+			return k_EStyleInvalidateLayoutSizeAndPosition;
+
+		return k_EStyleInvalidateLayoutNone;
+	}
+
+	// Return a description for this property which will be shown in the debugger
+	virtual const char *GetDescription( CStyleSymbol symProperty )
+	{
+		return 
+			"Specifies a scale to apply to this panel's layout and all descendants. This scale happens at the layout level rather"
+			"than the bitmap level, so things like text will increase their font size rather than just bitmap scaling. <br><br>"
+			"<b>Examples:</b>"
+			"<pre>"
+			"ui-scale: 150%; // 150% scaling for X, Y, and Z.\n"
+			"ui-scale: 50% 100% 150%; // 50% scaling for X, 100% for Y. 150% for Z."
+			"</pre>";
+	}
+
+	Vector m_vUIScale;
 };
 
 

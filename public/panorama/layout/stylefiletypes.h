@@ -17,6 +17,8 @@ namespace panorama
 class IUILayoutFile;
 class IUIPanel;
 
+typedef uint32 StyleFileIndex_t; // see ConstructStyleFileIndex
+
 //-----------------------------------------------------------------------------
 // Purpose: Validate statics
 //-----------------------------------------------------------------------------
@@ -33,7 +35,7 @@ struct CascadeStyleFileInfo_t
 {
 	const StyleFromFile_t *m_pStyleFromFile;
 	panorama::IUILayoutFile *m_pLayoutFile;		// layout file
-	uint m_iStyleFile;							// layout file index	
+	StyleFileIndex_t m_iStyleFile;				// layout file index	
 	uint m_unSelectorSpecificity;				// score for this selector (high = overrides lower valued selectors)
 };
 

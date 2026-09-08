@@ -32,6 +32,7 @@ public:
 	bool BIsHTTPURL() const;
 	bool BIsLocalPath() const;
 	bool BIsSMBShare() const;
+	bool BIsRawFilePath() const { return m_eRefType == eRawFile; }
 	const CUtlVector<CUtlString> &GetCookieHeadersForHTTPURL() const;
 
 	const CUtlString &GetReferencePath() const;
@@ -59,7 +60,8 @@ private:
 		eHTTPURL,
 		eFile,
 		eSMB,
-		eSource2Relative
+		eSource2Relative,
+		eRawFile
 	};
 	EReferenceType m_eRefType;
 	CUtlString m_sReference;

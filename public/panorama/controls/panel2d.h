@@ -6,10 +6,9 @@
 #ifndef PANEL2D_H
 #define PANEL2D_H
 
-#ifdef _WIN32
+#if defined( _WIN32 ) || defined( SOURCE2_PANORAMA )
 #pragma once
 #endif
-
 
 #include "../iuiengine.h"
 #include "../iuipanel.h"
@@ -38,6 +37,7 @@
 #endif
 #include "tier1/utlmap.h"
 #include "panorama/layout/stylesymbol.h"
+#include <functional>
 
 namespace panorama
 {
@@ -48,8 +48,6 @@ namespace panorama
 
 class CLayoutFile;
 class CTopLevelWindow;
-class CVerticalScrollBar;
-class CHorizontalScrollBar;
 struct PanelDescription_t;
 class CUIRenderEngine;
 class CImageResourceManager;
@@ -57,16 +55,7 @@ class CPanelStyle;
 class CBackgroundImageLayer;
 class CPanel2D;
 class CScrollBar;
-
-// Typedefs for getter/setter methods that can be exposed via JS
-typedef float(CPanel2D::*PanelFloatGetter_t)() const;
-typedef void(CPanel2D::*PanelFloatSetter_t)(float);
-typedef const char *(CPanel2D::*PanelStringGetter_t)() const;
-typedef void(CPanel2D::*PanelStringSetter_t)(const char *);
-typedef bool(CPanel2D::*PanelBoolGetter_t)() const;
-typedef void(CPanel2D::*PanelBoolSetter_t)(bool);
-typedef CPanoramaSymbol( CPanel2D::*PanelSymbolGetter_t )() const;
-typedef void(CPanel2D::*PanelSymbolSetter_t)(CPanoramaSymbol);
+class CJSKeyframesObject;
 
 inline CPanel2D * ToPanel2D( IUIPanel *pPanel )
 {
@@ -76,6 +65,8 @@ inline CPanel2D * ToPanel2D( IUIPanel *pPanel )
 	return NULL;
 }
 
+void JSCreatePanelWithCurrentContext( const v8::FunctionCallbackInfo<v8::Value>& args );
+IUIPanel *GetPanelFromJSArgs( const v8::Local< v8::Value > &arg );
 	
 //-----------------------------------------------------------------------------
 // Purpose: Struct used to perform hit tests
@@ -110,19 +101,25 @@ public:
 
 	virtual ~CPanel2D();
 
+	template <typename T> T* downcast();
+	template <typename T> const T* downcast() const;
+
 	// Check if the panel has loaded layout
 	bool IsLoaded() const { return m_pIUIPanel->IsLoaded(); }
 
 	virtual void OnDeletePanel() OVERRIDE { delete this; }
 
 	// Access the panorama side UI panel interface for the client panel
-	virtual IUIPanel *UIPanel() const { return m_pIUIPanel; }
+	virtual IUIPanel *UIPanel() const OVERRIDE { return m_pIUIPanel; }
 
 	void DeleteAsync( float flDelay = 0.0f );
 
 	// Set the panel visible
 	void SetVisible( bool bVisible ) { m_pIUIPanel->SetVisible( bVisible ); }
 	bool BIsVisible() const { return m_pIUIPanel->BIsVisible(); }
+
+	// Override paint cmd cache heuristic
+	void SetForceBuildPaintCmdCache( bool bForce) { m_pIUIPanel->SetCachePaintCmdList( bForce ); }
 
 	// Get the base position for the panel
 	void GetPosition( CUILength &x, CUILength &y, CUILength &z, bool bIncludeUIScaleFactor = true );
@@ -131,7 +128,9 @@ public:
 	void SetPosition( CUILength x, CUILength y, CUILength z, bool bPreScaledByUIScaleFactor = false );
 	void SetPositionWithoutTransition( CUILength x, CUILength y, CUILength z, bool bPreScaledByUIScaleFactor = false );
 	void SetTransform3D( const CUtlVector<CTransform3D *> &vecTransforms );
+	void SetTransform3DSimple( const CUtlVector<CTransform3D *> &vecTransforms ) { m_pIUIPanel->SetTransform3DSimple( vecTransforms ); }
 	void SetOpacity( float flOpacity );
+	void SetOpacitySimple( float flOpacity ) { m_pIUIPanel->SetOpacitySimple( flOpacity ); }
 	bool BIsTransparent() { return m_pIUIPanel->BIsTransparent();  }
 	void SetPreTransformScale2D( float flX, float flY );
 
@@ -144,7 +143,7 @@ public:
 	virtual bool GetContextUIBounds( float *pflX, float *pflY, float *pflWidth, float *pflHeight ) { return false; }
 
 	// Set the animation style for the panel
-	void SetAnimation( const char *pchAnimationName, float flDuration, float flDelay, EAnimationTimingFunction eTimingFunc, EAnimationDirection eDirection, float flIterations ) { m_pIUIPanel->SetAnimation( pchAnimationName, flDuration, flDelay, eTimingFunc, eDirection, flIterations ); }
+	void SetAnimation( const char *pchAnimationName, float flDuration, float flDelay, EAnimationTimingFunction eTimingFunc, EAnimationDirection eDirection, EAnimationFillMode eFillMode, float flIterations ) { m_pIUIPanel->SetAnimation( pchAnimationName, flDuration, flDelay, eTimingFunc, eDirection, eFillMode, flIterations ); }
 
 	// Returns the layout file for this panel
 	CPanoramaSymbol GetLayoutFile() const { return m_pIUIPanel->GetLayoutFile(); }
@@ -168,13 +167,19 @@ public:
 	void ClearPropertyFromCode( panorama::CStyleSymbol symProperty );
 
 	// Virtual called on scale factor for panel changing
-	virtual void OnUIScaleFactorChanged( float flScaleFactor ) OVERRIDE { }
+	virtual void OnUIScaleFactorChanged( const Vector &vOldScaleFactor, const Vector &vNewScaleFactor ) OVERRIDE { }
 
 	// Paint the panel and it's children, called by the rendering layer when it's time to paint.
-	void PaintTraverse() { m_pIUIPanel->PaintTraverse(); }
+	void PaintTraverse() { m_pIUIPanel->PaintTraverse( NULL, false ); }
 
-	// Paint the panels contents
+	// Paint the panel's contents
 	virtual void Paint() OVERRIDE;
+
+	// Paint the panel's contents in the given area
+	virtual void PaintArea( const PanoramaRect_t &rectPaintArea ) OVERRIDE;
+
+	// Called on the first frame that this panel skipped painting because it was not visible
+	virtual void StoppedPainting() OVERRIDE;
 
 	// Invalidates painting and tells the panel it must repaint next frame
 	void SetRepaint( EPanelRepaint eRepaintNeeded );
@@ -182,14 +187,35 @@ public:
 	// sets & loads the layout file for this panel
 	bool BLoadLayout( const char *pchFile, bool bOverrideExisting = false, bool bPartialLayout = false ) { return m_pIUIPanel->BLoadLayout( pchFile, bOverrideExisting, bPartialLayout ); }
 
+	// Considers a layout load failure a fatal error.
+	void RequireLoadLayout( const char *pchFile, bool bOverrideExisting = false, bool bPartialLayout = false ) { m_pIUIPanel->RequireLoadLayout( pchFile, bOverrideExisting, bPartialLayout ); }
+
 	// sets & loads the layout for this panel
 	bool BLoadLayoutFromString( const char *pchXMLString, bool bOverrideExisting = false, bool bPartialLayout = false ) { return m_pIUIPanel->BLoadLayoutFromString( pchXMLString, bOverrideExisting, bPartialLayout ); }
+
+	// Considers a layout load failure a fatal error.
+	void RequireLoadLayoutFromString( const char *pchXMLString, bool bOverrideExisting = false, bool bPartialLayout = false ) { m_pIUIPanel->RequireLoadLayoutFromString( pchXMLString, bOverrideExisting, bPartialLayout ); }
+
+	// Loads a snippet from the panel's current layout file
+	bool BLoadLayoutSnippet( const char *pchSnippetName ) { return m_pIUIPanel->BLoadLayoutSnippet( pchSnippetName ); }
+
+	// Loads a snippet and considers failure a fatal error
+	void RequireLoadLayoutSnippet( const char *pchSnippetName ) { m_pIUIPanel->RequireLoadLayoutSnippet( pchSnippetName ); }
+
+	// Returns true if a snippet is available by the given name
+	bool BHasLayoutSnippet( const char *pchSnippetName ) { return m_pIUIPanel->BHasLayoutSnippet( pchSnippetName ); }
 
 	// sets loads the layout file for this panel, asynchronously supporting remote http:// paths
 	void LoadLayoutAsync( const char *pchFile, bool bOverrideExisting = false, bool bPartialLayout = false ) { return m_pIUIPanel->LoadLayoutAsync( pchFile, bOverrideExisting, bPartialLayout ); }
 
 	// loads the layout file for this panel, asynchronously supporting remote http:// paths in css within
 	void LoadLayoutFromStringAsync( const char *pchXMLString, bool bOverrideExisting, bool bPartialLayout = false ) { return m_pIUIPanel->LoadLayoutFromStringAsync( pchXMLString, bOverrideExisting, bPartialLayout );  }
+
+	// creates & appends child panels from a string. String XML should only include XML of children, not this panel as a wrapper
+	bool BCreateChildren( const char *pchXMLSring ) { return m_pIUIPanel->BCreateChildren( pchXMLSring ); }
+
+	// removes all children and unloads the layout
+	void UnloadLayout( void ) { m_pIUIPanel->UnloadLayout(); }
 
 	// Measure self and children. First pass of layout
 	void DesiredLayoutSizeTraverse( float flMaxWidth, float flMaxHeight ) { m_pIUIPanel->DesiredLayoutSizeTraverse( flMaxWidth, flMaxHeight ); }
@@ -233,6 +259,12 @@ public:
 	float GetActualXOffset() const { return m_pIUIPanel->GetActualXOffset(); }
 	float GetActualYOffset() const { return m_pIUIPanel->GetActualYOffset(); }
 
+	// The calculated UI scale of this panel.
+	Vector GetActualUIScale() const { return m_pIUIPanel->GetActualUIScale(); }
+	float GetActualUIScaleX() const { return m_pIUIPanel->GetActualUIScaleX(); }
+	float GetActualUIScaleY() const { return m_pIUIPanel->GetActualUIScaleY(); }
+	float GetActualUIScaleZ() const { return m_pIUIPanel->GetActualUIScaleZ(); }
+
 	// Offset to apply to contents for scrolling
 	float GetContentsYScrollOffset() const { return m_pIUIPanel->GetContentsYScrollOffset(); }
 	float GetContentsXScrollOffset() const { return m_pIUIPanel->GetContentsXScrollOffset(); }
@@ -240,6 +272,10 @@ public:
 	float GetContentsXScrollOffsetTarget() const { return m_pIUIPanel->GetContentsXScrollOffsetTarget(); }
 	double GetContentsXScrollTransitionStart() const { return m_pIUIPanel->GetContentsXScrollTransitionStart(); }
 	double GetContentsYScrollTransitionStart() const { return m_pIUIPanel->GetContentsYScrollTransitionStart(); }
+	double GetContentsXScrollTransitionTime() const { return m_pIUIPanel->GetContentsXScrollTransitionTime(); }
+	double GetContentsYScrollTransitionTime() const { return m_pIUIPanel->GetContentsYScrollTransitionTime(); }
+	EAnimationTimingFunction GetContentsXScrollTransitionTimingFunction() const { return m_pIUIPanel->GetContentsXScrollTransitionTimingFunction(); }
+	EAnimationTimingFunction GetContentsYScrollTransitionTimingFunction() const { return m_pIUIPanel->GetContentsYScrollTransitionTimingFunction(); }
 	float GetInterpolatedXScrollOffset() { return m_pIUIPanel->GetInterpolatedXScrollOffset(); }
 	float GetInterpolatedYScrollOffset() { return m_pIUIPanel->GetInterpolatedYScrollOffset(); }
 
@@ -273,6 +309,10 @@ public:
 	void SetHasClass( CPanoramaSymbol symName, bool bHasClass ) { m_pIUIPanel->SetHasClass( symName, bHasClass ); }
 	void SwitchClass( const char *pchAttribute, const char *pchName ) { m_pIUIPanel->SwitchClass( pchAttribute, pchName ); }
 	void SwitchClass( const char *pchAttribute, CPanoramaSymbol symName ) { m_pIUIPanel->SwitchClass( pchAttribute, symName ); }
+	void SwitchClass( CPanoramaSymbol symAttribute, const char *pchName ) { m_pIUIPanel->SwitchClass( symAttribute, pchName ); }
+	void SwitchClass( CPanoramaSymbol symAttribute, CPanoramaSymbol symName ) { m_pIUIPanel->SwitchClass( symAttribute, symName ); }
+	void TriggerClass( const char *pchName ) { m_pIUIPanel->TriggerClass( pchName ); }
+	void TriggerClass( CPanoramaSymbol symName ) { m_pIUIPanel->TriggerClass( symName ); }
 
 	const char *GetID() const { return m_pIUIPanel->GetID(); }
 	bool BHasID() const { return m_pIUIPanel->GetID()[0] != '0'; }
@@ -304,6 +344,7 @@ public:
 	virtual bool OnMouseWheel( const MouseData_t &code ) OVERRIDE;
 	virtual void OnMouseMove( float flMouseX, float flMouseY ) OVERRIDE;
 	virtual bool OnClick( IUIPanel *pPanel, const MouseData_t &code ) OVERRIDE;
+	virtual bool OnVRTouchPad( const VRTouchEvent_t &code ) OVERRIDE{ return false; }
 
 	// events
 	bool OnScrollDirection( IUIScrollBar *pScrollBar, bool bIncreasePosition, float flDelta );
@@ -336,12 +377,55 @@ public:
 
 
 	// child iteration
+	class CChildIterator
+	{
+	public:
+		CChildIterator( CPanel2D *pPanel, int iChildIndex ) : m_pPanel( pPanel ), m_iChildIndex( iChildIndex )
+		{
+			Assert( m_pPanel );
+			Assert( iChildIndex >= 0 );
+			Assert( iChildIndex <= m_pPanel->GetChildCount() );			// <= is intentional, supporting end() iterator
+		}
+
+		CPanel2D *operator*() { return m_pPanel->GetChild( m_iChildIndex ); }
+		void operator++() { ++m_iChildIndex; }
+		bool operator!=( const CChildIterator& other ) { return m_pPanel != other.m_pPanel || m_iChildIndex != other.m_iChildIndex; }
+
+	private:
+		CPanel2D *m_pPanel;
+		int m_iChildIndex;
+	};
+
+	class CChildIteratorProxy
+	{
+	public:
+		CChildIteratorProxy( CPanel2D *pPanel ) : m_pPanel( pPanel ) { Assert( pPanel ); }
+
+		CChildIterator begin() { return CChildIterator( m_pPanel, 0 ); }
+		CChildIterator end() { return CChildIterator( m_pPanel, m_pPanel->GetChildCount() ); }
+
+	private:
+		CPanel2D *m_pPanel;
+	};
+
+	CChildIteratorProxy Children() { return CChildIteratorProxy( this ); }
+
 	int GetChildCount() const { return m_pIUIPanel->GetChildCount(); }
 	CPanel2D *GetChild( int i ) const { return ToPanel2D( m_pIUIPanel->GetChild( i ) ); }
 	CPanel2D *GetFirstChild() const { return ToPanel2D( m_pIUIPanel->GetFirstChild() ); }
 	CPanel2D *GetLastChild() const { return ToPanel2D( m_pIUIPanel->GetLastChild() ); }
 	// Return index of child in creation/panel vector order (also default tab order)
 	int GetChildIndex( const CPanel2D *pChild ) const { if( !pChild ) return -1; else return m_pIUIPanel->GetChildIndex( pChild->UIPanel() ); }
+
+	// Convenient way to iterate through children calling a lambda on each one. Return false from
+	// the function break out of the loop midway through.
+	bool IterateChildren( std::function< bool( CPanel2D *pChild ) > fn );
+	bool IterateChildrenTraverse( std::function< bool( CPanel2D *pChild ) > fn );
+
+	// Same as IterateChildren, but will only call the lambda on children that are exactly the
+	// given type (checked by comparing the ).
+	template < class T > bool IterateChildrenOfType( std::function< bool( T *pChild ) > fn );
+	template < class T > bool IterateChildrenTraverseOfType( std::function< bool( T *pChild ) > fn );
 
 	int GetHiddenChildCount() const { return m_pIUIPanel->GetHiddenChildCount(); }
 	CPanel2D *GetHiddenChild( int i ) const { return ToPanel2D( m_pIUIPanel->GetHiddenChild( i ) ); }
@@ -352,21 +436,34 @@ public:
 	// searches only immediate children
 	CPanel2D *FindChild( const char *pchID ) { return ToPanel2D( m_pIUIPanel->FindChild( pchID ) ); }
 
+	// Considers a failure to find a child a fatal error.
+	CPanel2D *RequireChild( const char *pchID ) { return ToPanel2D( m_pIUIPanel->RequireChild( pchID ) ); }
+
 	// searches all children even outside layout file scope
 	CPanel2D *FindChildTraverse( const char *pchID ) { return ToPanel2D( m_pIUIPanel->FindChildTraverse( pchID ) ); }
+
+	// Considers a failure to find a child a fatal error.
+	CPanel2D *RequireChildTraverse( const char *pchID ) { return ToPanel2D( m_pIUIPanel->RequireChildTraverse( pchID ) ); }
 
 	// searches any children created from our layout file
 	CPanel2D *FindChildInLayoutFile( const char *pchID ) { return ToPanel2D( m_pIUIPanel->FindChildInLayoutFile( pchID ) ); }
 
+	// Considers a failure to find a child a fatal error.
+	CPanel2D *RequireChildInLayoutFile( const char *pchID ) { return ToPanel2D( m_pIUIPanel->RequireChildInLayoutFile( pchID ) ); }
+
 	// searches any panel created from our layout file (so parents or children!)
 	CPanel2D *FindPanelInLayoutFile( const char *pchID ) { return ToPanel2D( m_pIUIPanel->FindPanelInLayoutFile( pchID ) ); }
+
+	// Considers a failure to find a child a fatal error.
+	CPanel2D *RequirePanelInLayoutFile( const char *pchID ) { return ToPanel2D( m_pIUIPanel->RequirePanelInLayoutFile( pchID ) ); }
 
 	void MoveChildAfter( CPanel2D *pChildToMove, CPanel2D *pBefore ) { return m_pIUIPanel->MoveChildAfter( pChildToMove->UIPanel(), pBefore->UIPanel() ); }
 	void MoveChildBefore( CPanel2D *pChildToMove, CPanel2D *pAfter ) { return m_pIUIPanel->MoveChildBefore( pChildToMove->UIPanel(), pAfter->UIPanel() ); }
 
+	void FindChildrenWithClassTraverse( CPanoramaSymbol symClassName, /*out*/ CUtlVector<CPanel2D*> *pVecMatchingChildren );
+
 	// window management
 	IUIWindow *GetParentWindow() const { return m_pIUIPanel->GetParentWindow(); }
-
 
 	// input & focus
 	bool BAcceptsInput() { return m_pIUIPanel->BAcceptsInput();  }
@@ -378,7 +475,14 @@ public:
 	const char *GetDefaultFocus() const { return m_pIUIPanel->GetDefaultFocus();  }
 	void SetDisableFocusOnMouseDown( bool bDisable ) { m_pIUIPanel->SetDisableFocusOnMouseDown( bDisable ); }
 	bool BFocusOnMouseDown() { return m_pIUIPanel->BFocusOnMouseDown(); }
+	bool BCanClearFocusByClicking() { return m_pIUIPanel->BCanClearFocusByClicking(); }
 	virtual bool BRequiresFocus() { return false; } // Override if your control requires taking focus in order to operate (e.g. TextEntry)
+
+	bool BEnableAnalogStickScrolling() { return m_pIUIPanel->BEnableAnalogStickScrolling(); }
+	void EnableAnalogStickScrolling( bool bEnable ) { m_pIUIPanel->EnableAnalogStickScrolling( bEnable ); }
+
+	bool BScrollParentToFitWhenFocused() { return m_pIUIPanel->BScrollParentToFitWhenFocused(); }
+	void SetScrollParentToFitWhenFocused( bool bScrollToFitParent ) { m_pIUIPanel->SetScrollParentToFitWhenFocused( bScrollToFitParent ); }
 
 	// Should this panel be the top of an input hierarchy and keep track of focus within itself, not losing focus when a panel in some
 	// other hierarchy changes focus?  Use this for panels that are peers like friends vs browser vs mainmenu in tenfoot
@@ -412,7 +516,7 @@ public:
 	void RemoveStyleFlag( EStyleFlags eStyleFlag ) { m_pIUIPanel->RemoveStyleFlag( eStyleFlag ); }
 	bool IsInspected() const { return m_pIUIPanel->IsInspected(); }
 	bool BHasHoverStyle() const { return m_pIUIPanel->BHasHoverStyle(); }
-	void SetSelected( bool bSelected ) { m_pIUIPanel->SetSelected( bSelected ); }
+	virtual void SetSelected( bool bSelected ) { m_pIUIPanel->SetSelected( bSelected ); }
 	bool IsSelected() const { return m_pIUIPanel->IsSelected(); }
 	bool BHasKeyFocus() const { return m_pIUIPanel->BHasKeyFocus(); }
 	bool BHasDescendantKeyFocus() const { return m_pIUIPanel->BHasDescendantKeyFocus(); }
@@ -437,6 +541,14 @@ public:
 	bool BHitTestEnabled() const { return m_pIUIPanel->BHitTestEnabled(); }
 	void SetHitTestEnabledTraverse( bool bEnabled ) { m_pIUIPanel->SetHitTestEnabledTraverse( bEnabled ); }
 
+	// Enable/disable hit testing on children of this panel. Prevents recursing into children when doing hit testing,
+	// thus it override children's individual hit test flags.
+	void SetHitTestChildrenEnabled( bool bEnabled ) { m_pIUIPanel->SetHitTestChildrenEnabled( bEnabled ); }
+	bool BHitTestChildrenEnabled() const { return m_pIUIPanel->BHitTestChildrenEnabled(); }
+
+	void SetDraggable( bool bEnabled ) { m_pIUIPanel->SetDraggable( bEnabled ); }
+	bool IsDraggable() const { return m_pIUIPanel->IsDraggable(); }
+
 	void SetOnActivateEvent( IUIEvent *pEvent );
 	void SetOnActivateEvent( const char *pchEventString );
 	void SetOnFocusEvent( IUIEvent *pEvent );
@@ -449,6 +561,8 @@ public:
 	void SetOnDblClickEvent( IUIEvent *pEvent );
 	void SetOnTabForwardEvent( IUIEvent *pEvent );
 	void SetOnTabBackwardEvent( IUIEvent *pEvent );
+	void SetOnSelectEvent( IUIEvent *pEvent );
+	void SetOnDeselectEvent( IUIEvent *pEvent );
 
 	// bugbug jmccaskey - DELETE ME	
 	// bugbug jmccaskey - both of the next two functions need to be deleted, we should
@@ -465,6 +579,7 @@ public:
 	// Dialog variables
 	void SetDialogVariable( const char *pchKey, const char *pchValue );
 	void SetDialogVariable( const char *pchKey, int iVal );
+	void SetDialogVariable( const char *pchKey, uint64 iVal );
 	// We do NOT have a uint32 type here by design, to prevent you accidenatlly using a RTime32
 	// and getting a number value. Either cast to int for a number or construct a CRTime
 #if defined (SOURCE2_PANORAMA )
@@ -508,7 +623,8 @@ public:
 	void RemoveAndDeleteChildrenOfType( CPanoramaSymbol symPanelType ) { m_pIUIPanel->RemoveAndDeleteChildrenOfType( symPanelType ); }
 	uint32 GetChildCountOfType( CPanoramaSymbol symPanelType ) { return m_pIUIPanel->GetChildCountOfType( symPanelType ); }
 	bool IsDescendantOf( const CPanel2D *pPanel ) const { return m_pIUIPanel->IsDescendantOf( pPanel ? pPanel->m_pIUIPanel : NULL ); }
-	CPanel2D *FindAncestor( const char *pchID ) { return ToPanel2D( m_pIUIPanel->FindAncestor( pchID ) );  }
+	CPanel2D *FindAncestor( const char *pchID ) const { return ToPanel2D( m_pIUIPanel->FindAncestor( pchID ) );  }
+	CPanel2D *FindLowestCommonAncestor( CPanel2D *pOther ) const { return ToPanel2D( m_pIUIPanel->FindLowestCommonAncestor( pOther ? pOther->UIPanel() : nullptr ) ); }
 
 	// layout file
 	CPanoramaSymbol GetLayoutFileLoadedFrom() const { return m_pIUIPanel->GetLayoutFileLoadedFrom(); }
@@ -524,7 +640,7 @@ public:
 
 	// Panel events
 	bool DispatchPanelEvent( CPanoramaSymbol symPanelEvent ) { return m_pIUIPanel->DispatchPanelEvent( symPanelEvent ); }
-	bool BParsePanelEvent( CPanoramaSymbol symPanelEvent, const char *pchValue ) { return m_pIUIPanel->BParsePanelEvent( symPanelEvent, pchValue ); }
+	bool BParsePanelEvent( CPanoramaSymbol symPanelEvent, const char *pchValue, IUIPanel *pJavascriptContext ) { return m_pIUIPanel->BParsePanelEvent( symPanelEvent, pchValue, pJavascriptContext ); }
 	bool BIsPanelEventSet( CPanoramaSymbol symPanelEvent ) { return m_pIUIPanel->BIsPanelEventSet( symPanelEvent ); }
 	bool BIsPanelEvent( CPanoramaSymbol symProperty ) { return m_pIUIPanel->BIsPanelEvent( symProperty ); }
 
@@ -532,7 +648,8 @@ public:
 	const char *GetInputNamespace() const {	return m_pIUIPanel->GetInputNamespace(); }
 
 	// the mouse cursor to display when hovered
-	virtual EMouseCursors GetMouseCursor() OVERRIDE { return eMouseCursor_Arrow; }
+	virtual EMouseCursors GetMouseCursor() OVERRIDE { return m_pIUIPanel->GetPanelMouseCursor(); }
+	void SetPanelMouseCursor( EMouseCursors eCursor ) { m_pIUIPanel->SetPanelMouseCursor( eCursor ); }
 
 	// controls if clicking on an unfocused panel should set focus
 	void SetMouseCanActivate( EMouseCanActivate eMouseCanActivate, const char *pchOptionalParent = NULL ) { m_pIUIPanel->SetMouseCanActivate( eMouseCanActivate, pchOptionalParent ); }
@@ -542,6 +659,10 @@ public:
 	// controls if clicking on an unfocused panel should set focus
 	void SetChildFocusOnHover( bool bEnable ) { m_pIUIPanel->SetChildFocusOnHover( bEnable ); }
 	bool GetChildFocusOnHover() { return m_pIUIPanel->GetChildFocusOnHover(); }
+
+	// controls if hovering on an unfocused panel should set focus
+	void SetFocusOnHover(bool bEnable) { m_pIUIPanel->SetFocusOnHover(bEnable); }
+	bool GetFocusOnHover() { return m_pIUIPanel->GetFocusOnHover(); }
 
 	// Set background images for the panel
 	void SetBackgroundImages( const CUtlVector< CBackgroundImageLayer * > &vecLayers );
@@ -555,7 +676,7 @@ public:
 	virtual CPanel2D *Clone();
 
 	// sort children
-	void SortChildren( int( __cdecl *pfnCompare )(const ClientPanelPtr_t *, const ClientPanelPtr_t *) ) { m_pIUIPanel->SortChildren( pfnCompare ); }
+	void SortChildren( std::function< int( IUIPanelClient *, IUIPanelClient * ) > fnCompare ) { m_pIUIPanel->SortChildren( fnCompare ); }
 
 	// set the namespace to use for input
 	void SetInputNamespace( const char *pchNamespace ) { m_pIUIPanel->SetInputNamespace( pchNamespace ); }
@@ -569,6 +690,9 @@ public:
 	// child management, use with caution! normally always managed internally.  Returns child index we inserted at.
 	int AddChildSorted( bool( __cdecl *pfnLessFunc )(ClientPanelPtr_t const &p1, ClientPanelPtr_t const &p2), CPanel2D *pChild ) { return m_pIUIPanel->AddChildSorted( pfnLessFunc, pChild->UIPanel() ); }
 
+	// re-sort a newly inserted child
+	virtual int ReSortChild( bool( __cdecl *pfnLessFunc )( ClientPanelPtr_t const &p1, ClientPanelPtr_t const &p2 ), CPanel2D *pChild ) { return m_pIUIPanel->ReSortChild( pfnLessFunc, pChild->UIPanel() ); }
+
 	// child management, use with caution! normally always managed internally.
 	void RemoveChild( CPanel2D *pChild ) { m_pIUIPanel->RemoveChild( pChild->UIPanel() ); }
 
@@ -581,37 +705,59 @@ public:
 	// Set that we need an on styles changed call when styles become non-dirty, even if there is no actual change.
 	void SetOnStylesChangedNeeded() { m_pIUIPanel->SetOnStylesChangedNeeded(); }
 
+	void ClearLastChildFocus() { m_pIUIPanel->ClearLastChildFocus(); }
 
 	// Getter for panel attributes
-	int GetAttribute( const char *pchAttrName, int nDefaultValue ) { return m_pIUIPanel->GetAttribute( pchAttrName, nDefaultValue ); }
+	int GetAttribute( const char *pchAttrName, int nDefaultValue ) const { return m_pIUIPanel->GetAttribute( pchAttrName, nDefaultValue ); }
+	const char *GetAttribute( const char *pchAttrName, const char * pchDefaultValue ) const { return m_pIUIPanel->GetAttribute( pchAttrName, pchDefaultValue ); }
+	uint32 GetAttribute( const char *pchAttrName, uint32 unDefaultValue ) const { return m_pIUIPanel->GetAttribute( pchAttrName, unDefaultValue ); }
+	uint64 GetAttribute( const char *pchAttrName, uint64 unDefaultValue ) const { return m_pIUIPanel->GetAttribute( pchAttrName, unDefaultValue ); }
+	float GetAttribute( const char *pchAttrName, float flDefaultValue ) const { return m_pIUIPanel->GetAttribute( pchAttrName, flDefaultValue ); }
 
-	// Getter for panel attributes
-	const char *GetAttribute( const char *pchAttrName, const char * pchDefaultValue ) { return m_pIUIPanel->GetAttribute( pchAttrName, pchDefaultValue ); }
-
-	// Getter for panel attributes
-	uint32 GetAttribute( const char *pchAttrName, uint32 unDefaultValue ) { return m_pIUIPanel->GetAttribute( pchAttrName, unDefaultValue ); }
-
-	// Getter for panel attributes
-	uint64 GetAttribute( const char *pchAttrName, uint64 unDefaultValue ) { return m_pIUIPanel->GetAttribute( pchAttrName, unDefaultValue ); }
+	int GetAttribute( CPanoramaSymbol symAttribute, int nDefaultValue ) const { return m_pIUIPanel->GetAttribute( symAttribute, nDefaultValue ); }
+	const char *GetAttribute( CPanoramaSymbol symAttribute, const char * pchDefaultValue ) const { return m_pIUIPanel->GetAttribute( symAttribute, pchDefaultValue ); }
+	uint32 GetAttribute( CPanoramaSymbol symAttribute, uint32 unDefaultValue ) const { return m_pIUIPanel->GetAttribute( symAttribute, unDefaultValue ); }
+	uint64 GetAttribute( CPanoramaSymbol symAttribute, uint64 unDefaultValue ) const { return m_pIUIPanel->GetAttribute( symAttribute, unDefaultValue ); }
+	float GetAttribute( CPanoramaSymbol symAttribute, float flDefaultValue ) const { return m_pIUIPanel->GetAttribute( symAttribute, flDefaultValue ); }
 
 	// Setter for panel attributes
 	void SetAttribute( const char *pchAttrName, int nValue ) { m_pIUIPanel->SetAttribute( pchAttrName, nValue ); }
-
-	// Setter for panel attributes
 	void SetAttribute( const char *pchAttrName, const char * pchValue ) { m_pIUIPanel->SetAttribute( pchAttrName, pchValue ); }
-
-	// Setter for panel attributes
 	void SetAttribute( const char *pchAttrName, uint32 unValue ) { m_pIUIPanel->SetAttribute( pchAttrName, unValue ); }
-
-	// Setter for panel attributes
 	void SetAttribute( const char *pchAttrName, uint64 unValue ) { m_pIUIPanel->SetAttribute( pchAttrName, unValue ); }
+	void SetAttribute( const char *pchAttrName, float flValue ) { m_pIUIPanel->SetAttribute( pchAttrName, flValue ); }
+
+	void SetAttribute( CPanoramaSymbol symAttribute, int nValue ) { m_pIUIPanel->SetAttribute( symAttribute, nValue ); }
+	void SetAttribute( CPanoramaSymbol symAttribute, const char * pchValue ) { m_pIUIPanel->SetAttribute( symAttribute, pchValue ); }
+	void SetAttribute( CPanoramaSymbol symAttribute, uint32 unValue ) { m_pIUIPanel->SetAttribute( symAttribute, unValue ); }
+	void SetAttribute( CPanoramaSymbol symAttribute, uint64 unValue ) { m_pIUIPanel->SetAttribute( symAttribute, unValue ); }
+	void SetAttribute( CPanoramaSymbol symAttribute, float flValue ) { m_pIUIPanel->SetAttribute( symAttribute, flValue ); }
+
+	// Remove a panel attribute
+	void RemoveAttribute( const char *pchAttrName ) { m_pIUIPanel->RemoveAttribute( pchAttrName ); }
+	void RemoveAttribute( CPanoramaSymbol symAttribute ) { m_pIUIPanel->RemoveAttribute( symAttribute ); }
 
 	// walks parents calculating the top left corner relative to window space
 	void GetPositionWithinWindow( float *pflX, float *pflY );
+	Vector2D GetPositionWithinWindowJS();
 
-	// walks parents calculating the top left corner relative to the ancestor's space. If
-	// the passed in panel is NULL or not an ancestor, this will end up being relative to the window space 
+	// Given an array of points within the current panel's coordinate system, convert them to an ancestor's cooordinate system.
+	// If the passed in panel is NULL or not an ancestor, this will end up being relative to the top level window
+	void GetPointsWithinAncestor( CPanel2D *pAncestor, const Vector *pPointsIn, Vector* pPointsOut, int nPointCount );
+	void GetPointsWithinAncestor( CPanel2D *pAncestor, const Vector2D *pPointsIn, Vector2D* pPointsOut, int nPointCount );
+
+	// Get the position of the top left corner of this panel relative to an ancestor.  If the passed in panel is NULL or
+	// not an ancestor, this will end up being relative to the top level window 
 	virtual void GetPositionWithinAncestor( CPanel2D *pAncestor, float *pflX, float *pflY ) OVERRIDE;
+
+	// Given an array of points within the current panel's coordinate system, convert them to another panel's coordinate system
+	// If the passed in panel is NULL or not in the same top level window, this will end up being relative to the top level window
+	void GetPointsRelativeToPanel( CPanel2D *pOtherPanel, const Vector *pPointsIn, Vector *pPointsOut, int nPointCount );
+	void GetPointsRelativeToPanel( CPanel2D *pOtherPanel, const Vector2D *pPointsIn, Vector2D *pPointsOut, int nPointCount );
+
+	// Get the axis-aligned bounding box of this panel relative to an ancestor. If the passed in panel is NULL or not
+	// an ancestor, this will end up being relative to the top level window 
+	void GetBoundsWithinAncestor( CPanel2D *pAncestor, float *pflLeft, float *pflTop, float *pflRight, float *pflBottom );
 
 	bool BHasAnyActiveTransitions();
 
@@ -622,6 +768,10 @@ public:
 	// the base method (so all the normal panel2d stuff gets exposed), plus call the various RegisterJS helpers yourself
 	// to expose additional panel type specific data/methods.
 	virtual void SetupJavascriptObjectTemplate() OVERRIDE;
+
+	// Call an arbitrary javascript function in the context of this panel. 
+	template < typename ReturnType, typename ...Arguments >
+	ReturnType CallJSFunction( const char *pchFunctionName, const Arguments&... args );
 
 	// Callback to client panel to create a scrollbar
 	virtual IUIScrollBar *CreateNewVerticalScrollBar( float flInitialScrollPos ) OVERRIDE;
@@ -635,6 +785,39 @@ public:
 	// Has this panel ever been layed out
 	virtual bool BHasBeenLayedOut() const { return m_pIUIPanel->BHasBeenLayedOut(); }
 
+	// Allow overriding the status of scrolling for this panel
+	virtual bool BCanCustomScrollUp() const OVERRIDE { return false;  }
+	virtual bool BCanCustomScrollDown() const OVERRIDE{ return false; }
+	virtual bool BCanCustomScrollLeft() const OVERRIDE { return false; }
+	virtual bool BCanCustomScrollRight() const OVERRIDE{ return false; }
+
+	virtual bool BCustomCanDragScroll() const OVERRIDE { return false; }
+	virtual bool BCustomScrollInProgress() OVERRIDE { return false; }
+
+	// Allow custom behavior on a layout file reload
+	virtual void OnLayoutReloading() OVERRIDE {}
+	virtual void OnLayoutReloaded() OVERRIDE {}
+
+	// composition layer hints to improve performance
+	void SetRequireCompositionLayer( bool bRequireCompositionLayer ) { m_pIUIPanel->SetRequireCompositionLayer( bRequireCompositionLayer ); }
+	bool BRequireCompositionLayer() const { return m_pIUIPanel->BRequireCompositionLayer(); }
+	void SetAlwaysCacheCompositionLayer( bool bAlwaysCacheCompositionLayer ) { m_pIUIPanel->SetAlwaysCacheCompositionLayer( bAlwaysCacheCompositionLayer ); }
+	bool BAlwaysCacheCompositionLayer() const { return m_pIUIPanel->BAlwaysCacheCompositionLayer(); }
+	void SetForceNoCompositionLayer( bool bForceNoCompositionLayer ) { m_pIUIPanel->SetForceNoCompositionLayer( bForceNoCompositionLayer ); }
+	bool BForceNoCompositionLayer() const { return m_pIUIPanel->BForceNoCompositionLayer(); }
+
+	// ready for display
+	void RegisterForReadyEvents( bool bEnable ) { m_pIUIPanel->RegisterForReadyEvents( bEnable ); }
+	bool BReadyForDisplay() { return m_pIUIPanel->BReadyForDisplay(); }
+	void SetReadyForDisplay( bool bReady ) { m_pIUIPanel->SetReadyForDisplay( bReady ); }
+
+	// CSSKeyframesRule-like support
+	// CloneKeyframes looks for @keyframes of given name in panel's style file set. 
+	// If found, returns copy, nullptr otherwise.
+	CJSKeyframesObject *JSCreateCopyOfCSSKeyframes( const char *pchKeyframesName ) { return m_pIUIPanel->JSCreateCopyOfCSSKeyframes( pchKeyframesName ); }
+	void JSDeleteKeyframes( CJSKeyframesObject *pKeyframes ) { m_pIUIPanel->JSDeleteKeyframes( pKeyframes ); }
+	void JSUpdateCurrentAnimationKeyframes( CJSKeyframesObject *pKeyframes ) { m_pIUIPanel->JSUpdateCurrentAnimationKeyframes( pKeyframes ); }
+
 #ifdef DBGFLAG_VALIDATE
 	virtual void ValidateClientPanel( CValidator &validator, const tchar *pchName ) OVERRIDE;
 	void Validate( CValidator &validator, const tchar *pchName );
@@ -642,16 +825,19 @@ public:
 #endif
 
 	void SetLayoutLoadedFromParent( CPanel2D *pParent ) { m_pIUIPanel->SetLayoutLoadedFromParent( pParent ? pParent->UIPanel() : NULL ); }
+	void SetPanelIntoContext( CPanel2D *pPanel ) { m_pIUIPanel->SetPanelIntoContext( pPanel->UIPanel() ); }
 
 	IUIImageManager *UIImageManager() { return m_pIUIPanel->UIImageManager(); }
+
+	// Call a given javascript function
+	static v8::Handle< v8::Value > CallPanelJSFunctionArgsCore( IUIPanel *pPanel, const char *pchFunctionName, int argc, v8::Handle< v8::Value > *argv );
 
 protected:
 	friend class CPanelStyle;
 	friend class CStyleFileSet;
-	friend class CVerticalScrollBar;
-	friend class CHorizontalScrollBar;
 
-	virtual IUIRenderEngine *AccessRenderEngine() { return m_pIUIPanel->GetParentWindow()->UIRenderEngine(); }
+	virtual IUIRenderEngine *AccessRenderEngine() { return m_pIUIPanel->UIRenderEngine(); }
+	virtual IUIRenderDevice *AccessRenderDevice() { return m_pIUIPanel->UIRenderDevice(); }
 
 	void FirePanelLoadedEvent() { m_pIUIPanel->FirePanelLoadedEvent();  }
 
@@ -663,10 +849,10 @@ protected:
 
 	// override to add additional panel events
 	virtual bool BIsClientPanelEvent( CPanoramaSymbol symProperty ) OVERRIDE;
-
-	// override to change how this panel arranges its children
-	virtual void OnLayoutTraverse( float flFinalWidth, float flFinalHeight ) OVERRIDE { m_pIUIPanel->OnLayoutTraverse( flFinalWidth, flFinalHeight ); }
 	
+	// override to change how this panel arranges its children
+	virtual void OnLayoutTraverse( float flFinalWidth, float flFinalHeight ) OVERRIDE{ m_pIUIPanel->OnLayoutTraverse( flFinalWidth, flFinalHeight ); }
+
 	virtual void OnStylesChanged() OVERRIDE { if ( m_pIUIPanel->GetParent() ) { m_pIUIPanel->GetParent()->ClientPtr()->OnChildStylesChanged(); } }
 	virtual void OnVisibilityChanged() OVERRIDE {}
 
@@ -706,7 +892,9 @@ private:
 
 	CUtlVector<IUIPanel *> const &AccessChildren() { return m_pIUIPanel->AccessChildren(); }
 	CUtlVector<IUIPanel *> const &JSFindChildrenWithClassTraverse( const char *pchClass );
+	void BJSLoadLayoutFromString( const v8::FunctionCallbackInfo<v8::Value> &args );
 
+	void GetJSData( const v8::FunctionCallbackInfo< v8::Value > &args );
 	
 	// event handler functions, these CANNOT be virtual, if you need to override then
 	// have this function call into another helper that is virtual to override behavior
@@ -714,6 +902,8 @@ private:
 	bool EventAddStyleClass( const CPanelPtr< IUIPanel > &pPanel, const char *pchName );
 	bool EventRemoveStyleClass( const CPanelPtr< IUIPanel > &pPanel, const char *pchName );
 	bool EventToggleStyleClass( const CPanelPtr< IUIPanel > &pPanel, const char *pchName );
+	bool EventSwitchStyleClass( const CPanelPtr< IUIPanel > &pPanel, const char *pchAttributeName, const char *pchName );
+	bool EventTriggerStyleClass( const CPanelPtr< IUIPanel > &pPanel, const char *pchName );
 	bool EventAddStyleClassToEachChild( const CPanelPtr< IUIPanel > &pPanel, const char *pchName );
 	bool EventRemoveStyleClassFromEachChild( const CPanelPtr< IUIPanel > &pPanel, const char *pchName );
 	bool EventPanelActivated( const CPanelPtr< IUIPanel > &pPanel, EPanelEventSource_t eSource );
@@ -743,12 +933,17 @@ private:
 	bool EventMoveDown( int nRepeats )		{ return OnMoveDown( nRepeats ); } 
 	bool EventMoveLeft( int nRepeats )		{ return OnMoveLeft( nRepeats ); }
 	bool EventMoveRight( int nRepeats )		{ return OnMoveRight( nRepeats ); }
+	bool EventMovePanelUp( const CPanelPtr< IUIPanel > &pPanel, int nRepeats )		{ return OnMoveUp( nRepeats ); }
+	bool EventMovePanelDown( const CPanelPtr< IUIPanel > &pPanel, int nRepeats )	{ return OnMoveDown( nRepeats ); }
+	bool EventMovePanelLeft( const CPanelPtr< IUIPanel > &pPanel, int nRepeats )	{ return OnMoveLeft( nRepeats ); }
+	bool EventMovePanelRight( const CPanelPtr< IUIPanel > &pPanel, int nRepeats )	{ return OnMoveRight( nRepeats ); }
 	bool EventTabForward( int nRepeats )		{ return OnTabForward( nRepeats ); }
 	bool EventTabBackward( int nRepeats )		{ return OnTabBackward( nRepeats ); }	
 	bool EventImageLoaded( const CPanelPtr< IUIPanel > &pPanel, IImageSource *pImage );
 	bool EventImageFailedLoad( const CPanelPtr< IUIPanel > &pPanel, IImageSource *pImage );
 	bool EventSetPanelEvent( const CPanelPtr< IUIPanel > &pPanel, const char *pchPanelEventName, const char *pchPanelEventAction );
 	bool EventClearPanelEvent( const CPanelPtr< IUIPanel > &pPanel, const char *pchPanelEventName );
+	bool EventDispatchPanelEvent( const CPanelPtr< IUIPanel > &pPanel, const char *pchPanelEventName );
 	bool EventIfHasClassEvent( const CPanelPtr< IUIPanel > &pPanel, const char * pchClassName, IUIEvent * pEventToFire );
 	bool EventIfNotHasClassEvent( const CPanelPtr< IUIPanel > &pPanel, const char * pchClassName, IUIEvent * pEventToFire );
 	bool EventIfHoverOtherEvent( const CPanelPtr< IUIPanel > &pPanel, const char *pchOtherPanelID, IUIEvent * pEventToFire );
@@ -756,350 +951,242 @@ private:
 	bool EventIfHoverOverEventInternal( const CPanelPtr< IUIPanel > &pPanel, const char *pchOtherPanelID, IUIEvent * pEventToFire, bool bFireIfHovered );
 	bool EventCheckChildrenScrolledIntoView( const CPanelPtr< IUIPanel > &pPanel ) { return m_pIUIPanel->OnCheckChildrenScrolledIntoView(); }
 	bool EventScrollPanelIntoView( const CPanelPtr< IUIPanel > &pPanel, ScrollBehavior_t behavior, bool bImmediate );
+	bool EventSetPanelEnabled( const CPanelPtr< IUIPanel > &pPanel, bool bEnabled );
+
+	bool EventDragScrollStart( const CPanelPtr< IUIPanel > &pPanel );
+	bool EventDragScrollMouseMove( const CPanelPtr< IUIPanel > &pPanel, int nLastX, int nLastY, int nX, int nY );
+	bool EventDragScrollEnd( const CPanelPtr< IUIPanel > &pPanel, int nLastX, int nLastY, float flVelocityX, float flVelocityY );
 
 	void Initialize( IUIWindow *window, CPanel2D *parent, const char *pchID, uint32 ePanelFlags );
-	bool BAppyLayoutFile( CLayoutFile *pLayoutFile, CUtlVector< CPanel2D * > *pvecExistingPanels );
-	void DeletePanelsForReloadTraverse( CPanoramaSymbol symPath, CUtlVector< CPanel2D * > *pvecPanelsWithID );
 	
 	// Is this a property we must create our children before applying during layout file application?
 	virtual bool BIsDelayedProperty( CPanoramaSymbol symProperty ) OVERRIDE;
 
+	panorama::IUIPanelStyle *JSAccessStyle() const { return m_pIUIPanel->AccessIUIStyle(); }
+	
 	void ClearPanelEventJS( CPanoramaSymbol symPanelEvent ) { m_pIUIPanel->ClearPanelEvents( symPanelEvent ); }
-
-	// Private helper for JS attribute registration
-	void RegisterJSFloatTabIndexSelectionPos( const char *pchjsMemberName, PanelFloatGetter_t pGetFunc, PanelFloatSetter_t pSetFunc );
 
 	void SetDefaultFocusOnMouseDownBehavior();
 
 	// tooltip for panel. Need to keep a safe pointer as the tooltip is a top level window and will be deleted at shutdown automatically
 	CPanelPtr< CPanel2D > m_pTooltip;
+	
+	v8::Persistent< v8::Object > *m_pJSData; // .data()
 
 	static CUtlVector<IUIPanel *> s_vecMatchingChildren;
 };
 
-
-class CUIScrollBar;
-
-
-//-----------------------------------------------------------------------------
-// Purpose: Base class for all types of scroll bars
-//-----------------------------------------------------------------------------
-class CBaseScrollBar : public CPanel2D
+template < class T > bool CPanel2D::IterateChildrenOfType( std::function< bool( T *pChild ) > fn )
 {
-	DECLARE_PANEL2D( CBaseScrollBar, CPanel2D );
+	return IterateChildren( [&]( CPanel2D *pChild ) -> bool {
+		if ( pChild->GetPanelType() != T::GetPanelSymbol() )
+			return true;
+		return (bool)fn( assert_cast< T * >( pChild ) );
+	} );
+}
 
-public:
-	CBaseScrollBar( CPanel2D *parent, const char * pchPanelID );
-
-	virtual ~CBaseScrollBar();
-
-	IUIScrollBar *Interface();
-
-	// Normalizes the position to be within range min/max 
-	void Normalize( bool bImmediateThumbUpdate = false )
-	{
-		if ( m_flWindowStart < m_flRangeMin )
-			m_flWindowStart = m_flRangeMin;
-
-		if ( m_flWindowStart + m_flWindowSize > m_flRangeMax )
-		{
-			m_flWindowStart = m_flRangeMax - m_flWindowSize;
-			m_flWindowStart = RoundFloatToInt( m_flWindowStart );
-		}
-		else
-		{
-			m_flWindowStart = RoundFloatToInt( m_flWindowStart );
-		}
-
-		UpdateLayout( bImmediateThumbUpdate );
-	}
-
-	// Set the scroll range 
-	void SetRangeMinMax( float flRangeMin, float flRangeMax )
-	{
-		if ( m_flRangeMin != flRangeMin || m_flRangeMax != flRangeMax )
-		{
-			m_flRangeMin = flRangeMin;
-			m_flRangeMax = flRangeMax;
-
-			if ( GetParent() )
-				GetParent()->InvalidatePosition();
-
-			Normalize( false );
-		}
-	}
-
-	// return the size of the range we have
-	float GetRangeSize() const { return m_flRangeMax - m_flRangeMin; }
-	float GetRangeMin() const { return m_flRangeMin; }
-	float GetRangeMax() const { return m_flRangeMax; }
-
-	// Set the window size
-	void SetScrollWindowSize( float flWindowSize )
-	{
-		if ( m_flWindowSize != flWindowSize )
-		{
-			m_flWindowSize = flWindowSize;
-
-			if ( GetParent() )
-				GetParent()->InvalidatePosition();
-
-			Normalize( false );
-		}
-	}
-
-	// Get scroll window size
-	float GetScrollWindowSize() { return m_flWindowSize; }
-
-	// Set the current window position
-	void SetScrollWindowPosition( float flWindowPos, bool bImmediateMove = false )
-	{
-		m_flWindowStart = flWindowPos;
-		m_flLastScrollTime = UIEngine()->GetCurrentFrameTime();
-
-
-		if ( GetParent() )
-		{
-			if ( GetParent()->IsChildPositionValid() && GetParent()->IsPositionValid() )
-				Normalize( bImmediateMove );
-
-			GetParent()->InvalidatePosition();
-			GetParent()->OnScrollPositionChanged();
-		}
-	}
-
-	double GetLastScrollTime() { return m_flLastScrollTime; }
-
-	// Get scroll window position
-	float GetScrollWindowPosition() { return m_flWindowStart; }
-
-	bool BLastMoveImmediate() { return m_bLastMoveImmediate; }
-
-protected:
-
-	friend class CUIScrollBar;
-
-	CUIScrollBar *m_pScrollBarInterface;
-
-	virtual void UpdateLayout( bool bImmediateMove ) = 0;
-
-	bool m_bLastMoveImmediate;
-
-	double m_flLastScrollTime;
-	float m_flRangeMin;
-	float m_flRangeMax;
-	float m_flWindowSize;
-	float m_flWindowStart;
-};
-
-//-----------------------------------------------------------------------------
-// Purpose: Default Scrollbar
-//-----------------------------------------------------------------------------
-class CScrollBar : public CBaseScrollBar
+template < class T > bool CPanel2D::IterateChildrenTraverseOfType( std::function< bool( T *pChild ) > fn )
 {
-	DECLARE_PANEL2D( CScrollBar, CBaseScrollBar );
+	return IterateChildrenTraverse( [ &]( CPanel2D *pChild ) -> bool {
+		if ( pChild->GetPanelType() != T::GetPanelSymbol() )
+			return true;
+		return (bool)fn( assert_cast< T * >( pChild ) );
+	} );
+}
 
-public:
-	CScrollBar( CPanel2D *parent, const char * pchPanelID );
-	virtual ~CScrollBar();
+// Helper functions to fill in variadic template arguments for CallJSFunction
+inline void FillJSArgsArray( v8::Handle< v8::Value > *pArgs );
+template < typename T > inline void FillJSArgsArray( v8::Handle< v8::Value > *pArgs, const T &firstArg );
+template < typename T, typename ...RemainingArguments >	inline void FillJSArgsArray( v8::Handle< v8::Value > *pArgs, const T &firstArg, const RemainingArguments&... args );
 
-	virtual void ScrollToMousePos() = 0;
+// Helper function to actually call a JS function on a panel given the arguments as an array
+template < typename ReturnType > ReturnType CallPanelJSFunctionArgs( IUIPanel *pPanel, const char *pchFunctionName, int argc, v8::Handle< v8::Value > *argv );
 
-	virtual void OnMouseMove( float flMouseX, float flMouseY )
-	{
-		// If there's a transform set on the parent, adjust the input as appropriate.
-		Vector vMousePosition( flMouseX, flMouseY, 0.0f );
-		if ( GetParent() )
-		{
-			VMatrix matParentTransform = GetParent()->AccessStyle()->GetTransform3DMatrix();
-			vMousePosition = matParentTransform * vMousePosition;
-		}
-
-		m_flMouseX = vMousePosition.x;
-		m_flMouseY = vMousePosition.y;
-
-		if ( m_bMouseDown )
-			ScrollToMousePos();
-	}
-
-	virtual bool OnMouseButtonDown( const MouseData_t &code )
-	{
-		// Only interested in left clicks
-		if ( code.m_MouseCode != MOUSE_LEFT )
-			return BaseClass::OnMouseButtonDown( code );
-
-		AddClass( "MouseDown" );
-		
-		if ( m_pScrollThumb->BHasHoverStyle() )
-			m_bMouseWentDownOnThumb = true;
-		else
-			m_bMouseWentDownOnThumb = false;
-		m_bMouseDown = true;
-		m_flMouseStartX = m_flMouseX;
-		m_flMouseStartY = m_flMouseY;
-		m_flScrollStartPosition = GetScrollWindowPosition();
-		ScrollToMousePos();
-
-		return true;
-	}
-
-	virtual bool OnMouseButtonUp( const MouseData_t &code )
-	{
-		// Only interested in left clicks
-		if ( code.m_MouseCode != MOUSE_LEFT )
-			return BaseClass::OnMouseButtonDown( code );
-
-		m_bMouseDown = false;
-		ScrollToMousePos();
-
-		RemoveClass( "MouseDown" );
-
-		return true;
-	}
-
-protected:
-	CPanel2D *m_pScrollThumb;
-
-	bool m_bMouseDown;
-	bool m_bMouseWentDownOnThumb;
-
-	float m_flMouseX;
-	float m_flMouseY;
-	float m_flMouseStartX;
-	float m_flMouseStartY;
-	float m_flScrollStartPosition;
-};
+// Explicit specializations to have special behavior for a return value types
+template <> void CallPanelJSFunctionArgs< void >( IUIPanel *pPanel, const char *pchFunctionName, int argc, v8::Handle< v8::Value > *argv );
+template <> const char *CallPanelJSFunctionArgs< const char * >( IUIPanel *pPanel, const char *pchFunctionName, int argc, v8::Handle< v8::Value > *argv );
+template <> CUtlString CallPanelJSFunctionArgs< CUtlString >( IUIPanel *pPanel, const char *pchFunctionName, int argc, v8::Handle< v8::Value > *argv );
 
 
-class CUIScrollBar : public IUIScrollBar
+//-----------------------------------------------------------------------------
+// Purpose: Convert the variadic template arguments into an array of v8 values
+//-----------------------------------------------------------------------------
+inline void FillJSArgsArray( v8::Handle< v8::Value > *pArgs )
 {
-public:
-	CUIScrollBar( CBaseScrollBar *pParent ) { m_pParent = pParent; }
-
-	virtual IUIPanel* UIPanel() OVERRIDE { return m_pParent->UIPanel(); }
-	virtual IUIPanelClient* ClientPtr() OVERRIDE { return m_pParent; }
-
-	virtual void Normalize( bool bImmediateThumbUpdate ) OVERRIDE { return m_pParent->Normalize( bImmediateThumbUpdate ); }
-
-	virtual void SetRangeMinMax( float flRangeMin, float flRangeMax ) OVERRIDE { return m_pParent->SetRangeMinMax( flRangeMin, flRangeMax ); }
-
-	virtual float GetRangeSize() const OVERRIDE { return m_pParent->GetRangeSize(); }
-	virtual float GetRangeMin() const OVERRIDE { return m_pParent->GetRangeMin(); }
-	virtual float GetRangeMax() const OVERRIDE { return m_pParent->GetRangeMax(); }
-
-		// Set the window size
-	virtual void SetScrollWindowSize( float flWindowSize ) OVERRIDE { return m_pParent->SetScrollWindowSize( flWindowSize ); }
-
-		// Get scroll window size
-	virtual float GetScrollWindowSize() OVERRIDE { return m_pParent->GetScrollWindowSize(); }
-
-		// Set the current window position
-	virtual void SetScrollWindowPosition( float flWindowPos, bool bImmediateMove = false ) OVERRIDE { return m_pParent->SetScrollWindowPosition( flWindowPos, bImmediateMove ); }
-
-	virtual float GetLastScrollTime() OVERRIDE { return m_pParent->GetLastScrollTime(); }
-
-	// Get scroll window position
-	virtual float GetScrollWindowPosition() OVERRIDE { return m_pParent->GetScrollWindowPosition(); }
-
-	// Return true if the user is manually dragging the scrollbar with the mouse
-	virtual bool BLastMoveImmediate() OVERRIDE { return m_pParent->BLastMoveImmediate(); }
-
-private:
-	CBaseScrollBar *m_pParent;
-};
-
-
-//-----------------------------------------------------------------------------
-// Purpose: Vertical scroll bar
-//-----------------------------------------------------------------------------
-class CVerticalScrollBar : public CScrollBar
+}
+template < typename T >
+inline void FillJSArgsArray( v8::Handle< v8::Value > *pArgs, const T &firstArg )
 {
-	DECLARE_PANEL2D( CVerticalScrollBar, CScrollBar );
-
-public:
-	CVerticalScrollBar( CPanel2D *parent, const char * pchPanelID ) : CScrollBar( parent, pchPanelID ) 
-	{
-		m_pScrollThumb->AddClass( "VerticalScrollThumb" );
-	}
-	
-	void ScrollToMousePos()
-	{
-		CPanel2D *pPanel = GetParent();
-		if ( pPanel )
-		{
-			float flHeight = GetActualLayoutHeight();
-			if ( flHeight > 0.00001f )
-			{
-				if ( m_bMouseWentDownOnThumb )
-				{
-					float flPercentDiff = (m_flMouseY - m_flMouseStartY) / flHeight;
-					float flPositionOffset = flPercentDiff * pPanel->GetContentHeight();
-					float flPosition = m_flScrollStartPosition + flPositionOffset;
-					SetScrollWindowPosition( clamp( flPosition, 0.0f, pPanel->GetContentHeight() - GetScrollWindowSize() ), true );
-				}
-				else
-				{
-					float flPercent = m_flMouseY / flHeight;
-					float flPos = pPanel->GetContentHeight() * flPercent;
-					SetScrollWindowPosition( clamp( flPos, 0.0f, pPanel->GetContentHeight() - GetScrollWindowSize() ), true );
-				}
-			}
-		}
-	}
-
-
-	virtual ~CVerticalScrollBar() {}
-
-protected:
-	virtual void UpdateLayout( bool bImmediateMove );
-	
-};
-
-
-//-----------------------------------------------------------------------------
-// Purpose: Horizontal scroll bar
-//-----------------------------------------------------------------------------
-class CHorizontalScrollBar : public CScrollBar
+	PanoramaTypeToV8Param( firstArg, pArgs );
+}
+template < typename T, typename ...RemainingArguments >
+inline void FillJSArgsArray( v8::Handle< v8::Value > *pArgs, const T &firstArg, const RemainingArguments&... args )
 {
-	DECLARE_PANEL2D( CHorizontalScrollBar, CScrollBar );
+	PanoramaTypeToV8Param( firstArg, pArgs );
+	FillJSArgsArray( pArgs + 1, args... );
+}
 
-public:
-	CHorizontalScrollBar( CPanel2D *parent, const char * pchPanelID ) : CScrollBar( parent, pchPanelID ) 
+//-----------------------------------------------------------------------------
+// Purpose: Call the given javascript function in the context of the given panel
+//-----------------------------------------------------------------------------
+template < typename ReturnType >
+inline ReturnType CallPanelJSFunctionArgs( IUIPanel *pPanel, const char *pchFunctionName, int argc, v8::Handle< v8::Value > *argv )
+{
+	v8::Handle< v8::Value > result = CPanel2D::CallPanelJSFunctionArgsCore( pPanel, pchFunctionName, argc, argv );
+
+	ReturnType returnValue;
+	V8ParamToPanoramaType( result, &returnValue );
+	return returnValue;
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: CallPanelJSFunctionArgs template specialization for void return value
+//-----------------------------------------------------------------------------
+template <>
+inline void CallPanelJSFunctionArgs< void >( IUIPanel *pPanel, const char *pchFunctionName, int argc, v8::Handle< v8::Value > *argv )
+{
+	CPanel2D::CallPanelJSFunctionArgsCore( pPanel, pchFunctionName, argc, argv );
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: CallPanelJSFunctionArgs template specialization for const char * return value
+//-----------------------------------------------------------------------------
+template <>
+inline const char * CallPanelJSFunctionArgs< const char * >( IUIPanel *pPanel, const char *pchFunctionName, int argc, v8::Handle< v8::Value > *argv )
+{
+	AssertMsg( false, "Use the CUtlString version to return strings from javascript. This avoids memory leaks." );
+	return nullptr;
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: CallPanelJSFunctionArgs template specialization for CUtlString return value
+//-----------------------------------------------------------------------------
+template <>
+inline CUtlString CallPanelJSFunctionArgs< CUtlString >( IUIPanel *pPanel, const char *pchFunctionName, int argc, v8::Handle< v8::Value > *argv )
+{
+	v8::Handle< v8::Value > result = CPanel2D::CallPanelJSFunctionArgsCore( pPanel, pchFunctionName, argc, argv );
+
+	v8::String::Utf8Value strValue( result );
+	return CUtlString( *strValue );
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: Call the given javascript function on this panel
+//-----------------------------------------------------------------------------
+template < typename ReturnType, typename ...Arguments >
+ReturnType CPanel2D::CallJSFunction( const char *pchFunctionName, const Arguments&... args )
+{
+	v8::Isolate *pIsolate = UIEngine()->GetV8Isolate();
+	v8::Isolate::Scope isolate_scope( pIsolate );
+	v8::HandleScope handle_scope( pIsolate );
+
+	const int argc = sizeof...( Arguments );
+
+	v8::Handle< v8::Value > argv[ argc == 0 ? 1 : argc ];
+	if ( argc > 0 )
 	{
-		m_pScrollThumb->AddClass( "HorizontalScrollThumb" );
+		FillJSArgsArray( argv, args... );
 	}
 
-	void ScrollToMousePos()
+	return CallPanelJSFunctionArgs< ReturnType >( UIPanel(), pchFunctionName, argc, argv );
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: Fast, safe downcasting for panel types
+//-----------------------------------------------------------------------------
+template <typename T> T require_pointer_type( T** p );
+template <typename T> T require_const_pointer_type( const T** p );
+
+template <typename T>
+FORCEINLINE const T* CPanel2D::downcast() const
+{
+	// fast, reduces to uint16 load from memory
+	CPanoramaSymbol symTarget = T::GetPanelSymbol();
+
+	// vf call to return pointer to static 2 pointer (8-byte) object
+	const CPanel2DClassInfo* pClassInfo = &GetPanelClassInfo();
+
+	// Walk the parent chain from our type.  This allows us to cast to a middle
+	// class in a class hierarchy.  For example, if you have
+	//			class GameLabel : public panorama::Label
+	// then pSomeGameLabel->downcast<panorama::Label>() will work.
+	//
+	// The common case is that the cast is to an exact match for the target
+	// panel.  That is the fastest path in this code, and immediately exits
+	// successfully in the first iteration of the loop.
+	for ( ; pClassInfo != nullptr; pClassInfo = pClassInfo->m_pParentClassInfo )
 	{
-		CPanel2D *pPanel = GetParent();
-		if ( pPanel )
-		{
-			float flWidth = GetActualLayoutWidth();
-			if ( flWidth > 0.00001f )
-			{
-				if ( m_bMouseWentDownOnThumb )
-				{
-					float flPercentDiff = ( m_flMouseX - m_flMouseStartX ) / flWidth;
-					float flPositionOffset = flPercentDiff * pPanel->GetContentWidth();
-					float flPosition = m_flScrollStartPosition + flPositionOffset;
-					SetScrollWindowPosition( clamp( flPosition, 0.0f, pPanel->GetContentWidth() - GetScrollWindowSize() ), true );
-				}
-				else
-				{
-					float flPercent = m_flMouseX / flWidth;
-					float flPos = pPanel->GetContentWidth() * flPercent;
-					SetScrollWindowPosition( clamp( flPos, 0.0f, pPanel->GetContentWidth() - GetScrollWindowSize() ), true );
-				}
-			}
-		}
+		// We could optimize this somewhat by keeping a copy of the symbol
+		// in pClassInfo instead of a pointer to it.  This would require
+		// updating panorama panel-type initialization to initialize the
+		// new classinfo data as well.
+		if ( symTarget == *pClassInfo->m_pSymbol )
+			return static_cast< const T* >( this );
 	}
 
-	virtual ~CHorizontalScrollBar() {}
+	// Not found, fail
+	return nullptr;
+}
 
-protected:
+template <typename T>
+FORCEINLINE T* CPanel2D::downcast()
+{
+	const CPanel2D * constThis = this;
+	return const_cast< T* >( constThis->downcast<T>() );
+}
 
-	virtual void UpdateLayout( bool bImmediateMove );
-};
+
+template <typename T>
+FORCEINLINE T panel_cast( CPanel2D* pPanel )
+// requires T is a pointer type
+{
+	if ( !pPanel )
+		return nullptr;
+
+	T result;
+	result = pPanel->downcast< decltype( require_pointer_type( &result ) ) >();
+	return result;
+}
+
+template <typename T>
+FORCEINLINE T panel_cast( const CPanel2D* pPanel )
+// requires T is a const pointer type
+{
+	if ( !pPanel )
+		return nullptr;
+
+	T result;
+	result = pPanel->downcast< decltype( require_const_pointer_type( &result ) ) >();
+	return result;
+}
+
+template <typename T>
+FORCEINLINE T panel_cast( CPanel2D* pPanel, bool bRequireDowncast )
+// requires T is a pointer type
+{
+	if ( !pPanel )
+		return nullptr;
+
+	T result;
+	result = pPanel->downcast< decltype( require_pointer_type( &result ) ) >();
+	Assert( !bRequireDowncast || result != nullptr );
+
+	return result;
+}
+
+template <typename T>
+FORCEINLINE const T panel_cast( const CPanel2D* pPanel, bool bRequireDowncast )
+// requires T is a const pointer type
+{
+	if ( !pPanel )
+		return nullptr;
+
+	T result;
+	result = pPanel->downcast< decltype( require_const_pointer_type( &result ) ) >();
+	Assert( !bRequireDowncast || result != nullptr );
+
+	return result;
+}
 
 #pragma warning(pop)
 

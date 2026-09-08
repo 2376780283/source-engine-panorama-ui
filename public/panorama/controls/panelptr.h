@@ -36,6 +36,8 @@ public:
 	CPanelPtr< T > &operator=( const CPanelPtr< T > &ptr ) { m_handle = ptr.m_handle; return *this; }
 	T *operator=( T *pPanel ) { Set( pPanel ); return pPanel; }
 
+	explicit operator bool() const { return Get() != NULL; }
+
 	void Clear()
 	{
 		m_handle = PanelHandle_t::InvalidHandle();

@@ -5,10 +5,7 @@
 
 #ifndef IUIPANELSTYLE_H
 #define IUIPANELSTYLE_H
-
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include "panoramatypes.h"
 #include "panorama/layout/uilength.h"
@@ -66,11 +63,10 @@ class IUIPanelStyle
 public:
 
 	// Clear the styles
-	virtual void Clear() = 0;
+	virtual void Clear( bool bIncludeClearingElementStyles = true ) = 0;
 
-	// Get the UI scale factor, this is a property of windows, but since we can have a panel 
-	// style with no explicit panel/window (text ranges) we have to set it into this class as well.
-	virtual float GetUIScaleFactor() = 0;
+	// Change the UI Scale Factor for all properties from an old version to a new version
+	virtual void UpdateUIScaleFactor( const Vector &vOldScaleFactor, const Vector &vNewScaleFactor, const Vector &vOldParentScaleFactor, const Vector &vNewParentScaleFactor ) = 0;
 
 	// Checks if the property has any style data at all, base, transition, or animation.
 	// Useful to early out any work related to the stype when painting.
@@ -98,25 +94,55 @@ public:
 
 	virtual void SetTransform3D( const CUtlVector<CTransform3D *> &vecTransforms ) = 0;
 	virtual void SetTransform3DWithoutTransition( const CUtlVector<CTransform3D *> &vecTransforms ) = 0;
+	// Simplified version of SetTransform3D that will call a simplified version of SetProperty
+	// ie bypassing updating the corresponding panel - it is the responsibility of the calling
+	// code to update the corresponding UIPanel (such as calling InvalidateSizeAndPosition, AfterStyleApplied, ...).
+	// Also assuming no animation / transition set for transform (via CSS or code)
+	// Returns true if style has been updated with the new value, false otherwise.
+	virtual bool SetTransform3DSimple( const CUtlVector<CTransform3D *> &vecTransforms ) = 0;
 	virtual VMatrix GetTransform3DMatrix() = 0;
+
+	virtual void GetTransforms( CUtlVector<CTransform3D*>& inTransforms ) = 0;
 
 	virtual void GetOpacity( float &opacity ) = 0;
 	virtual void SetOpacity( float opacity ) = 0;
+	// Simplified version of SetOpacity that will call a simplified version of SetProperty
+	// ie bypassing updating the corresponding panel - it is the responsibility of the calling
+	// code to update the corresponding UIPanel (such as calling InvalidateSizeAndPosition, AfterStyleApplied, ...).
+	// Also assuming no animation / transition set for transform (via CSS or code)
+	// Returns true if style has been updated with the new value, false otherwise.
+	virtual bool SetOpacitySimple( float opacity ) = 0;
+
+	virtual void GetBackgroundImgOpacity( float &opacity ) = 0;
+	virtual void SetBackgroundImgOpacity( float opacity ) = 0;
 
 	virtual void SetScale2DCentered( float flX, float flY ) = 0;
+	virtual void GetInterpolatedScale2DCentered( float &flX, float &flY ) = 0;
+	virtual void GetScale2DCentered( float &flX, float &flY ) = 0;
 
 	virtual void SetRotate2DCentered( float flDegrees ) = 0;
+	virtual void GetRotate2DCentered( float &flDegrees ) = 0;
 
-	virtual void GetDesaturation( float &desaturation ) = 0;
-	virtual void SetDesaturation( float desaturation ) = 0;
+	virtual void GetHueShift( float &flHueShift ) = 0;
+	virtual void SetHueShift( float flHueShift ) = 0;
 
-	virtual void GetGaussianBlur( float &passes, float &stddevhor, float &stddevver ) = 0;
-	virtual void SetGaussianBlur( float passes, float stddevhor, float stddevver ) = 0;
+	virtual void GetSaturation( float &flSaturation ) = 0;
+	virtual void SetSaturation( float flSaturation ) = 0;
+
+	virtual void GetBrightness( float &flBrightness ) = 0;
+	virtual void SetBrightness( float flBrightness ) = 0;
+
+	virtual void GetContrast( float &flContrast ) = 0;
+	virtual void SetContrast( float flContrast ) = 0;
+
+	virtual void GetGaussianBlur( BlurType_t &blurType, float &passes, float &stddevhor, float &stddevver ) = 0;
+	virtual void SetGaussianBlur( BlurType_t blurType, float passes, float stddevhor, float stddevver ) = 0;
 
 	virtual void GetOpacityMaskImage( IImageSource *& pImage, float *pflOpacityMaskOpacity ) = 0;
 
 	virtual void GetWashColor( Color &c ) = 0;
-	virtual void SetWashColor( const Color &c ) = 0;
+	virtual void SetWashColor( const char *pchColor ) = 0;
+	virtual void SetSimpleWashColor( const Color &c, bool bFast = false ) = 0;
 
 	virtual EMixBlendMode GetMixBlendMode() = 0;
 
@@ -130,10 +156,12 @@ public:
 	virtual void SetSimpleForegroundColor( const Color &c ) = 0;
 	virtual bool GetSimpleForegroundColor( Color &c ) = 0;
 
+	virtual void SetBorderColor( const Color &c ) = 0;
+
 	virtual void SetFontStyle( const char *pchFontFamily, float flSize, EFontStyle style, EFontWeight weight ) = 0;
 	virtual void GetFontStyle( const char **pchFontFamily, float &flSize, EFontStyle &style, EFontWeight &weight ) = 0;
 	virtual void GetFontStyleNoDefaults( const char **pchFontFamily, float &flSize, EFontStyle &style, EFontWeight &weight ) = 0;
-	virtual void GetForegroundFillBrushCollectionMsg( CMsgFillBrushCollection &msg, float flRenderWidth, float flRenderHeight ) = 0;
+	virtual void GetForegroundFillBrushCollectionData( FillBrushCollectionWithTransition_t &data, CRenderCommandList &commandList, float flRenderWidth, float flRenderHeight ) = 0;
 	virtual void GetLineHeight( float &flLineHeight ) = 0;
 	virtual void GetTextAlign( ETextAlign &align ) = 0;
 	virtual void GetTextDecoration( ETextDecoration &decoration ) = 0;
@@ -144,16 +172,26 @@ public:
 
 	virtual void GetWidth( panorama::CUILength &width ) = 0;
 	virtual void SetWidth( panorama::CUILength width ) = 0;
+	virtual void SetWidthWithoutTransition( panorama::CUILength width ) = 0;
 	virtual void GetHeight( panorama::CUILength &height ) = 0;
 	virtual void SetHeight( panorama::CUILength height ) = 0;
+	virtual void SetHeightWithoutTransition( panorama::CUILength height ) = 0;
 	virtual void GetMinWidth( panorama::CUILength &minWidth ) = 0;
+	virtual void SetMinWidth( panorama::CUILength minWidth ) = 0;
 	virtual void GetMinHeight( panorama::CUILength &minHeight ) = 0;
+	virtual void SetMinHeight( panorama::CUILength minHeight ) = 0;
 	virtual void GetMaxWidth( panorama::CUILength &maxWidth ) = 0;
+	virtual void SetMaxWidth( panorama::CUILength maxWidth ) = 0;
 	virtual void GetMaxHeight( panorama::CUILength &maxHeight ) = 0;
+	virtual void SetMaxHeight( panorama::CUILength maxHeight ) = 0;
 	virtual void GetInterpolatedWidth( panorama::CUILength &width, bool bFinal ) = 0;
 	virtual void GetInterpolatedHeight( panorama::CUILength &height, bool bFinal ) = 0;
 	virtual void GetInterpolatedMaxWidth( panorama::CUILength &width, bool bFinal ) = 0;
 	virtual void GetInterpolatedMaxHeight( panorama::CUILength &height, bool bFinal ) = 0;
+
+	virtual void SetUIScale( const Vector &vUIScale ) = 0;
+	virtual Vector GetUIScale() = 0;
+	virtual Vector GetInterpolatedUIScale( bool bFinal ) = 0;
 
 	virtual void GetVisibility( bool &bVisible ) = 0;
 	virtual void SetVisibility( bool bVisible ) = 0;
@@ -164,10 +202,11 @@ public:
 	virtual void GetInterpolatedBorderWidth( panorama::CUILength &left, panorama::CUILength &top, panorama::CUILength &right, panorama::CUILength &bottom, bool bFinal ) = 0;
 
 	virtual void GetWhitespaceWrap( bool &bWrap ) = 0;
-	virtual void GetTextOverflow( bool &bEllipsis ) = 0;
+	virtual void GetTextOverflow( ETextOverflow &eTextOverflow ) = 0;
 
 	// Content inset is padding+border-width
 	virtual void GetContentInset( float flBoxWidth, float flBoxHeight, bool bFinalDimensions, float &left, float &top, float &right, float &bottom ) = 0;
+	virtual bool BHasContentInsetTransition() = 0;
 
 	// You shouldn't need this outside layout code normally you want GetContentInset instead!
 	virtual void GetPadding( panorama::CUILength &left, panorama::CUILength &top, panorama::CUILength &right, panorama::CUILength &bottom ) = 0;
@@ -195,8 +234,12 @@ public:
 	virtual void SetContextMenuArrowPosition( const panorama::CUILength &horizontalPosition, const panorama::CUILength &verticalPosition ) = 0;
 	virtual void GetContextMenuArrowPosition( panorama::CUILength &horizontalPosition, panorama::CUILength &verticalPosition ) = 0;
 
+	virtual void SetRadialClip( bool bRadialClip, const panorama::CUILength &x, const panorama::CUILength &y, float flStartAngle, float flSectorAngle ) = 0;
+	virtual void GetRadialClip( bool &bRadialClip, panorama::CUILength &x, panorama::CUILength &y, float &flStartAngle, float &flSectorAngle ) = 0;
+
 	virtual void GetAnimationNames( CUtlVector< CPanoramaSymbol > *pvecAnimations ) = 0;
 	virtual void ResetAnimations() = 0;
+	virtual void SkipAnimations() = 0; // ends any running non-looping animations
 
 	// Get actual parent sizes, which we need to convert some % units to px
 	virtual float GetParentActualRenderWidth() = 0;
@@ -214,9 +257,6 @@ public:
 	// If this is true it means we don't need to draw the panel.
 	virtual bool BIsTransparentWithNoOpacityTransition() = 0;
 
-	// Set a new UI scale factor from the one we constructed with
-	virtual void SetUIScaleFactor( float flScaleFactor ) = 0;
-
 	// Set transition properties
 	virtual void SetTransitionProperties( const CUtlVector< TransitionProperty_t > &vecTransitionProperties ) = 0;
 
@@ -226,12 +266,19 @@ public:
 	// Low level search for property info for debugger use
 	virtual void FindPropertyInfo( CStyleSymbol hSymbol, CStyleProperty **ppProperty, PropertyInTransition_t **ppTransitionData, CUtlVector< CActiveAnimation * > *pvecAnimations ) = 0;
 
+	virtual TransitionProperty_t * FindTransitionData( CStyleSymbol hSymbol ) = 0;
+
 	virtual const CUtlVector<StyleEntry_t> &PropertiesSetFromElement() const = 0;
 	virtual const CStyleProperty *GetPropertyNoInherit( CStyleSymbol symProperty ) = 0;
 
 	// properties set on element style (set from code)
 	virtual bool BPropertySetFromElement( CStyleSymbol symProperty ) const = 0;
 	virtual void ClearPropertySetFromElement( CStyleSymbol symProperty ) = 0;
+
+	virtual CStyleProperty *CompletePropertyTransitionNow( CStyleSymbol hSymbol, bool bDeleteTargetProperty ) = 0;
+
+	virtual void GetActiveAnimations( CUtlVector<CActiveAnimation *> *pvecAnimations ) = 0;
+	virtual CActiveAnimation* FindActiveAnimation( CPanoramaSymbol animName ) = 0;
 
 #ifdef DBGFLAG_VALIDATE
 	virtual void Validate( CValidator &validator, const tchar *pchName ) = 0;

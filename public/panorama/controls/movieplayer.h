@@ -34,6 +34,7 @@ DECLARE_PANORAMA_EVENT0( MoviePlayerVolumeControl );
 DECLARE_PANORAMA_EVENT0( MoviePlayerFullscreenControl );
 DECLARE_PANORAMA_EVENT1( MoviePlayerSetRepresentation, int );
 DECLARE_PANORAMA_EVENT0( MoviePlayerSelectVideoQuality );
+DECLARE_PANORAMA_EVENT1( VolumeSliderValueChanged, float );
 
 
 //-----------------------------------------------------------------------------
@@ -120,9 +121,10 @@ public:
 	virtual ~CMoviePanel();
 
 	CVideoPlayerPtr GetMovie() { return m_pVideoPlayer; }
-	void SetMovie( const char *pchFile );
+	void SetMovie( const char *pchFile, bool bChooseOptimalResolution = false );
 	void SetMovie( CVideoPlayerPtr pVideoPlayer );
-	bool IsSet() { return (m_pVideoPlayer != NULL); }
+	void SetSoundEvent( const char *pEventName );
+	bool IsSet() { return (m_pVideoPlayer != nullptr); }
 	void Clear();
 	void SetPlaybackVolume( float flVolume );
 	void SuggestMovieHeight();
@@ -139,7 +141,14 @@ protected:
 	bool EventVideoPlayerInitialized( IVideoPlayer *pIMovie );
 
 private:
+	bool EventReadyForDisplay( const CPanelPtr< IUIPanel > &pPanel );
+	bool EventUnreadyForDisplay( const CPanelPtr< IUIPanel > &pPanel );
+
 	CVideoPlayerPtr m_pVideoPlayer;
+	bool m_bPausedForUnready;
+
+	char m_sSoundEvent[128];
+	panorama::HAUDIOSAMPLE m_pSoundPlaying;
 };
 
 
@@ -156,6 +165,13 @@ public:
 
 	void Show( CVideoPlayerPtr pVideoPlayer );
 
+#ifdef DBGFLAG_VALIDATE
+	virtual void ValidateClientPanel( CValidator &validator, const tchar *pchName ) OVERRIDE
+	{
+		VALIDATE_SCOPE();
+		ValidateObj( m_scheduledUpdate );
+	}
+#endif
 private:
 	void Update();
 
@@ -186,6 +202,7 @@ public:
 	CVideoPlayerPtr GetMovie() { return m_pMoviePanel->GetMovie(); }
 	void SetMovie( const char *pchFile );
 	void SetMovie( CVideoPlayerPtr pVideoPlayer );
+	void SetSound( const char *pSoundEvent );
 	bool IsSet() { return m_pMoviePanel->IsSet(); }
 	void Clear();
 
@@ -249,9 +266,11 @@ protected:
 	bool EventMoviePlayerVolumeControl();
 	bool EventMoviePlayerSelectQuality();
 	bool EventSoundVolumeChanged( ESoundType eSoundType, float flVolume );
+	bool EventVolumeSliderValueChanged( float flValue );
 	bool EventSoundMuteChanged( bool bMute );
 	bool EventSetRepresentation( int iRep );
 
+	void Update();
 	void UpdateFullUI();
 	void UpdateTimeline();
 	void UpdatePlayPauseButton();
@@ -303,6 +322,7 @@ private:
 	bool m_bRaisedPlaybackStartEvent;
 	bool m_bHadFocus;
 	bool m_bCloseControlsOnPlay;
+	bool m_bSrcResolutionBasedOnPanelSize;
 
 	EAutoplay m_eAutoplay;
 	EControls m_eControls;
@@ -312,6 +332,8 @@ private:
 	bool m_bMuted;								// muted flag
 	float m_flVolume;							// playback volume, defaults to movie volume setting
 	int m_iDesiredVideoRepresentation;			// representation selected by user or -1. Video player might not yet have changed to playing this rep
+
+	panorama::CUIScheduledDel m_scheduledUpdate;
 };
 
 

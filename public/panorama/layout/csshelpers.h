@@ -5,10 +5,7 @@
 
 #ifndef CSSHELPERS_H
 #define CSSHELPERS_H
-
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include "float.h"
 #include "tier0/dbg.h"
@@ -74,7 +71,7 @@ namespace CSSHelpers
 	bool BParseFillBrushCollection( CFillBrushCollection *pCollection, const char *pchString, const char **pchAfterParse = NULL, float flScalingFactor = 1.0f );
 	bool BParseFillBrush( CFillBrush *pBrush, const char *pchString, const char **pchAfterParse = NULL, float flScalingFactor = 1.0f );
 	bool BParseGradientColorStop( CGradientColorStop *pColorStop, const char *pchString, const char **pchAfterParse = NULL, float flScalingFactor = 1.0f );
-	bool BParseGaussianBlur( float &flPasses, float &flStdDevHorizontal, float &flStdDevVertical, const char *pchString, const char **pchAfterParse = NULL );
+	bool BParseGaussianBlur( BlurType_t &blurType, float &flPasses, float &flStdDevHorizontal, float &flStdDevVertical, const char *pchString, const char **pchAfterParse = NULL );
 	bool BParseColor( Color *pColor, const char *pchString, const char **pchAfterParse = NULL );
 	bool BParseRect( CUILength *pTop, CUILength *pRight, CUILength *pBottom, CUILength *pLeft, const char *pchString, const char **pchAfterParse = NULL, float flScalingFactor = 1.0f );
 	bool BParseNamedColor( Color *pColor, const char *pchString, const char **pchAfterParse = NULL );
@@ -92,6 +89,7 @@ namespace CSSHelpers
 	bool BParseIntoTwoUILengths( CUILength *pLength1, CUILength *pLength2, const char *pchString, const char **pchAfterParse, float flScalingFactor = 1.0f );
 	bool BParseTimingFunction( EAnimationTimingFunction *peTimingFunction, CCubicBezierCurve< Vector2D > *pCubicBezier, const char *pchString, const char **pchAfterParse );
 	bool BParseAnimationDirectionFunction( EAnimationDirection *peAnimationDirection, const char *pchString, const char **pchAfterParse );
+	bool BParseAnimationFillModeFunction( EAnimationFillMode *peAnimationFillMode, const char *pchString, const char **pchAfterParse );
 	bool BParseAngle( float *pDegrees, const char *pchString, const char **pchAfterParse = NULL );
 	bool BParseTransformFunction( CTransform3D **pTransform, const char *pchString, const char **pchAfterParse = NULL, float flScalingFactor = 1.0f );
 	bool BParseBorderStyle( EBorderStyle *pStyle, const char *pchString, const char **pchAfterParse = NULL );
@@ -100,13 +98,16 @@ namespace CSSHelpers
 	bool BParseBackgroundPosition( CBackgroundPosition *pPosition, const char *pchString, const char **pchAfterParse = NULL );
 	bool BParseBackgroundRepeat( CBackgroundRepeat *pBackgroundRepeat, const char *pchString, const char **pchAfterParse );
 	bool BParseFunctionName( CPanoramaSymbol &symFunctionNameOut, const char *pchString, const char **pchAfterParse = NULL );
+	bool BParseRadialClip( CUILength *pCenterX, CUILength *pCenterY, float *pStartAngle, float *pSectorAngle, const char *pchString, const char **pchAfterParse = NULL );
 	
-	template <typename T> bool BParseCommaSepList( CUtlVector< T, CUtlMemory<T> > *pvec, bool (*func)( T*, const char *, const char ** ), const char *pchString );
+	template <typename T> bool BParseCommaSepList( CUtlVector< T, CUtlMemory<T> > *pvec, bool (*func)( T*, const char *, const char ** ), const char *pchString, bool bSkipInvalidInsteadOfFullFailure = false );
 	bool BParseCommaSepList( CUtlVector< EAnimationTimingFunction > *pvec, CUtlVector< CCubicBezierCurve< Vector2D > > *pvec2, bool (*func)( EAnimationTimingFunction *pvec, CCubicBezierCurve< Vector2D > *pvec2, const char *, const char ** ), const char *pchString );
 	template <typename T> bool BParseCommaSepListWithScaling( CUtlVector< T, CUtlMemory<T> > *pvec, bool (*func)( T*, const char *, const char **, float ), const char *pchString, float flScalingFactor );
 
 	
 	const char *SkipSpaces( const char *pchString );
+	bool BSkipName( const char* szExpectedIdentifier, const char* pchString, const char **pchAfterParse = NULL );
+	bool BSkipNameCaseSensitive( const char* szExpectedIdentifier, const char* pchString, const char **pchAfterParse = NULL );
 	bool BSkipComma( const char *pchString, const char **pchAfterParse = NULL );
 	bool BSkipLeftParen( const char *pchString, const char **pchAfterParse = NULL );
 	bool BSkipRightParen( const char *pchString, const char **pchAfterParse = NULL );
@@ -123,6 +124,8 @@ namespace CSSHelpers
 	void AppendGradientColorStop( CFmtStr1024 *pfmtBuffer, const CGradientColorStop &stops );
 	void AppendURL( CFmtStr1024 *pfmtBuffer, const char *pchURL );
 	void AppendLength( CFmtStr1024 *pfmtBuffer, float flValue );
+	void AppendAngle( CFmtStr1024 *pfmtBuffer, float flDegrees );
+	void AppendPercent( CFmtStr1024 *pfmtBuffer, float flPercent );
 
 	bool BParseTrueFalse( const char *pchString, bool *pbValue );
 
@@ -133,21 +136,29 @@ namespace CSSHelpers
 
 	bool BReadCSSToken( CUtlBuffer &buffer, char *pchToken, uint cubToken );
 	bool BReadCSSToken( CUtlBuffer &buffer, char *pchToken, uint cubToken, const char *pchStopAt, uint cchStopAt );
+	bool BReadMatchingCSSToken( CUtlBuffer &buffer, char chExpected );
 };
 
 
 //-----------------------------------------------------------------------------
 // Purpose: Helper to parse comma separated lists with same value type
 //-----------------------------------------------------------------------------
-template <typename T> bool CSSHelpers::BParseCommaSepList( CUtlVector< T, CUtlMemory<T> > *pvec, bool (*func)( T*, const char *, const char ** ), const char *pchString )
+template <typename T> bool CSSHelpers::BParseCommaSepList( CUtlVector< T, CUtlMemory<T> > *pvec, bool (*func)( T*, const char *, const char ** ), const char *pchString, bool bSkipInvalidInsteadOfFullFailure /*= false */ )
 {
 	while ( *pchString != '\0' )
 	{
 		T val;
+		bool bInvalid = false;
 		if ( !func( &val, pchString, &pchString ) )
-			return false;
+		{
+			if ( !bSkipInvalidInsteadOfFullFailure )
+				return false;
 
-		pvec->AddToTail( val );
+			bInvalid = true;
+		}
+
+		if ( !bInvalid )
+			pvec->AddToTail( val );
 
 		// done?
 		if ( !CSSHelpers::BSkipComma( pchString, &pchString ) )

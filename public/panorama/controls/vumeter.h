@@ -30,23 +30,23 @@ public:
 
 	virtual bool BSetProperty( CPanoramaSymbol symName, const char *pchValue ) OVERRIDE;
 
-	virtual void OnInitializedFromLayout();
+	virtual void OnInitializedFromLayout() OVERRIDE;
 
 	int GetNumActiveBars() const { return m_numActive; }
 	void SetNumActiveBars( int numActive );
 
 	int GetNumBarsTotal() const { return m_numBars; }
 
-	virtual bool OnMoveLeft( int cRepeats );
-	virtual bool OnMoveRight( int cRepeats );
+	virtual bool OnMoveLeft( int cRepeats ) OVERRIDE;
+	virtual bool OnMoveRight( int cRepeats ) OVERRIDE;
 
 	// Override these to avoid focus slipping away when setting with analog
-	virtual bool OnMoveUp( int nRepeats );
-	virtual bool OnMoveDown( int nRepeats );
+	virtual bool OnMoveUp( int nRepeats ) OVERRIDE;
+	virtual bool OnMoveDown( int nRepeats ) OVERRIDE;
 
-	virtual bool OnMouseButtonUp(const MouseData_t &code);
-	virtual bool OnMouseWheel(const MouseData_t &code);
-	virtual void OnMouseMove(float flMouseX, float flMouseY);
+	virtual bool OnMouseButtonUp(const MouseData_t &code) OVERRIDE;
+	virtual bool OnMouseWheel(const MouseData_t &code) OVERRIDE;
+	virtual void OnMouseMove(float flMouseX, float flMouseY) OVERRIDE;
 
 	virtual bool OnActivate(panorama::EPanelEventSource_t eSource);
 	virtual bool OnCancel(panorama::EPanelEventSource_t eSource);

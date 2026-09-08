@@ -6,12 +6,18 @@
 #ifndef PANORAMA_TEXTINPUT_DUALTOUCH_H
 #define PANORAMA_TEXTINPUT_DUALTOUCH_H
 
+#if defined(_WIN32) || defined(SOURCE2_PANORAMA)
+#pragma once
+#endif
+
 #include "panorama/textinput/textinput.h"
 #include "panorama/controls/panel2d.h"
 #include "panorama/controls/label.h"
+#include "panorama/controls/touchpad.h"
 #include "panorama/input/iuiinput.h"
 #include "mathlib/beziercurve.h"
 #include "tier1/utlptr.h"
+#include "tier1/utlstack.h"
 #include "panorama/uischeduleddel.h"
 
 namespace panorama
@@ -23,11 +29,9 @@ namespace panorama
 	class ITextInputSuggest;
 	class CLabel;
 	
-	// this weights the frequency of words typed without any possible typos above
-	// autocorrected words, as otherwise if you legitimately type 'test' it'll
-	// auto-correct into 'rest'
-	static const float k_flExactWordFrequencyWeight = 1.2f;
-		
+	//-----------------------------------------------------------------------------
+	// Purpose: main dual touch UI class
+	//-----------------------------------------------------------------------------
 	class CTextInputDualTouch : public panorama::CTextInputHandler
 	{
 		DECLARE_PANEL2D( CTextInputDualTouch, panorama::CPanel2D );
@@ -41,14 +45,25 @@ namespace panorama
 		~CTextInputDualTouch();
 		
 		// CTextInputHandler overrides
-		virtual void OpenHandler() OVERRIDE;
 		virtual void CloseHandlerImpl( bool bCommitText ) OVERRIDE;
-		virtual ETextInputHandlerType_t GetType() OVERRIDE;
 		virtual ITextInputControl *GetControlInterface() OVERRIDE;
-		virtual void SuggestWord( const wchar_t *pwch, int ich ) OVERRIDE;
-		virtual void SetYButtonAction( const char *pchLabel, IUIEvent *pEvent ) OVERRIDE;
+
+		void SubmitTextNoClose( void );
+
+		virtual void SuggestWord( const uchar32 *pch32, int ich ) OVERRIDE { }
+
+		// If SetSuggestionPanels returns false, it is not accepting ownership of these panels - calling code must handle them
+		virtual bool SetSuggestionPanels( const CUtlVector<CSuggestionPanel *>& vecPanels ) OVERRIDE;
 		
 		static void GetSupportedLanguages( CUtlVector<ELanguage> &vecLangs );
+
+		enum EDualtouchSuggestionMode
+		{
+			k_EDualtouchSuggestionMode_WithTypoCorrection,
+			k_EDualtouchSuggestionMode_NoTypoCorrection,
+			k_EDualtouchSuggestionMode_NoSuggestions,
+			k_EDualtouchSuggestionModeCount
+		};
 
 	private:
 		static const int k_DualTouchRowCount = 4;
@@ -62,35 +77,7 @@ namespace panorama
 			k_EDualTouchModifierAlt = 2,
 			k_EDualTouchModifierCount = 3,
 		};
-		
-		class CTouchPad
-		{
-		public:
-			bool Initialize( CTextInputDualTouch *pParent, const char *pointerID, const char *padID,
-							 IUIEngine::EHapticFeedbackPosition eHapticsPosition );
-			void UpdatePointerState( bool bPointersEnabled, uint32 nTextureID );
-			void OnTouch( void );
-			void OnRelease( void );
-			bool OnMove( float touchX, float touchY );
-			void OnButtonDown( void );
-			
-			SteamPadPointer_t m_renderPointerState;
-			
-			CPanel2D *m_pPointerPanel;
-			CPanel2D *m_pPadPanel;
-			CPanel2D *m_pHoverKey;				// what key are we currently hovering over?
-			CPanel2D *m_pLastHoverKey;			// what was the last key we were hovering over? this will either match m_pHoverKey or have the last value m_pHoverKey had if its currently nullptr
-			CUtlVector< IUIPanel * > m_vecTouchKeys;
-			bool m_bFingerOnPad;
-			
-			float m_hoverX;
-			float m_hoverY;
-			
-			CTextInputDualTouch *m_pTextInputDualTouch;
-			
-			IUIEngine::EHapticFeedbackPosition m_eHapticsPosition;
-		};
-		
+
 		void Initialize( const CTextInputHandlerSettings &settings, ITextInputControl *pTextControl );
 		void SetMode( ETextInputMode_t mode );
 		
@@ -102,19 +89,27 @@ namespace panorama
 		virtual bool OnKeyDown( const KeyData_t &code ) OVERRIDE;
 		virtual bool OnKeyUp( const KeyData_t &code ) OVERRIDE;
 		
-		void UpdateSteamPadPointers( void );
+	private:
+		bool EventTextEntryChanged( const CPanelPtr< IUIPanel > &pPanel );
+
+		void TogglePasswordVisibility();
+		void UpdateSteamPadHardwarePointers( bool bSteamPadHardwarePointersEnabled );
+		void UpdateSteamPadSoftwarePointerImage( uint32 unTextureID );
+		void UpdateSteamPadHardwarePointerVisibility();
 		bool OnPropertyTransitionEnd( const CPanelPtr< IUIPanel > &pPanel, CStyleSymbol prop );
-		bool OnRemoveStyleFromLinkedKeys( CPanelPtr<CPanel2D> pPanel, const char *pszStyle );
+		bool OnTouchKeyStyleChanged( CPanelPtr<CPanel2D> pPanel, const char *pszStyle, bool bAddedStyle );
+		bool OnImageLoaded( const CPanelPtr< IUIPanel > &pPanel, IImageSource *pImage );
+		bool OnPanelStyleChanged( const CPanelPtr< IUIPanel > &pPanel );
 		
 		bool TouchPadClicked( CTouchPad* pTouchPad );
 		
 		// Listen for focus lost
 		bool HandleInputFocusLost( const panorama::CPanelPtr< panorama::IUIPanel > &ptrPanel );
 		bool OnActiveControllerTypeChanged( EActiveControllerType eActiveControllerType );
+		bool EventInputFocusTopLevelChanged( CPanelPtr< IUIPanel > ptrPanel );
 
-		bool BConvertNextSpaceToPeriod( void );
-		bool TypeWchar( uchar16 wch, const char *pUTFf8Char = NULL );
-		bool TypeKeyDown( panorama::KeyCode eCode );
+		bool TypeCharacters( const char *pszUTF8 );			// return whether we inserting this codepoint makes us want to flush our suggestion state, if any
+		void TypeSpace() { const char *pszSpace = " "; TypeCharacters( &pszSpace[0] ); }
 		
 		bool SwitchLanguage( void );
 		bool LoadInputConfigurationFile( ELanguage language );
@@ -125,7 +120,8 @@ namespace panorama
 		EDualTouchModifier_t CalculateDesiredModifierState() const;
 		void ApplyCurrentModifierLayout();
 		
-		void TouchKeyClicked( CPanel2D *pTouchKey, CTouchPad *pTouchPad );
+		bool OnTouchKeyClicked( CPanel2D *pTouchKey, CTouchPad *pTouchPad );
+		void OnStandardTouchKeyClicked( CPanel2D *pTouchKey, CTouchPad *pTouchPad );
 		
 		//	Process scheduled key repeat
 		void ScheduleKeyRepeats( panorama::GamePadCode eCode );
@@ -134,34 +130,30 @@ namespace panorama
 		void ScheduledKeyRepeatFunction();
 		
 		// auto-suggestion
-		void ClearSuggestionVisual( void )
-		{
-			for ( int i = 0; i < k_SuggestionCount; i++ )
-			{
-				m_pSuggestionLabels[i]->SetText( "" );
-			}
-		}
-		void ClearSuggestionState( bool bFlush = true )
-		{
-			// flush what we have into the buffer
-			if ( bFlush && m_vecPossibleWordsBeingTyped.Count() )
-			{
-				CStrAutoEncode s( m_vecPossibleWordsBeingTyped[0] );
-				m_pTextInputControl->InsertCharactersAtCursor( s.ToWString(), V_wcslen( s.ToWString() ) );
-			}
-			m_vecPossibleWordsBeingTyped.Purge();
-			ClearSuggestionVisual();
-			UpdateTextPreview();
-		}
-		void ProcessSuggestions( void );
-		void ApplySuggestion( int iSuggestion );
-		void UpdateTextPreview( void );
+		void ResetSuggestionState();
+		void OnSuggestionSelected( int iSuggestion );
+		void UpdateSuggestionWords();
+		void UpdateTextPreview();
 		
-		bool PerformBackspace( void );
+		void PerformBackspace( void );
 		
 		void CursorMove( const panorama::GamePadData_t &code );
 		void DisableCursorMode( void );
 
+		void InitEmoticons( void );
+		void PopulateEmoticonsForCurrentPage( void );
+		void SetEmoticonMode( bool bActive );
+		void EmoticonPageLeft( void );
+		void EmoticonPageRight( void );
+		void OnEmoticonClicked( CPanel2D *pTouchKey );
+
+#ifdef DBGFLAG_VALIDATE
+		virtual void ValidateClientPanel( CValidator &validator, const tchar *pchName ) OVERRIDE
+		{
+			VALIDATE_SCOPE();
+			ValidateObj( m_repeatFunction );
+		}
+#endif
 	private:
 		void ChangeTouchkeyStyle( CPanel2D *pTouchKey, const char *pchStyle, bool bAddStyle );
 	
@@ -169,13 +161,38 @@ namespace panorama
 		ITextInputControl *m_pTextInputControl; // control interface for moving text input between a control and daisy wheel
 		
 		CPanel2D *m_pBodyContainer;
+		CPanel2D *m_pBackDrop;
 		
-		IUIEvent *m_pYbuttonAction; // the action to fire if the Y button is hit
-		CLabel *m_pYButtonText; // label for ybutton text
 		CLabel *m_pLang;
 		
 		CLabel *m_pSuggestionLabels[k_SuggestionCount];
-		CUtlVector< CUtlString > m_vecPossibleWordsBeingTyped;
+
+		// As we're typing characters, we're keeping track of things that we think might be typos, like you hit "h" but
+		// really you were so close to "j" that maybe that's what you were aiming at. We then build up lists of these
+		// potential word roots, so you could have, for example: "h" (you were right in the middle of H), then "hi", but
+		// you were on the edge of the key so maybe you meant "ho", then "hin" and "hon" when you hit N, and on and on.
+		// We then use all of these roots to make ask the suggestion engine for candidate words, with two caveats:
+		//
+		//		- we don't want to store all "word candidates" that can't lead to any words. We know that if we start
+		//		  a word with "zzz" we're never going to get any valid suggestion results, no matter what letters we
+		//		  put at the end. The search space grows very quickly -- three characters for twelve letters is over half
+		//		  a million word roots, the overwhelming majority of which can't contribute a valid suggestion.
+		//
+		//		- we have to support backspacing, where we delete whatever the last letter is, but keep track of other
+		//		  word roots that got us to there, even if at the point where we were there were no candidate words
+		//		  remaining. For example, if we do "aardvsk", we'll throw out "aardvs" because no words start with that,
+		//		  but we still want to remember it in case we backspace all the way to "aardv". Rather than delete the
+		//		  end character and then collapse identical strings we store each string length as its own bucket. Doing
+		//		  this lets us map backspace to "just throw out the longest bucket entirely and back up a step".
+		//
+		// We model this as a list of lists. The outer vector stores the candidates for a specific character length (slot
+		// 0 is all the of one-letter words that have potential candidates (*), slot 3 is all the four-letter roots, etc.)
+		// and the inner vector stores the candidates themselves, including typo possibilities.
+		//
+		// (*: we *always* store a candidate for whatever characters the user actually hit, even if it doesn't lead to
+		// any words we know of. This means every first-vector entry always has at least sub-entry.)
+		typedef CUtlVector<CUtlString> VecCandidateWordRoots_t;
+		CUtlStack<VecCandidateWordRoots_t *> m_PossibleWordsBeingTyped;
 		
 		ELanguage m_language;						// currently loaded language
 		
@@ -183,26 +200,20 @@ namespace panorama
 		
 		CTextEntry *m_pTextPreview;
 		
-		bool m_bDoubleSpaceToDotSpace;
-		bool m_bOnlySpacesEnteredSinceBackspace;
-		
 		ETextInputMode_t m_mode;
-		
-		bool m_bAutoComplete;
-		bool m_bDisplaySuggestions;
-		bool m_bHidePreviewField;
-		bool m_bAutoCaps;
+		EDualtouchSuggestionMode m_eSuggestionMode;
 		
 		// This controls the direct-rendered steampad crosshairs; we can only
 		// have them up while we're not animating around, otherwise use higher-latency
 		// panel crosshairs
-		bool m_bSteamPadPointersEnabled;
 		IImageSource *m_pSteamPadPointerImage;
 		
 		CTouchPad m_leftTouchPad;
 		CTouchPad m_rightTouchPad;
 		
 		CUtlVector< CTouchPad * > m_vecTouchPads;
+
+		CUtlVector< CSuggestionPanel * > m_vecCustomSuggestionPanels;
 		
 		uchar32 m_keyLayout[k_DualTouchColumnCount][k_DualTouchRowCount][k_EDualTouchModifierCount];
 		EDualTouchModifier_t m_currentModifier;
@@ -217,10 +228,19 @@ namespace panorama
 		panorama::CUIScheduledDel m_repeatFunction;	// Scheduled function triggering key repeats
 		
 		bool m_bCursorMode;
-		CPanel2D *m_pCursorKey;
+		CPanelPtr<CPanel2D> m_pCursorKey;
 		bool m_bUseTouchPads;
 
 		bool m_bModifierKeysHeld[ k_EDualTouchModifierCount ];
+		
+		bool m_bHardwareCursorsEnabled;
+		bool m_bOverlayMode;
+
+		bool m_bShowEmoticons;	// was the keyboard opened in a way that we should show emoticons at all?
+		bool m_bEmoticonMode;	// are we currently showing emoticon selection
+		int m_nEmoticonPage;
+		int m_nMaxEmoticonsPerPage;
+		CUtlMap< int, int > m_mapEmoticonTouchKeys;
 	};
 	
 } // namespace panorama

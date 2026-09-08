@@ -5,6 +5,7 @@
 
 #ifndef PANORAMA_ILOCALIZE_H
 #define PANORAMA_ILOCALIZE_H
+#pragma once
 
 #include "language.h"
 #include "tier0/platform.h"
@@ -41,11 +42,20 @@ enum EPanelKeyType
 	k_ePanelVartype_Time,
 	k_ePanelVartype_Money,
 	k_ePanelVartype_Number,
-	k_ePanelVartype_Generic
+	k_ePanelVartype_Uint64,
+	k_ePanelVartype_Generic,
+	k_ePanelVartype_Virtual
 };
 
 // help function syntax for the generic key handler
-typedef const char *( *PFNLocalizeDialogVariableHandler )( const CUtlString &sStringValue, int nIntValue, const IUIPanel *pPanel, const char *pszKey, void *pUserData );
+typedef bool ( *PFNLocalizeDialogVariableHandler )( CUtlString& /*out*/ strResult, const CUtlString &sStringValue, int nIntValue, const IUIPanel *pPanel, const char *pszKey, uint32 fModifiers, void *pUserData );
+typedef uint32 ( *PFNParseDialogVariableModifiersHandler )( const char *pszModifiers, void *pUserData );
+
+enum EPanelKeyNumberModifiers
+{
+	k_ePanelKeyNumberModifiers_RawNumber = 1 << 0, // no commas
+};
+DEFINE_ENUM_BITWISE_OPERATORS( EPanelKeyNumberModifiers );
 
 enum EPanelKeyTimeModifiers
 {
@@ -56,7 +66,19 @@ enum EPanelKeyTimeModifiers
 	k_ePanelKeyTimeModifiers_DateTime =  1 << 4,
 	k_ePanelKeyTimeModifiers_Relative = 1 << 5,
 	k_ePanelKeyTimeModifiers_Duration = 1 << 6,
+	k_ePanelKeyTimeModifiers_Minutes = 1 << 7,
+	k_ePanelKeyTimeModifiers_ServerTime = 1 << 8,
 };
+DEFINE_ENUM_BITWISE_OPERATORS( EPanelKeyTimeModifiers );
+
+enum EPanelKeyStringModifiers
+{
+	k_ePanelKeyStringModifiers_Lowercase = 1 << 0,
+	k_ePanelKeyStringModifiers_Uppercase = 1 << 1,
+	k_ePanelKeyStringModifiers_CaseMask  = k_ePanelKeyStringModifiers_Lowercase | k_ePanelKeyStringModifiers_Uppercase,
+	k_ePanelKeyStringModifiers_AllowHTML = 1 << 2,		// Don't escape HTML variable content inside of HTML label
+};
+DEFINE_ENUM_BITWISE_OPERATORS( EPanelKeyStringModifiers );
 
 enum EStringTruncationStyle
 {
@@ -70,6 +92,12 @@ enum EStringTransformStyle
 	k_eStringTransformStyle_None,
 	k_eStringTransformStyle_Uppercase,
 	k_eStringTransformStyle_Lowercase,
+};
+
+enum EStringEscapeStyle
+{
+	k_eStringEscapeStyle_None,
+	k_eStringEscapeStyle_HTML,
 };
 
 
@@ -115,6 +143,7 @@ public:
 	virtual const IUIPanel *GetOwningPanel() const = 0;
 	virtual uint32 GetMaxChars() const = 0;
 	virtual EStringTruncationStyle GetTruncationStyle() const = 0;
+	virtual EStringEscapeStyle GetEscapeStyle() const = 0;
 
 #ifdef DBGFLAG_VALIDATE
 	virtual void Validate( CValidator &validator, const tchar *pchName ) = 0;
@@ -122,8 +151,9 @@ public:
 protected:
 	// internal loc engine helpers, you won't call these
 	friend class CLocalization;
-	virtual void Recalculate( const CUtlString *pString ) = 0;
+	virtual void Recalculate( char const **pStrData, int nStartCharIndex = 0 ) = 0;
 	virtual bool BContainsDialogVariable( const CPanelKeyValue &key ) = 0;
+	virtual bool BHasValidString( const void *pValidBase, const void *pValidLimit ) = 0;
 };
 
 class CLocStringSafePointer
@@ -203,24 +233,27 @@ public:
 #if defined( SOURCE2_PANORAMA )
 	// add a loc file to the system, in the form of <prefix>_<language>.txt , i.e dota_french.txt, the files will be loaded from the panorama/localization folder of your mod
 	virtual bool BLoadLocalizationFile( const char *pchFilePrefix ) = 0;
+	virtual int GetLocalizationFileCount( void ) = 0;
+	virtual const char* GetLocalizationFileName( int i ) = 0;
+	virtual void UnloadLocalizationFileStrings( void ) = 0;
 #else
 	virtual ELanguage CurrentLanguage() = 0;
 #endif
 
-	virtual void InstallCustomDialogVariableHandler( const char *pchCustomHandlerName, PFNLocalizeDialogVariableHandler pfnLocalizeFunc, void *pUserData = NULL ) = 0;
+	virtual void InstallCustomDialogVariableHandler( const char *pchCustomHandlerName, PFNLocalizeDialogVariableHandler pfnLocalizeFunc, PFNParseDialogVariableModifiersHandler pfnParseModifiers = NULL, void *pUserData = NULL, bool bVirtual = false ) = 0;
 	virtual void RemoveCustomDialogVariableHandler( const char *pchCustomHandlerName ) = 0;
 
-	// find the string corresponding to this localization token, or if we don't find it then just return back the string wrapped in a loc object
-	virtual const ILocalizationString *PchFindToken( const IUIPanel *pPanel, const char *pchToken, const uint32 ccMax , EStringTruncationStyle eTrunkStyle, EStringTransformStyle eTransformStyle, bool bAllowDialogVariable = false ) = 0;
+	// find the string corresponding to this localization token, or if we don't find it then just return back the string wrapped in a loc object (unless you specify you don't want that)
+	virtual const ILocalizationString *PchFindToken( const IUIPanel *pPanel, const char *pchToken, const uint32 ccMax , EStringTruncationStyle eTrunkStyle, EStringTransformStyle eTransformStyle, EStringEscapeStyle eEscapeStyle, bool bAllowDialogVariable = false, bool bReturnWrappedKeyIfMissing = true ) = 0;
 
 	// give me a localize string wrapper around this string, don't try and apply token localizing on it though, but do optionally allow it to have dialog variables that we parse in it
 	// be careful allowing dialog variable parsing, you want to sanitize any user input before allowing it
-	virtual const ILocalizationString *PchSetString( const IUIPanel *pPanel, const char *pchText, const uint32 ccMax, EStringTruncationStyle eTrunkStyle, EStringTransformStyle eTransformStyle, bool bAllowDialogVariable, bool bStringAlreadyFullyParsed ) = 0;
+	virtual const ILocalizationString *PchSetString( const IUIPanel *pPanel, const char *pchText, const uint32 ccMax, EStringTruncationStyle eTrunkStyle, EStringTransformStyle eTransformStyle, EStringEscapeStyle eEscapeStyle, bool bAllowDialogVariable, bool bStringAlreadyFullyParsed ) = 0;
 
 	virtual const ILocalizationString *ChangeTransformStyleAndRelease( const ILocalizationString *pLocalizationString, EStringTransformStyle eTranformStyle ) = 0;
 
 	// copy an existing loc string without altering the ref count on the current
-	virtual ILocalizationString *CloneString( const IUIPanel *pPanel, const ILocalizationString *pLocToken ) = 0;
+	virtual ILocalizationString *CloneString( const IUIPanel *pPanel, const ILocalizationString *pLocToken, bool bStringAlreadyFullyParsed = false ) = 0;
 
 	// return the raw, un-parsed, value for this loc token, returns NULL if we didn't have this token in a loc file from disk
 	virtual const char *PchFindRawString( const char *pchToken ) = 0;
@@ -235,6 +268,7 @@ public:
 #endif
 
 	virtual bool SetDialogVariable( const IUIPanel *pPanel, const char *pchKey, int nVal ) = 0;
+	virtual bool SetDialogVariable( const IUIPanel *pPanel, const char *pchKey, uint64 nVal ) = 0;
 
 	// copy all the dialog vars to a new panel
 	virtual void CloneDialogVariables( const IUIPanel *pPanelFrom, IUIPanel *pPanelTo ) = 0;
@@ -245,6 +279,10 @@ public:
 
 	// given this loc string find the longest string in any language that we could display here and update to use it
 	virtual void SetLongestStringForToken( const ILocalizationString *pLocalizationString, ILocalizationStringSizeResolver *pResolver ) = 0;
+
+	// Check that the localization string is still known to the localization
+	// system.  For internal consistency checking.
+	virtual bool IsValidLocalizationString( const ILocalizationString *pLocStr ) = 0;
 };
 
 
@@ -395,9 +433,19 @@ public:
 		return *this;
 	}
 
+	bool Validate()
+	{
+		if ( !m_pString )
+		{
+			return true;
+		}
+
+		return UILocalize()->IsValidLocalizationString( m_pString );
+	}
+
 private:
 	bool m_bMutable;
-	ILocalizationString *m_pString;;
+	ILocalizationString *m_pString;
 };
 
 

@@ -35,8 +35,10 @@ public:
 	// flVolume should be 0.0 to 1.0, 0.5 would equal -10DB. volume is modulated by the mixer volume for the specified sound type.
 	// flVolumePan sets the position on mono samples, or panning on stereo, 0.0 is full left, 1.0 is full right, 0.5 is no attenuation.
 	// flRepeats sets the number of times to repeat the sound, 0.0f will result in infinite
-	virtual HAUDIOSAMPLE PlaySound( const char *pchSoundName, ESoundType soundType,
-		float flVolume = 1.0f, float flVolumePan = 0.5f, float flRepeats = 1.0f ) = 0;
+	virtual HAUDIOSAMPLE PlaySound( const char *pchSoundName, IUIPanel* pUIPanel, ESoundType soundType,
+		float flVolume = 1.0f, float flVolumePan = 0.5f, float flRepeats = 1.0f, const Vector2D* pSoundPosition=nullptr ) = 0;
+
+	virtual bool IsSoundStillPlaying(HAUDIOSAMPLE sample) = 0;
 
 	// Set the base volume / panning for the sound sample
 	virtual void SetSoundSampleVolumePan( HAUDIOSAMPLE hSample, float flVolume, float flVolumePan ) = 0;
@@ -63,10 +65,17 @@ public:
 	// and you can set a global mute state
 	virtual void SetSoundMuted( bool bMute ) = 0;
 
-#ifdef SUPPORTS_AUDIO
+	// Set and get whether we should be playing main menu music at the moment.
+	virtual void SetPlayMainMenuMusic( bool new_value ) = 0;
+	virtual bool GetPlayMainMenuMusic() = 0;
+
+	// Get whether music should be using an HRTF effect to make it seem 'in world'.
+	virtual bool GetMusicUseHRTFEffect() = 0;
+	virtual void SetMusicUseHRTFEffect(bool new_value) = 0;
+
+
 	virtual IAudioOutputStream *CreateAudioOutputStream( int nRate, int nChannels, int nBits ) = 0;
 	virtual void FreeAudioOutputStream( IAudioOutputStream *pStream ) = 0;
-#endif
 
 	// Push that the system now requires a larger mix ahead buffer to prevent skipping, "large" is somewhat undefined
 	// at this level, but you are trading off latency on sounds beginning to get a bigger buffer pre-mixed by miles

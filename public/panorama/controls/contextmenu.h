@@ -14,6 +14,7 @@
 
 DECLARE_PANEL_EVENT1( ContextMenuEvent, const char * )
 DECLARE_PANEL_EVENT1( ContextMenuEventDirect, panorama::IUIEvent * );
+DECLARE_PANORAMA_EVENT0( DismissAllContextMenus );
 
 namespace panorama 
 {
@@ -35,21 +36,30 @@ public:
 
 	void CalculatePosition() { m_bReposition = true; InvalidateSizeAndPosition(); }
 
-protected:
-	CPanel2D *GetEventParent() { return m_pEventParent; }
+	virtual void OnLayoutTraverse( float flFinalWidth, float flFinalHeight ) OVERRIDE;
+
+	CPanel2D *GetEventParent() { return m_pEventParent.Get(); }
+
+	virtual void Close();
+
+	void SetDismissEvent( IUIEvent *pEvent );
+
+	void SetFadeoutTime( float flFadeoutTime ) { m_flFadeoutTime = flFadeoutTime; }
+	float GetFadeoutTime() const { return m_flFadeoutTime; }
 
 private:
 	void Initialize( CPanel2D *pEventParent );
 
-	void OnLayoutTraverse( float flFinalWidth, float flFinalHeight );
-
 	bool OnFireEvent( const panorama::CPanelPtr< panorama::IUIPanel > &ptrPanel, const char *pchEventText );
 	bool OnFireEvent( const panorama::CPanelPtr< panorama::IUIPanel > &ptrPanel, IUIEvent *pEvent );
 	bool OnCancelled( const panorama::CPanelPtr< panorama::IUIPanel > &pPanel, panorama::EPanelEventSource_t eSource );
+	bool OnDismissAll();
 
-	CPanel2D *m_pEventParent;
+	CPanelPtr< CPanel2D > m_pEventParent;
 	CPanelPtr< IUIPanel > m_pMenuTarget;
+	IUIEvent *m_pDismissEvent;
 	double m_flCreateTime;
+	float m_flFadeoutTime;
 	bool m_bReposition;
 };
 
@@ -66,8 +76,8 @@ public:
 	CSimpleContextMenu( IUIWindow *pParent, const char *pchName, CPanel2D *pEventParent  );
 	virtual ~CSimpleContextMenu();
 
-	void AddMenuItem( const char *pchLabelText, const char *pchEventText );
-	void AddMenuItemEvent( const char *pchLabel, IUIEvent *pEvent );
+	panorama::CPanel2D* AddMenuItem( const char *pchLabelText, const char *pchEventText );
+	panorama::CPanel2D* AddMenuItemEvent( const char *pchLabel, IUIEvent *pEvent );
 
 private:
 
