@@ -98,6 +98,8 @@ void S_BlockSound (void);
 void S_UnblockSound (void);
 void ClearIOStates( void );
 
+extern ConVar mat_borderless;
+
 //-----------------------------------------------------------------------------
 // Game input events
 //-----------------------------------------------------------------------------
@@ -1007,7 +1009,7 @@ bool CGame::CreateGameWindow( void )
 	// Give it a frame if we want a border
 	if ( videomode->IsWindowedMode() )
 	{
-		if( !CommandLine()->FindParm( "-noborder" ) )
+		if( !mat_borderless.GetBool() && !CommandLine()->FindParm( "-noborder" ) )
 		{
 			style |= WS_OVERLAPPEDWINDOW;
 			style &= ~WS_THICKFRAME;
