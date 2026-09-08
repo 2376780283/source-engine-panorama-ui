@@ -127,6 +127,29 @@ static void GetResolutionName( vmode_t *mode, char *sz, int sizeofsz, int deskto
 }
 
 //-----------------------------------------------------------------------------
+// Purpose: Returns true if the borderless window option (mat_borderless) is on
+//-----------------------------------------------------------------------------
+static bool BorderlessWindowEnabled()
+{
+	ConVarRef var( "mat_borderless" );
+	return var.IsValid() && var.GetBool();
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: Returns the display name for the borderless window mode entry.
+// Falls back to plain English text if the "#GameUI_BorderlessWindow"
+// localization token isn't present in the game's localization files.
+//-----------------------------------------------------------------------------
+static const char *GetBorderlessWindowDisplayName()
+{
+	if ( g_pVGuiLocalize && g_pVGuiLocalize->Find( "#GameUI_BorderlessWindow" ) )
+	{
+		return "#GameUI_BorderlessWindow";
+	}
+	return "Borderless Window";
+}
+
+//-----------------------------------------------------------------------------
 // Purpose: Gamma-adjust dialog
 //-----------------------------------------------------------------------------
 class CGammaDialog : public vgui::Frame
@@ -1096,6 +1119,7 @@ COptionsSubVideo::COptionsSubVideo(vgui::Panel *parent) : PropertyPage(parent, N
 	if ( numVideoDisplays <= 1 )
 	{
 		m_pWindowed->AddItem( "#GameUI_Fullscreen", NULL );
+		m_pWindowed->AddItem( GetBorderlessWindowDisplayName(), NULL );
 		m_pWindowed->AddItem( "#GameUI_Windowed", NULL );
 	}
 	else
@@ -1103,6 +1127,7 @@ COptionsSubVideo::COptionsSubVideo(vgui::Panel *parent) : PropertyPage(parent, N
 		// Add something like this:
 		//   Full Screen (0)
 		//   Full Screen (1)
+		//   Borderless Window
 		//   Windowed
 		wchar_t *fullscreenText = g_pVGuiLocalize->Find( "#GameUI_Fullscreen" );
 
@@ -1114,6 +1139,7 @@ COptionsSubVideo::COptionsSubVideo(vgui::Panel *parent) : PropertyPage(parent, N
 			m_pWindowed->AddItem( ItemText, NULL );
 		}
 
+		m_pWindowed->AddItem( GetBorderlessWindowDisplayName(), NULL );
 		m_pWindowed->AddItem( "#GameUI_Windowed", NULL );
 	}
 
@@ -1121,6 +1147,7 @@ COptionsSubVideo::COptionsSubVideo(vgui::Panel *parent) : PropertyPage(parent, N
 	m_pWindowed = new vgui::ComboBox( this, "DisplayModeCombo", 6, false );
 
 	m_pWindowed->AddItem( "#GameUI_Fullscreen", NULL );
+	m_pWindowed->AddItem( GetBorderlessWindowDisplayName(), NULL );
 	m_pWindowed->AddItem( "#GameUI_Windowed", NULL );
 #endif
 
@@ -1189,13 +1216,21 @@ void COptionsSubVideo::PrepareResolutionList()
 
 	const MaterialSystem_Config_t &config = materials->GetCurrentConfigForVideoCard();
 
-	// Windowed is the last item in the combobox.
+	// Windowed is the last item in the combobox. Borderless window is right before it.
 	bool bWindowed = ( m_pWindowed->GetActiveItem() >= ( m_pWindowed->GetItemCount() - 1 ) );
+	bool bBorderlessWindow = ( m_pWindowed->GetActiveItem() == ( m_pWindowed->GetItemCount() - 2 ) );
 	int desktopWidth, desktopHeight;
 	gameuifuncs->GetDesktopResolution( desktopWidth, desktopHeight );
 
+	// A borderless window is applied at the desktop (native) resolution so it fills the screen.
+	if ( bBorderlessWindow )
+	{
+		currentWidth = desktopWidth;
+		currentHeight = desktopHeight;
+	}
+
 #if defined( USE_SDL )
-	bool bFullScreenWithMultipleDisplays = ( !bWindowed && ( SDL_GetNumVideoDisplays() > 1 ) );
+	bool bFullScreenWithMultipleDisplays = ( !bWindowed && !bBorderlessWindow && ( SDL_GetNumVideoDisplays() > 1 ) );
 	if ( bFullScreenWithMultipleDisplays )
 	{
 		SDL_Rect rect;
@@ -1216,7 +1251,7 @@ void COptionsSubVideo::PrepareResolutionList()
 	//	fake things out so the native fullscreen resolution is selected. Stuck this in
 	//	because I assume most people will go fullscreen at native resolution, and it's sometimes
 	//	difficult to find the native resolution with all the aspect ratio options.
-	bool bNewFullscreenDisplay = ( !bWindowed && ( getSDLDisplayIndexFullscreen() != m_pWindowed->GetActiveItem() ) );
+	bool bNewFullscreenDisplay = ( !bWindowed && !bBorderlessWindow && ( getSDLDisplayIndexFullscreen() != m_pWindowed->GetActiveItem() ) );
 	if ( bNewFullscreenDisplay )
 	{
 		currentWidth = desktopWidth;
@@ -1386,8 +1421,15 @@ void COptionsSubVideo::OnResetData()
 
 	if ( config.Windowed() )
 	{
-		// Last item in the combobox is Windowed.
-		ItemIndex = ( m_pWindowed->GetItemCount() - 1 );
+		// Last item in the combobox is Windowed. Borderless window is right before it.
+		if ( BorderlessWindowEnabled() )
+		{
+			ItemIndex = ( m_pWindowed->GetItemCount() - 2 );
+		}
+		else
+		{
+			ItemIndex = ( m_pWindowed->GetItemCount() - 1 );
+		}
 	}
 	else
 	{
@@ -1403,7 +1445,15 @@ void COptionsSubVideo::OnResetData()
 
     m_pWindowed->ActivateItem( ItemIndex );
 #else
-    m_pWindowed->ActivateItem( config.Windowed() ? 1 : 0 );
+	if ( config.Windowed() )
+	{
+		// Borderless window is the second-to-last item; Windowed is the last item.
+		m_pWindowed->ActivateItem( BorderlessWindowEnabled() ? ( m_pWindowed->GetItemCount() - 2 ) : ( m_pWindowed->GetItemCount() - 1 ) );
+	}
+	else
+	{
+		m_pWindowed->ActivateItem( 0 );
+	}
 #endif
 
 	// reset gamma control
@@ -1520,7 +1570,10 @@ void COptionsSubVideo::OnApplyChanges()
 
 	// windowed
 	bool bConfigChanged = false;
-	bool windowed = ( m_pWindowed->GetActiveItem() == ( m_pWindowed->GetItemCount() - 1 ) ) ? true : false;
+	int nItemCount = m_pWindowed->GetItemCount();
+	int nBorderlessItem = nItemCount - 2;		// Borderless window is right before the last item.
+	bool windowed = ( m_pWindowed->GetActiveItem() >= nBorderlessItem ) ? true : false;
+	bool bBorderlessWindow = ( m_pWindowed->GetActiveItem() == nBorderlessItem );
 	const MaterialSystem_Config_t &config = materials->GetCurrentConfigForVideoCard();
 
 	bool bVRMode = m_pVRMode->GetActiveItem() != 0;
@@ -1533,8 +1586,28 @@ void COptionsSubVideo::OnApplyChanges()
 
 		// force windowed. VR mode ignores this flag and desktop mode needs to be in a window always
 		windowed = bVRMode;
+		bBorderlessWindow = false;
 	}
 
+	// Borderless windows are windowed and always run at the desktop resolution so they fill the screen.
+	if ( bBorderlessWindow )
+	{
+		gameuifuncs->GetDesktopResolution( width, height );
+		windowed = true;
+	}
+
+	// Keep the engine's mat_borderless cvar in sync with the choice made here so the
+	// window can be re-framed without needing a restart.
+	ConVarRef mat_borderless( "mat_borderless" );
+	bool bBorderlessWasEnabled = mat_borderless.IsValid() && mat_borderless.GetBool();
+	if ( bBorderlessWindow != bBorderlessWasEnabled )
+	{
+		if ( mat_borderless.IsValid() )
+		{
+			mat_borderless.SetValue( bBorderlessWindow );
+		}
+		bConfigChanged = true;
+	}
 
 	// make sure there is a change
 	if ( config.m_VideoMode.m_Width != width
@@ -1600,6 +1673,12 @@ void COptionsSubVideo::OnApplyChanges()
 	// apply changes
 	engine->ClientCmd_Unrestricted( "mat_savechanges\n" );
 
+	if ( bConfigChanged )
+	{
+		// Persist archive convars (mat_borderless) so the borderless window choice
+		// survives a restart. The engine reads it back before creating the window.
+		engine->ClientCmd_Unrestricted( "host_writeconfig\n" );
+	}
 }
 
 //-----------------------------------------------------------------------------

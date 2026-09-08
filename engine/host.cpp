@@ -1763,6 +1763,7 @@ void Host_ReadPreStartupConfiguration()
 		"sv_unlockedchapters",		// needed to display the startup graphic while loading
 		"snd_legacy_surround",		// needed to init the sound system
 		"gameui_xbox",				// needed to initialize the correct UI
+		"mat_borderless",			// needed to create a borderless game window at startup
 		"save_in_memory"			// needed to preread data from the correct location in UI
 	};
 

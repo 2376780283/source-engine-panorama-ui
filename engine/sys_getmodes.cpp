@@ -74,6 +74,78 @@ ConVar cl_savescreenshotstosteam( "cl_savescreenshotstosteam", "0", FCVAR_HIDDEN
 ConVar cl_screenshotusertag( "cl_screenshotusertag", "", FCVAR_HIDDEN, "User to tag in the screenshot" );
 ConVar cl_screenshotlocation( "cl_screenshotlocation", "", FCVAR_HIDDEN, "Location to tag the screenshot with" );
 
+// Runs in a borderless window (windowed mode with no window frame). See the video options.
+extern ConVar mat_borderless;
+
+//-----------------------------------------------------------------------------
+// Purpose: Change callback for mat_borderless. Toggling the borderless window
+// in the video options never changes the renderer resolution or the windowed
+// flag, so the material system won't fire its mode-change callback and
+// AdjustWindow() never gets a chance to reframe the window. Reframe it here so
+// the change applies immediately and the title bar comes back when disabling.
+//-----------------------------------------------------------------------------
+static void BorderlessWindowChanged( IConVar *var, const char *pOldValue, float flOldValue )
+{
+#if !defined( _X360 )
+	if ( !game || !game->GetMainWindow() || !g_pMaterialSystemConfig )
+		return;
+
+	// Only reframe a running, windowed-mode game window.
+	if ( !g_pMaterialSystemConfig->Windowed() )
+		return;
+
+#if defined( USE_SDL )
+	SDL_Window *win = g_pLauncherMgr ? ( SDL_Window * )g_pLauncherMgr->GetWindowRef() : NULL;
+	if ( win )
+	{
+		SDL_SetWindowBordered( win, mat_borderless.GetBool() ? SDL_FALSE : SDL_TRUE );
+	}
+#elif defined( WIN32 )
+	HWND hWnd = ( HWND )game->GetMainWindow();
+	RECT rcWindow;
+	rcWindow.left = 0;
+	rcWindow.top = 0;
+	rcWindow.right = g_pMaterialSystemConfig->m_VideoMode.m_Width;
+	rcWindow.bottom = g_pMaterialSystemConfig->m_VideoMode.m_Height;
+
+	DWORD style = GetWindowLong( hWnd, GWL_STYLE );
+	DWORD exStyle = GetWindowLong( hWnd, GWL_EXSTYLE );
+
+	// Drop every frame/titlebar bit, then add back only the ones we need.
+	style &= ~( WS_OVERLAPPEDWINDOW | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX | WS_MAXIMIZEBOX | WS_THICKFRAME );
+	if ( !mat_borderless.GetBool() )
+	{
+		// Restore the normal windowed frame (draggable title bar, no resize grip).
+		style |= WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX;
+		style &= ~WS_THICKFRAME;
+	}
+	style &= ~WS_MAXIMIZEBOX;
+
+	SetWindowLong( hWnd, GWL_STYLE, style );
+
+	AdjustWindowRectEx( &rcWindow, style, FALSE, exStyle );
+
+	int x = 0, y = 0;
+	int nWide = rcWindow.right - rcWindow.left;
+	int nTall = rcWindow.bottom - rcWindow.top;
+	if ( !mat_borderless.GetBool() )
+	{
+		// Center the normal window on the desktop.
+		int cxScreen = 0, cyScreen = 0, refreshRate = 0;
+		game->GetDesktopInfo( cxScreen, cyScreen, refreshRate );
+		x = ( cxScreen - nWide ) / 2;
+		y = ( cyScreen - nTall ) / 2;
+		if ( x < 0 ) x = 0;
+		if ( y < 0 ) y = 0;
+	}
+
+	SetWindowPos( hWnd, NULL, x, y, nWide, nTall, SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED );
+#endif // USE_SDL / WIN32
+#endif // !_X360
+}
+
+ConVar mat_borderless( "mat_borderless", "0", FCVAR_ARCHIVE, "Run the game in a borderless window that fills the screen.", BorderlessWindowChanged );
+
 //-----------------------------------------------------------------------------
 // HDRFIXME: move this somewhere else.
 //-----------------------------------------------------------------------------
@@ -1385,7 +1457,7 @@ void CVideoMode_Common::AdjustWindow( int nWidth, int nHeight, int nBPP, bool bW
 	{
 		// Give it a frame (pretty much WS_OVERLAPPEDWINDOW except for we do not modify the
 		// flags corresponding to resizing-frame and maximize-box)
-		if( !CommandLine()->FindParm( "-noborder" ) && !m_bVROverride )
+		if( !mat_borderless.GetBool() && !CommandLine()->FindParm( "-noborder" ) && !m_bVROverride )
 		{
 			style |= WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX;
 		}
@@ -1455,7 +1527,7 @@ void CVideoMode_Common::AdjustWindow( int nWidth, int nHeight, int nBPP, bool bW
 	if( bWindowed )
 	{
 		SDL_Window* win = (SDL_Window*)g_pLauncherMgr->GetWindowRef();
-		if ( m_bVROverride || CommandLine()->FindParm( "-noborder" ) )
+		if ( m_bVROverride || CommandLine()->FindParm( "-noborder" ) || mat_borderless.GetBool() )
 			SDL_SetWindowBordered( win, SDL_FALSE );
 		else
 			SDL_SetWindowBordered( win, SDL_TRUE );
