@@ -414,6 +414,12 @@ DBG_INTERFACE struct SDL_Window * GetAssertDialogParent();
 // Source2 compatibility macro
 #define AssertDbg( X ) DbgAssert( X )
 
+// Dev-style assert (CSGO-era / Source2 code). Maps onto the SE Assert family, which
+// is compiled out in release builds when DBGFLAG_ASSERT is not defined.
+#ifndef DevAssertMsg
+#define DevAssertMsg( _exp, _msg, ... )   AssertMsg( _exp, _msg, ##__VA_ARGS__ )
+#endif
+
 // The Always version of the assert macros are defined even when DBGFLAG_ASSERT is not, 
 // so they will be available even in release.
 #define  AssertAlways( _exp )           							_AssertMsg( _exp, _T("Assertion Failed: ") _T(#_exp), ((void)0), false )

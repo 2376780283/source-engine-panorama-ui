@@ -87,12 +87,18 @@ public:
 	// Size
 	int NumAllocated() const;
 	int Count() const { return NumAllocated(); }
+	int BlockSize() const { return NumElementsInBlock(); }
 
 	// Grows memory by max(num,growsize) rounded up to the next power of 2, and returns the allocation index/ptr
 	void Grow( int num = 1 );
 
 	// Makes sure we've got at least this much memory
 	void EnsureCapacity( int num );
+
+	// Makes sure we've got at least this much memory without crossing blocks.
+	// Size cannot be larger than any block. Returns the item index to use as the
+	// starting position, which may be different than the hinted position.
+	int EnsureContiguousCapacity( int start, int num );
 
 	// Memory deallocation
 	void Purge();
@@ -292,6 +298,37 @@ template< class T, class I >
 inline void CUtlBlockMemory<T,I>::EnsureCapacity( int num )
 {
 	Grow( num - NumAllocated() );
+}
+
+//-----------------------------------------------------------------------------
+// Makes sure we've got at least this much memory without crossing blocks.
+// Size cannot be larger than any block. Returns the item index to use as the
+// starting position, which may be different than the hinted position.
+//-----------------------------------------------------------------------------
+template< class T, class I >
+inline int CUtlBlockMemory<T,I>::EnsureContiguousCapacity( int start, int num )
+{
+	// We allow start to equal count for appending.
+	Assert( start >= 0 && start <= Count() );
+
+	if ( num <= 0 )
+	{
+		return start;
+	}
+
+	Assert( num <= NumElementsInBlock() );
+
+	int nStartMajor = MajorIndex( start );
+	if ( nStartMajor < m_nBlocks && nStartMajor == MajorIndex( start + num - 1 ) )
+	{
+		// The whole range falls within one existing block, use the suggested start.
+		return start;
+	}
+
+	// Add a new block to use.
+	start = Count();
+	Grow( 1 );
+	return start;
 }
 
 

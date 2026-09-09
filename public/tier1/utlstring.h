@@ -112,6 +112,9 @@ public:
 	// IsEmpty() is more efficient than Length() == 0
 	bool		IsEmpty() const;
 
+	// GS - Added for chromehtml (CS:GO panorama uses this)
+	bool		IsValid() const { return ( Length() != 0 ); }
+
 	// Sets the length (used to serialize into the buffer )
 	// Note: If nLen != 0, then this adds an extra byte for a null-terminator.	
 	void		SetLength( int nLen );

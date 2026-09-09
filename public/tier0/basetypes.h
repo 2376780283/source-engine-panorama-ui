@@ -294,6 +294,24 @@ struct Rect_t
 
 
 //-----------------------------------------------------------------------------
+// Rect3D_t struct - 3D box (used by Source2-style render interfaces)
+//-----------------------------------------------------------------------------
+struct Rect3D_t
+{
+	int x, y, z;
+	int width, height, depth;
+
+	inline Rect3D_t( int nX, int nY, int nZ, int nWidth, int nHeight, int nDepth )
+	{
+		x = nX; y = nY; z = nZ;
+		width = nWidth; height = nHeight; depth = nDepth;
+	}
+
+	inline Rect3D_t( void ) {}
+};
+
+
+//-----------------------------------------------------------------------------
 // Interval, used by soundemittersystem + the game
 //-----------------------------------------------------------------------------
 struct interval_t
@@ -374,6 +392,44 @@ protected:
 
 #define DECLARE_POINTER_HANDLE(name) struct name##__ { int unused; }; typedef struct name##__ *name
 #define FORWARD_DECLARE_HANDLE(name) typedef struct name##__ *name
+
+// CS:GO-era additions used by the panorama port
+#define DECLARE_DERIVED_POINTER_HANDLE( _name, _basehandle ) struct _name##__ : public _basehandle##__ {}; typedef struct _name##__ *_name
+#define DECLARE_ALIASED_POINTER_HANDLE( _name, _alias ) typedef struct _alias##__ *name
+
+namespace basetypes
+{
+	template <class T>
+	inline bool IsPowerOf2( T n )
+	{
+		return n > 0 && ( n & ( n - 1 ) ) == 0;
+	}
+
+	template <class T1, class T2>
+	inline T2 ModPowerOf2( T1 a, T2 b )
+	{
+		return T2( a ) & ( b - 1 );
+	}
+
+	template <class T>
+	inline T RoundDownToMultipleOf( T n, T m )
+	{
+		return n - ( IsPowerOf2( m ) ? ModPowerOf2( n, m ) : ( n%m ) );
+	}
+
+	template <class T>
+	inline T RoundUpToMultipleOf( T n, T m )
+	{
+		if ( !n )
+		{
+			return m;
+		}
+		else
+		{
+			return RoundDownToMultipleOf( n + m - 1, m );
+		}
+	}
+}
 
 // @TODO: Find a better home for this
 #if !defined(_STATIC_LINKED) && !defined(PUBLISH_DLL_SUBSYSTEM)

@@ -139,6 +139,7 @@ public:
 	bool			operator==( const T *pOther ) const;
 	bool			IsValid() const; // Tells if the pointer is valid.
 	T*				GetObject() const; // Get temporary object pointer, don't store it for later reuse!
+	T*				Get() const; // Get temporary object pointer, don't store it for later reuse! (CS:GO panorama)
 	void			MarkDeleted();
 
 private:
@@ -237,6 +238,12 @@ inline bool CSmartPtr<T,RefCountAccessor>::IsValid() const
 
 template< class T, class RefCountAccessor >
 inline T* CSmartPtr<T,RefCountAccessor>::GetObject() const
+{
+	return m_pObj;
+}
+
+template< class T, class RefCountAccessor >
+inline T* CSmartPtr<T,RefCountAccessor>::Get() const
 {
 	return m_pObj;
 }

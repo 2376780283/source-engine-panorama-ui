@@ -541,7 +541,9 @@ public:
 	virtual v8::Isolate * GetV8Isolate() = 0;
 
 	// Run a JS function
-	virtual v8::Local< v8::Value > RunFunction( IUIPanel *pPanelContext, v8::Persistent<v8::Function> *pFunction, 
+	// NOTE: returns v8::Handle (not Local) to match CUIEngine's implementation; the CS:GO-era
+	// v8 had Local == Handle, our newer v8 treats them as distinct so they must agree.
+	virtual v8::Handle< v8::Value > RunFunction( IUIPanel *pPanelContext, v8::Persistent<v8::Function> *pFunction, 
 		int nNumArgs, v8::Handle<v8::Value> *pArgs, bool bPrintRetValue ) = 0;
 
 	virtual v8::Handle< v8::Value > RunFunction( IUIPanel *pPanel, const char *pchFunctionName, 

@@ -10,6 +10,13 @@
 #pragma once
 #endif
 
+// NOTE: CS:GO-era container headers (CUtlMap functor support, CompareOperands_t in CUtlRBTree)
+// shadow the SE originals from ../panorama_s1wrapper/tier1. Include them here, before any SE
+// header pulls in the SE versions, so the shared include guards (UTLMAP_H/UTLRBTREE_H) resolve
+// to the CS:GO superset containers for the whole TU.
+#include "tier1/utlrbtree.h"
+#include "tier1/utlmap.h"
+
 // base
 #include <stdio.h>
 #include <stdlib.h>

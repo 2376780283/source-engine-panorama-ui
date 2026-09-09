@@ -802,6 +802,9 @@ enum RenderInputLayout_t
 	RIL_FANCY = 2				// POS and 8 tex coords
 };
 
+// RsBlendStateHandle_t is provided by panorama/s1wrapperRenderAttributes.h (included above)
+// unless PANORAMA_USE_S1WRAPPER is set - in that case we define it here instead.
+#ifdef PANORAMA_USE_S1WRAPPER
 enum RsBlendStateHandle_t
 {
 	BLENDSTATE_ALPHA = 1,
@@ -814,6 +817,7 @@ enum RsBlendStateHandle_t
 	BLENDSTATE_MIX_OPAQUE,
 	BLENDSTATE_MAX
 };
+#endif // PANORAMA_USE_S1WRAPPER
 
 enum RenderShaderHandle_t
 {

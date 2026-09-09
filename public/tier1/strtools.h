@@ -61,6 +61,11 @@ int V_stricmp( const char *s1, const char *s2 );
 int	V_strncmp( const char *s1, const char *s2, int count );
 int V_strnicmp( const char *s1, const char *s2, int n );
 
+// Source2/_fast aliases used by CS:GO panorama code
+#define V_strncmp_fast V_strncmp
+#define V_strnicmp_fast V_strnicmp
+#define V_stristr_fast V_stristr
+
 //-----------------------------------------------------------------------------
 // Purpose: Slightly modified strtok. Does not modify the input string. Does
 //			not skip over more than one separator at a time. This allows parsing
@@ -386,6 +391,9 @@ int Q_UnicodeLength( const char *pUTF8 );
 int Q_UnicodeLength( const uchar16 *pUTF16 );
 int Q_UnicodeLength( const uchar32 *pUTF32 );
 
+// V_-style alias (CS:GO panorama / Source2 code uses the V_ name)
+#define V_UnicodeLength			Q_UnicodeLength
+
 // Returns length of string in elements, not characters! These are analogous to Q_strlen and Q_wcslen
 inline int Q_strlen16( const uchar16 *puc16 ) { int nElems = 0; while ( puc16[nElems] ) ++nElems; return nElems; }
 inline int Q_strlen32( const uchar32 *puc32 ) { int nElems = 0; while ( puc32[nElems] ) ++nElems; return nElems; }
@@ -464,6 +472,16 @@ int Q_UTF16ToUChar32( const uchar16 *pUTF16, uchar32 &uValueOut, bool &bErrorOut
 // These are legacy names which don't make a lot of sense but are used everywhere. Prefer the WString convention wherever possible
 #define V_UTF8ToUnicode Q_UTF8ToWString
 #define V_UnicodeToUTF8 Q_WStringToUTF8
+
+// V_-style aliases over the Q_ unicode helpers (CSGO-era / Source2 code uses the V_ names)
+#define V_strlen16 Q_strlen16
+#define V_strlen32 Q_strlen32
+#define V_UTF8ToUTF16 Q_UTF8ToUTF16
+#define V_UTF8ToUTF32 Q_UTF8ToUTF32
+#define V_UTF16ToUTF8 Q_UTF16ToUTF8
+#define V_UTF16ToUTF32 Q_UTF16ToUTF32
+#define V_UTF32ToUTF8 Q_UTF32ToUTF8
+#define V_UTF32ToUTF16 Q_UTF32ToUTF16
 
 
 #ifdef WIN32

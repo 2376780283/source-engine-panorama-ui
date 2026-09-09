@@ -100,6 +100,39 @@ template<> inline unsigned HashItem<char *>(char * const &pszKey )
 }
 
 //-----------------------------------------------------------------------------
+// Generic hash functor used by the CS:GO/Source2 container classes (utlhashmap, CUtlHashMap)
+//-----------------------------------------------------------------------------
+template<typename T>
+struct HashMapFunctor_t
+{
+	typedef uint32 TargetType;
+	TargetType operator()(const T &key) const
+	{
+		return HashItem( key );
+	}
+};
+
+template<>
+struct HashMapFunctor_t<char *>
+{
+	typedef uint32 TargetType;
+	TargetType operator()(const char *key) const
+	{
+		return HashString( key );
+	}
+};
+
+template<>
+struct HashMapFunctor_t<const char *>
+{
+	typedef uint32 TargetType;
+	TargetType operator()(const char *key) const
+	{
+		return HashString( key );
+	}
+};
+
+//-----------------------------------------------------------------------------
 
 
 //-----------------------------------------------------------------------------

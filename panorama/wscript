@@ -34,6 +34,11 @@ def build(bld):
 	defines = [
 		# Match CSGO2019 panorama.vpc framework build config
 		'SOURCE2_PANORAMA',
+		# CSGO framework build defines this to skip Source1 steam client_api.h (SE has no steam client)
+		'SOURCE2_PANORAMA_FIXME',
+		# CSGO panorama framework is built against the Source1 wrapper (CSGO's uiengine.h #else
+		# branch with CDefFastCaselessStringLess is dead code there)
+		'PANORAMA_USE_S1WRAPPER',
 		# SE-era adaptions: SE tier0/platform.h already provides these helpers
 		'SE_PLATFORM_HAS_CONSTRUCT_HELPERS',
 	]

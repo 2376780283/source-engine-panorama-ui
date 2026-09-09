@@ -72,6 +72,8 @@ projects={
 		'materialsystem/stdshaders',
 		'mathlib',
 		'particles',
+		# TEMP Phase-2 panorama iteration registration (remove before commit)
+		'panorama',
 		'scenefilecache',
 		'serverbrowser',
 		'soundemittersystem',

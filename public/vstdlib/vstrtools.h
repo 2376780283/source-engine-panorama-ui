@@ -22,8 +22,14 @@
 
 
 // conversion functions wchar_t <-> char, returning the number of characters converted
+// (SE tier1/strtools.h maps these V_ names onto the inline Q_ implementations via macros,
+// so skip the DLL-import declarations here when those macros are already defined.)
+#ifndef V_UTF8ToUnicode
 VSTRTOOLS_INTERFACE int V_UTF8ToUnicode( const char *pUTF8, OUT_Z_BYTECAP(cubDestSizeInBytes) wchar_t *pwchDest, int cubDestSizeInBytes );
+#endif
+#ifndef V_UnicodeToUTF8
 VSTRTOOLS_INTERFACE int V_UnicodeToUTF8( const wchar_t *pUnicode, OUT_Z_BYTECAP(cubDestSizeInBytes) char *pUTF8, int cubDestSizeInBytes );
+#endif
 VSTRTOOLS_INTERFACE int V_UCS2ToUnicode( const ucs2 *pUCS2, OUT_Z_BYTECAP(cubDestSizeInBytes) wchar_t *pUnicode, int cubDestSizeInBytes );
 VSTRTOOLS_INTERFACE int V_UCS2ToUTF8( const ucs2 *pUCS2, OUT_Z_BYTECAP(cubDestSizeInBytes) char *pUTF8, int cubDestSizeInBytes );
 VSTRTOOLS_INTERFACE int V_UnicodeToUCS2( const wchar_t *pUnicode, int cubSrcInBytes, OUT_Z_BYTECAP(cubDestSizeInBytes) char *pUCS2, int cubDestSizeInBytes );
@@ -32,6 +38,9 @@ VSTRTOOLS_INTERFACE int V_UTF8ToUCS2( const char *pUTF8, int cubSrcInBytes, OUT_
 // copy at most n bytes into destination, will not corrupt utf-8 multi-byte sequences
 VSTRTOOLS_INTERFACE void * V_UTF8_strncpy( OUT_Z_BYTECAP(nMaxBytes) char *pDest, const char *pSrc, size_t nMaxBytes );
 
+// SE tier1/strtools.h (always included above) already provides class CStrAutoEncode,
+// so skip this duplicate copy to avoid an ODR/redefinition clash.
+#if !defined( TIER1_STRTOOLS_H )
 
 //
 // This utility class is for performing UTF-8 <-> UTF-16 conversion.
@@ -268,6 +277,8 @@ private:
 	bool m_bCreatedUTF16;
 
 };
+
+#endif // !TIER1_STRTOOLS_H
 
 
 // Source2 version of CStrAutoEncode

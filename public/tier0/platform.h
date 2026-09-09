@@ -563,6 +563,11 @@ typedef void * HINSTANCE;
 //-----------------------------------------------------------------------------
 // Stack-based allocation related helpers
 //-----------------------------------------------------------------------------
+
+// Allocate a stack array of the given type with the given element count (16-byte aligned).
+// CSGO-era helper (used by vstdlib/vstrtools.h and Source2 code).
+#define  StackAlloc( typ, nelements )		( (typ *)stackalloc( (nelements) * sizeof( typ ) ) )
+
 #if defined( GNUC )
 	#define stackalloc( _size )		alloca( ALIGN_VALUE( _size, 16 ) )
 #if defined(_LINUX) || defined(PLATFORM_BSD)
