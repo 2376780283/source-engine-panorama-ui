@@ -7,6 +7,7 @@
 //==================================================================================================
 
 #define g_pRenderHardwareConfig g_pRenderHardwareConfig2			// Don't collide with S1 iface
+class IRenderHardwareConfig;	// fwd decl needed before the extern (CSGO provides it via interfaces.h)
 extern IRenderHardwareConfig* g_pRenderHardwareConfig;
 
 class IRenderHardwareConfig

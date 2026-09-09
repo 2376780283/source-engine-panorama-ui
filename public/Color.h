@@ -68,6 +68,12 @@ public:
 		return color;
 	}
 
+	// CS:GO panorama uses this
+	uint32 AsUint32() const
+	{
+		return (uint32)GetRawColor();
+	}
+
 	inline int r() const	{ return _color[0]; }
 	inline int g() const	{ return _color[1]; }
 	inline int b() const	{ return _color[2]; }

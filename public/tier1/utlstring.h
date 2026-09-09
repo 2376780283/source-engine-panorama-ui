@@ -97,6 +97,9 @@ public:
 	void		Set( const char *pValue );
 	operator const char*() const;
 
+	// CS:GO panorama writable accessor (Access = non-const Get)
+	char		*Access() { return GetForModify(); }
+
 	// Set directly and don't look for a null terminator in pValue.
 	// nChars does not include the nul and this will only copy
 	// at most nChars (even if pValue is longer).  If nChars

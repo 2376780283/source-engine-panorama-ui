@@ -122,6 +122,7 @@
 		#define IsPS3() false
 		#define IS_WINDOWS_PC
 		#define PLATFORM_WINDOWS_PC 1 // Windows PC
+		#define IsPlatformWindowsPC() true
 		#ifdef _WIN64
 			#define IsPlatformWindowsPC64() true
 			#define IsPlatformWindowsPC32() false

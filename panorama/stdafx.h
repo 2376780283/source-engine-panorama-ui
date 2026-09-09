@@ -63,6 +63,7 @@
 #include "tier0/dbg.h"
 #include "tier0/logging.h"	// panorama logging shim
 #include "tier0/threadtools.h"
+#include "tier0/icommandline.h"
 
 #ifdef PANORAMA_USE_S1WRAPPER
 #include "vstdlib/vstrtools.h"

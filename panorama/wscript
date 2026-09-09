@@ -13,14 +13,28 @@ def configure(conf):
 
 def build(bld):
 	source = [
-		# minimal seed set - grow as include/dep issues are fixed
+		# Batch 1: core top-level UI framework TUs (grown from panorama.vpc list)
+		'ctx_debug.cpp',
 		'panoramasymbol.cpp',
+		# 'uiengine.cpp',   # TEMP excluded: V8-era API drift (B1 blocker) - needs v8-header era alignment
+		'uisoundsystem.cpp',
+		'uievent.cpp',
+		'uievents.cpp',
+		'uifileresource.cpp',
+		'uijsregistration.cpp',
+		'uipanel.cpp',
+		'uischeduleddel.cpp',
+		'uitoplevelwindow.cpp',
+		'uicommands.cpp',
+		'uiwebapiclient.cpp',
+		'transformations.cpp',
 	]
 
 	includes = [
 		'.',                        # panorama/ (self)
 		'..',                       # repo root (mathlib/, tier1/ ...)
 		'../panorama_s1wrapper',    # rendersystem/ resourcesystem/ materialsystem2/ assetsystem/ (lightweight, BEFORE ../public so it wins)
+		'../panorama_s1wrapper/tier1',
 		'../public',
 		'../public/tier0',
 		'../public/tier1',
@@ -29,6 +43,8 @@ def build(bld):
 		'../public/panorama',
 		'../common',
 		'../external/v8/include',
+		'../external/v8',   # libplatform.h does #include "include/v8-platform.h" (v8-root relative)
+		'../external',   # so "v8/include/libplatform/libplatform.h" style includes resolve
 	]
 
 	defines = [
@@ -39,6 +55,8 @@ def build(bld):
 		# CSGO panorama framework is built against the Source1 wrapper (CSGO's uiengine.h #else
 		# branch with CDefFastCaselessStringLess is dead code there)
 		'PANORAMA_USE_S1WRAPPER',
+		'PANORAMA_EXPORTS',
+		'STEAM_API_NODLL',
 		# SE-era adaptions: SE tier0/platform.h already provides these helpers
 		'SE_PLATFORM_HAS_CONSTRUCT_HELPERS',
 	]

@@ -24,6 +24,15 @@
 #define DLLExtTokenPaste2(x) DLLExtTokenPaste(x)
 #define DLL_EXT_STRING DLLExtTokenPaste2( _DLL_EXT )
 
+// CS:GO-era schema markers (used as "schema enum X" in rendersystem headers)
+#ifndef schema
+#define schema namespace ValveSchemaMarker {}
+#endif
+#define noschema
+#define schema_pragma( ... )
+#define META( ... )
+#define TYPEMETA( ... )
+
 
 #include "protected_things.h"
 

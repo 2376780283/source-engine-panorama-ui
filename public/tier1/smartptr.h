@@ -118,6 +118,16 @@ public:
 };
 
 
+enum ESmartPtrNoAddRef
+{
+	kNoAddRef = 0
+};
+
+enum ESmartPtrAddRef
+{
+	kAddRef = 1
+};
+
 // Smart pointers can be used to automatically free an object when nobody points
 // at it anymore. Things contained in smart pointers must implement AddRef and Release
 // functions. If those functions are private, then the class must make
@@ -130,6 +140,8 @@ public:
 					CSmartPtr( T *pObj );
 					CSmartPtr( const CSmartPtr<T,RefCountAccessor> &other );
 					~CSmartPtr();
+					CSmartPtr( ESmartPtrNoAddRef, T *pObj ) : m_pObj( nullptr ) { Reset( kNoAddRef, pObj ); }
+					CSmartPtr( ESmartPtrAddRef, T *pObj ) : m_pObj( nullptr ) { Reset( kAddRef, pObj ); }
 
 	T*				operator=( T *pObj );
 	void			operator=( const CSmartPtr<T,RefCountAccessor> &other );
@@ -137,10 +149,18 @@ public:
 	T*				operator->();
 	bool			operator!() const;
 	bool			operator==( const T *pOther ) const;
+	bool			operator!=( const T *pOther ) const;
 	bool			IsValid() const; // Tells if the pointer is valid.
 	T*				GetObject() const; // Get temporary object pointer, don't store it for later reuse!
 	T*				Get() const; // Get temporary object pointer, don't store it for later reuse! (CS:GO panorama)
 	void			MarkDeleted();
+
+	// Reset re-initializes this CSmartPtr object, calling Release on any existing pointer
+	void Reset();
+	void Reset( ESmartPtrNoAddRef, T* pObj );
+	void Reset( ESmartPtrAddRef, T* pObj );
+
+	void SetNoRef( T* pObj ) { Reset( kNoAddRef, pObj ); }
 
 private:
 	T				*m_pObj;
@@ -246,6 +266,35 @@ template< class T, class RefCountAccessor >
 inline T* CSmartPtr<T,RefCountAccessor>::Get() const
 {
 	return m_pObj;
+}
+
+template< class T, class RefCountAccessor >
+inline bool CSmartPtr<T,RefCountAccessor>::operator!=( const T *pOther ) const
+{
+	return m_pObj != pOther;
+}
+
+template< class T, class RefCountAccessor >
+inline void CSmartPtr<T,RefCountAccessor>::Reset()
+{
+	*this = nullptr;
+}
+
+template< class T, class RefCountAccessor >
+inline void CSmartPtr<T,RefCountAccessor>::Reset( ESmartPtrNoAddRef, T* pObj )
+{
+	if ( m_pObj )
+	{
+		RefCountAccessor::Release( m_pObj );
+	}
+
+	m_pObj = pObj;
+}
+
+template< class T, class RefCountAccessor >
+inline void CSmartPtr<T,RefCountAccessor>::Reset( ESmartPtrAddRef, T* pObj )
+{
+	*this = pObj;
 }
 
 
