@@ -62,6 +62,9 @@ const uint32 k_cubSHA1Hash = k_cubHash;
 #endif 
 #define WeakRandomFloat( minval, maxval ) RandomFloat( minval, maxval )
 
+// ConstructOneArg/TwoArg are already provided by SE's tier0/platform.h; skip the
+// legacy duplicate definitions when building against SE (macro set in SE builds).
+#if !defined( SE_PLATFORM_HAS_CONSTRUCT_HELPERS )
 template <class T, class P>
 inline void ConstructOneArg( T* pMemory, P const& arg )
 {
@@ -75,6 +78,7 @@ inline void ConstructTwoArg( T* pMemory, P const& arg1, P2 const &arg2 )
 	HINT( pMemory != 0 );
 	::new(pMemory)T( arg1, arg2 );
 }
+#endif
 
 template <class T, class P, class P2, class P3, class P4, class P5, class P6, class P7 >
 inline void ConstructSevenArg( T* pMemory, P const& arg1, P2 const &arg2, P3 const &arg3, P4 const &arg4, P5 const &arg5, P6 const &arg6, P7 const &arg7 )

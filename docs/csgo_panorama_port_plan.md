@@ -260,5 +260,48 @@ git -C d:\source-engine <...>                       # git 需用 -C（多终端�
 
 ---
 
+## Phase 2 依赖分层（2026-09-08，实测 include 扫描）
+
+> 已把 CSGO2019 三个源码树拷入本仓库（未跟踪）：`panorama/`(189)、`panoramauiclient/`(3)、`panorama_s1wrapper/`(279)。
+> 扫描这 456 个文件的所有 include，与 SE 比对：1027 次解析成功，413 个“未解析”（含大量噪音）。报告 `docs/panorama_phase2_missing_includes.txt`。
+> 分层结论：
+
+- **L0 噪音/目录类**（无需“移植”，加 include 目录或放对位置即可）：
+  系统/SDK 头（windows.h、DWrite.h、D3Dcommon.h、SDL.h、WinSock2.h、std*.h…）；文本后端 pango/glib/ft2build/fontconfig（多为 macOS 分支；SE 已有 freetype，需 include 到 `thirdparty/freetype` 等）；树内自引用（s1wrapper.h、wrap_texture.h、uitoplevelwindowoverlay.h 等）。
+- **L1 真·缺失 Source2 接口子系统**（从 CSGO2019 移植公共头 + 判定 shim/stub，wrapper 阶段实现）：
+  `resourcesystem/iresourcesystem.h`、`rendersystem/irenderdevice.h|irendercontext.h`、`materialsystem2/imaterialsystem2.h`、`assetsystem/iassetsystem.h`、`iimemanager.h`、`common/enumutils*.h`。
+- **L2 生成依赖**：protobuf 生成 `.pb.h`（rendermessages 等）→ 需在 SE 建 protobuf 生成流水线（SE 有 protobuf-2.6.1，CSGO 用更新版，需对齐）。
+- **L3 链接卡点**：V8 库（仅影响最终链接；静态库编译阶段只需 v8 头，可先行）。
+
+**建议执行序**：先做 L1（把缺失接口公共头/最小实现搬入并配好 include 目录）→ 尝试编译 `panorama/` 的最小自洽 TU 集 → 逐模块展开；L3 与 L2 在需要链接/生成时处理。
+
+### 首次框架编译实测（2026-09-08，panoramasymbol.cpp 经 stdafx 全量拉入）
+- 已建 `panorama/wscript`（stlib 目标 `panorama`，SOURCE2_PANORAMA），临时注册后**首次真编译**：错误收敛为**有限 6 类**（= tier 对齐包）：
+  1. logging 通道缺失（`LOG_PANORAMA`/`DECLARE_LOGGING_CHANNEL`，需 `tier0/logging.h` 或其 shim）
+  2. `CRefCount` 无定义（rendercommands/iuirenderengine/iuiengine；两库 refcount.h 都只有 `CRefCountService*` → 需自供 source2 风格 CRefCount shim）
+  3. mathlib 漂移：`Quaternion::ToQAngle`、`VMatrix::GetIdentityMatrix`（CSGO 有、SE 无 → 增补方法）
+  4. `ConstructOneArg/TwoArg` 与 SE `tier0/platform.h` 重定义（panoramatypes 需加守卫/适配）
+  5. `CMemoryStack::WillAllocSucceed` 缺失（SE tier1 增补）
+  6. 缺少量头：`currencyamount.h` 等
+- ⚠️ panorama 目标**暂不注册**进根 wscript（否则默认 `waf install` 会失败）；迭代时临时注册 + `waf build --targets=panorama`，编完撤下。
+
+### 两条策略（待确认，推荐 A）
+- **A（推荐）补丁/shim 路线**：在 SE 现有 tier 上**增量加守卫/方法/迷你实现**（platform.h 冲突加守卫、mathlib 补方法、tier1 补 WillAllocSucceed/CRefCount、写最小 logging shim、补 currencyamount.h）。风险低、不动 SE 现有语义，panorama 就着 SE-era 基础编译。
+- **B tier 整体升级路线**：把 SE 共享 tier0/tier1/mathlib 升级到 CSGO 时代（与 CSGO 引擎统一）。改动面大、可能波及整个 SE 引擎构建，风险高。
+- 影响：panorama_s1wrapper 已含 rendersystem/resourcesystem/materialsystem2/assetsystem 接口（加 include 目录即解析）；v8 已镜像 thirdparty/v8（子模块工作区）；`currencyamount.h` 待补。
+
+### 路线 A 补丁规格（已收集素材，逐项机械照做即可）
+1. ✅ `ConstructOneArg/TwoArg`：`panoramatypes.h` 已加守卫 `SE_PLATFORM_HAS_CONSTRUCT_HELPERS`（在 `panorama/wscript` defines 中定义；SE `tier0/platform.h` 已有同语义实现）。
+2. ✅ 缺头 `currencyamount.h`：已从 `D:\CSGO2019\common\currencyamount.h` 拷入 `common/`。
+3. `CRefCount`：CSGO 定义于 `public/gcsdk/refcount.h:75`（`namespace GCSDK`，AddRef/Release/DestroyThis/m_cRef=1）。需确认 `renderer/rendercommands.h` 使用处的命名空间后，把该类提供到 panorama 可见处（或补到 `tier1/refcount.h` 末尾、或以 GCSDK 头方式引入）。
+4. `CMemoryStack::WillAllocSucceed`：SE `public/tier1/memstack.h` 无；CSGO 版：类内声明 `bool WillAllocSucceed( unsigned bytes ) const;` + inline 实现（用 GetMaxSize/GetUsed/CommitTo 语义）→ 增补进 SE memstack（需按 SE 类现有 API 适配）。
+5. mathlib 增量：SE 缺 `Quaternion::ToQAngle`（CSGO `vector.h` 系，见 RadianEuler/Quaternion 转换）与 `VMatrix::GetIdentityMatrix()`（CSGO `vmatrix.h:199` 内联 `static const VMatrix& GetIdentityMatrix(){ static const VMatrix identityMatrix(1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1); return identityMatrix; }`）→ 在 SE `mathlib/vector.h`、`vmatrix.h` 增量补方法（不改语义）。
+6. logging 通道：SE 无 `tier0/logging.h`；CSGO 有但依赖 `icommandline.h/xbox/win32consoleio`（部分不在其 public）。最小路线：自写迷你 `logging.h`（`DECLARE_LOGGING_CHANNEL` 空实现或 stub + 记录用到的 `Log_*`），或在 SE tier0 补最小通道。需先统计 panorama 用到的 logging API。
+7. 其余小头（若有）随编译逐个补。
+
+> 每次改共享头后建议：先 `waf install` 验基线（会触发相关模块重编），再临时注册 panorama 跑 `--targets=panorama`。
+
+---
+
 ## 变更日志
 - 2026-09-08：成稿（可行性分析+分阶段计划）；执行 Phase 0/1（见上执行记录）。
