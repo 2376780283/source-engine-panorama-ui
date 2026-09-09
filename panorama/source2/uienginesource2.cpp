@@ -1216,7 +1216,7 @@ void CUIEngineSource2::NotifyResourceStatusChange( ResourceId_t nResourceId, Res
 		return;
 	}
 
-	Log_Detailed( LOG_PANORAMA, LOG_COLOR_YELLOW, "ResourceStatusChange:\tReloadChangedFile '%s'\n", pResourceMonitor->m_ContentFilename.Get() );
+	Log_Detailed( LOG_PANORAMA, "ResourceStatusChange:\tReloadChangedFile '%s'\n", pResourceMonitor->m_ContentFilename.Get() );
 
 	if ( -1 == m_QueuedResourceReloads.Find( pResourceMonitor ) )
 	{

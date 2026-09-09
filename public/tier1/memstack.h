@@ -44,6 +44,9 @@ public:
 	void *GetBase();
 	const void *GetBase() const {  return const_cast<CMemoryStack *>(this)->GetBase(); }
 
+	// Panorama port (CSGO2019): will an allocation of this size succeed within the reservation?
+	bool WillAllocSucceed( unsigned bytes ) const;
+
 private:
 	bool CommitTo( byte * ) RESTRICT;
 
@@ -128,6 +131,20 @@ inline void *CMemoryStack::GetBase()
 inline MemoryStackMark_t CMemoryStack::GetCurrentAllocPoint()
 {
 	return ( m_pNextAlloc - m_pBase );
+}
+
+//-------------------------------------
+
+inline bool CMemoryStack::WillAllocSucceed( unsigned bytes ) const
+{
+	if ( bytes == 0 )
+		return true;
+
+	bytes = MAX( bytes, m_alignment );
+	bytes = AlignValue( bytes, m_alignment );
+
+	unsigned used = (unsigned)( m_pNextAlloc - m_pBase );
+	return ( used + bytes <= m_maxSize );
 }
 
 //-----------------------------------------------------------------------------

@@ -5121,7 +5121,7 @@ void CUIEngine::OutputJSString( const IUIPanel *pContext, const char *pchString,
 #if defined( SOURCE2_PANORAMA )
 	if ( bException )
 	{
-		Log_Warning( LOG_PANORAMA_SCRIPT, Color(255,255,0), "%s\n", pchString );
+		Log_Warning( LOG_PANORAMA_SCRIPT, "%s\n", pchString );
 	}
 	else
 	{

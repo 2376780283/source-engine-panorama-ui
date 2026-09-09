@@ -81,6 +81,7 @@ projects={
 		'tier1',
 		'tier2',
 		'tier3',
+		'panorama',   # Phase 2: panorama framework (WIP, temp)
 		'vgui2/matsys_controls',
 		'vgui2/src',
 		'vgui2/vgui_controls',

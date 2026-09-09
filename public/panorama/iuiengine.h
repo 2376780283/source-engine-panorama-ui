@@ -14,6 +14,7 @@
 FORWARD_DECLARE_HANDLE( InputContextHandle_t );
 #endif
 
+#include "tier0/logging.h"	// minimal Source2-style logging shim (panorama port)
 #include "tier1/convar.h"
 #include "panorama.h"
 #include "./iuipanel.h"

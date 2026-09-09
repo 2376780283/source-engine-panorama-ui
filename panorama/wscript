@@ -20,6 +20,7 @@ def build(bld):
 	includes = [
 		'.',                        # panorama/ (self)
 		'..',                       # repo root (mathlib/, tier1/ ...)
+		'../panorama_s1wrapper',    # rendersystem/ resourcesystem/ materialsystem2/ assetsystem/ (lightweight, BEFORE ../public so it wins)
 		'../public',
 		'../public/tier0',
 		'../public/tier1',
@@ -27,7 +28,6 @@ def build(bld):
 		'../public/vstdlib',
 		'../public/panorama',
 		'../common',
-		'../panorama_s1wrapper',    # rendersystem/ resourcesystem/ materialsystem2/ assetsystem/
 		'../external/v8/include',
 	]
 

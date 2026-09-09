@@ -415,5 +415,37 @@ public:
 };
 
 //-----------------------------------------------------------------------------
+// Panorama port (CSGO2019): simple Source2-style ref-count base used by the
+// panorama renderer (rendercommands.h etc.). SE-era code does not define this
+// name anywhere, so this is a safe additive addition.
+//-----------------------------------------------------------------------------
+class CRefCount
+{
+public:
+	CRefCount() { m_cRef = 1; }			// born with a ref count of 1
+
+	int AddRef() { return ThreadInterlockedIncrement( &m_cRef ); }
+
+	int Release()
+	{
+		Assert( m_cRef > 0 );
+		int cRef = ThreadInterlockedDecrement( &m_cRef );
+		if ( 0 == cRef )
+			DestroyThis();
+		return cRef;
+	}
+
+	int GetRefCount() const { return m_cRef; }
+
+protected:
+	// Derived classes should make their destructor private & virtual!
+	virtual ~CRefCount() { Assert( 0 == m_cRef ); }
+
+	virtual void DestroyThis() { delete this; }
+
+	volatile int32 m_cRef;
+};
+
+//-----------------------------------------------------------------------------
 
 #endif // REFCOUNT_H

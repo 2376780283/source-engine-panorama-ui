@@ -207,6 +207,18 @@ public:
 
 	bool		IsIdentity() const;
 
+	// Panorama port (CSGO2019 mathlib): static identity accessor.
+	static const VMatrix& GetIdentityMatrix()
+	{
+		static const VMatrix identityMatrix(	
+			1, 0, 0, 0,
+			0, 1, 0, 0, 
+			0, 0, 1, 0,
+			0, 0, 0, 1 );
+
+		return identityMatrix;
+	}
+
 	// Setup a matrix for origin and angles.
 	void		SetupMatrixOrgAngles( const Vector &origin, const QAngle &vAngles );
 	
