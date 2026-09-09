@@ -109,6 +109,8 @@ uint32 MurmurHash2( const void * key, int len, uint32 seed );
 
 // return murmurhash2 of a downcased string
 uint32 MurmurHash2LowerCase( char const *pString, uint32 nSeed );
+// CS:GO-era overload (panorama port) - hash of a length-bounded downcased string
+uint32 MurmurHash2LowerCase( char const *pString, int len, uint32 nSeed );
 
 uint64 MurmurHash64( const void * key, int len, uint32 seed );
 

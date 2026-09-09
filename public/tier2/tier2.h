@@ -14,6 +14,11 @@
 
 #include "tier1/tier1.h"
 
+// CS:GO-era tier2 interface macro (panorama port). Mirror of CSGO public/interfaces/interfaces.h
+#ifndef DECLARE_TIER2_INTERFACE
+#define DECLARE_TIER2_INTERFACE( _Interface, _Global ) extern _Interface * _Global;
+#endif
+
 
 //-----------------------------------------------------------------------------
 // Forward declarations
