@@ -28,6 +28,15 @@ def build(bld):
 		'uicommands.cpp',
 		'uiwebapiclient.cpp',
 		'transformations.cpp',
+		# Batch 2: layout module (per panorama.vpc list)
+		'layout/backgroundimage.cpp',
+		'layout/csshelpers.cpp',
+		'layout/fillbrush.cpp',
+		# 'layout/layoutfile.cpp',   # TEMP excluded: needs libparsifal (XML parser, missing third-party dep)
+		'layout/panel2dfactory.cpp',
+		'layout/stylefile.cpp',
+		'layout/stylepropertyfactory.cpp',
+		'layout/uilength.cpp',
 	]
 
 	includes = [

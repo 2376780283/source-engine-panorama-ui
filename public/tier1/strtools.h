@@ -65,6 +65,7 @@ int V_strnicmp( const char *s1, const char *s2, int n );
 #define V_strncmp_fast V_strncmp
 #define V_strnicmp_fast V_strnicmp
 #define V_stristr_fast V_stristr
+#define V_strlower_fast V_strlower
 
 //-----------------------------------------------------------------------------
 // Purpose: Slightly modified strtok. Does not modify the input string. Does
