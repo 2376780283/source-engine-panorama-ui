@@ -133,3 +133,31 @@ def build(bld):
 		use      = [],
 		install_path = None,
 	)
+
+	# ---------------------------------------------------------------------------------
+	# panorama_client (CS:GO's panorama_client.vpc): the client-side controls / panels /
+	# top level windows on top of the framework lib.  In CS:GO it is a separate static lib
+	# feeding client_panorama.dll, so it lives in its own target here too.  The PCH in the
+	# vpc (stdafx_client.h) is included explicitly by each TU, so waf needs no /Yu.
+	#
+	# The source list is grown batch by batch from panorama_client.vpc.  Started with the
+	# panel base class + the debugger overlay (the minimum needed to instantiate a surface).
+	client_source = [
+		'controls/panel2d.cpp',
+		'controls/debug/debugger.cpp',
+	]
+
+	client_defines = defines + [
+		# Match CSGO2019 panorama_client.vpc build config
+		'_CLIENT',
+		'PANORAMA_CLIENT_EXPORTS',
+	]
+
+	bld.stlib(
+		source   = client_source,
+		target   = 'panorama_client',
+		includes = includes,
+		defines  = client_defines,
+		use      = [],
+		install_path = None,
+	)
