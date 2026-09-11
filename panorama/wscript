@@ -45,6 +45,19 @@ def build(bld):
 		'input/mousecursor.cpp',
 		# Batch 3b: localization (re-enabled; SE/CSGO drift patched in SE headers)
 		'localization/localize.cpp',
+		# Batch 4: renderer (per panorama.vpc list)
+		'renderer/uirenderengine.cpp',
+		'renderer/rendercommands.cpp',
+		'renderer/styles.cpp',
+		'renderer/styleproperties.cpp',
+		'renderer/uianimationengine.cpp',
+		# 'renderer/win32openglfuncs.cpp',    # TEMP excluded: OpenGL-only backend (Windows runs the s1wrapper/D3D9 path)
+		# 'renderer/opengllazyshaders.cpp',   # TEMP excluded: OpenGL-only backend
+		# Batch 5: data + module stub (per panorama.vpc list)
+		'stdafx.cpp',
+		'data/imageloader.cpp',
+		'data/panoramavideoplayer.cpp',
+		'../common/imageloadwrapper.cpp',
 	]
 
 	includes = [
@@ -59,6 +72,7 @@ def build(bld):
 		'../public/vstdlib',
 		'../public/panorama',
 		'../common',
+		'../thirdparty/protobuf-2.6.1/src',   # google/protobuf/descriptor.h, text_format.h (renderer/uirenderengine.cpp)
 		'../external/v8/include',
 		'../external/v8',   # libplatform.h does #include "include/v8-platform.h" (v8-root relative)
 		'../external',   # so "v8/include/libplatform/libplatform.h" style includes resolve

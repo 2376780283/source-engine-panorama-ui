@@ -236,7 +236,8 @@ namespace panorama
 	//-----------------------------------------------------------------------------
 	template< typename T> bool BConvertV8ArgToPanorama( const v8::Handle<v8::Value> &val, T *pNativeVal )
 	{
-		v8::TryCatch try_catch;
+		// v8 7.x removed TryCatch's default constructor - it needs an isolate or a context.
+		v8::TryCatch try_catch( GetV8Isolate() );
 		V8ParamToPanoramaType( val, pNativeVal );
 		if( try_catch.HasCaught() )
 		{
@@ -362,8 +363,9 @@ namespace panorama
 
 		if( args.Length() < Delegate::kNumArgs )
 		{
-			v8::String::Utf8Value str( args.Callee()->GetName()->ToString() );
-			GetV8Isolate()->ThrowException( v8::String::NewFromUtf8( GetV8Isolate(), CFmtStr1024( "%s requires %d arguments; only %d given.", *str, (int)Delegate::kNumArgs, (int)args.Length() ).String() ) );
+			// v8 7.x removed FunctionCallbackInfo::Callee() (and Function::GetName() now returns
+			// Local<Value>) - report the arity mismatch without naming the callee.
+			GetV8Isolate()->ThrowException( v8::String::NewFromUtf8( GetV8Isolate(), CFmtStr1024( "Panorama JS method requires %d arguments; only %d given.", (int)Delegate::kNumArgs, (int)args.Length() ).String() ) );
 			return;
 		}
 
@@ -402,8 +404,9 @@ namespace panorama
 
 		if( args.Length() < Delegate::kNumArgs )
 		{
-			v8::String::Utf8Value str( args.Callee()->GetName()->ToString() );
-			GetV8Isolate()->ThrowException( v8::String::NewFromUtf8( GetV8Isolate(), CFmtStr1024( "%s requires %d arguments; only %d given.", *str, (int)Delegate::kNumArgs, (int)args.Length() ).String() ) );
+			// v8 7.x removed FunctionCallbackInfo::Callee() (and Function::GetName() now returns
+			// Local<Value>) - report the arity mismatch without naming the callee.
+			GetV8Isolate()->ThrowException( v8::String::NewFromUtf8( GetV8Isolate(), CFmtStr1024( "Panorama JS function requires %d arguments; only %d given.", (int)Delegate::kNumArgs, (int)args.Length() ).String() ) );
 			return;
 		}
 

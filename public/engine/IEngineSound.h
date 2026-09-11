@@ -46,6 +46,32 @@ class Vector;
 #define SNDLEVEL_IS_COMPATIBILITY_MODE( x )		( (x) >= soundlevel_t(256) )
 
 
+// IAudioOutputStream from source2 (CS:GO-era; used by CS:GO panorama's video player)
+// a separate stream that connects to the main output
+class IAudioOutputStream
+{
+public:
+	virtual ~IAudioOutputStream() {}
+	// queue a set of samples for output.  
+	// NOTE: nSampleCount is the number of samples being written to each channel, not the total # of all channels' samples
+	virtual void WriteAudioData( const int16 *pData, uint nSampleCount, uint nChannels ) = 0;
+
+	// change output volume (will be ramped linearly per sample over one mix quantum)
+	virtual void SetVolume( float flVolume ) = 0;
+
+	// how many samples are queued to play?
+	virtual uint32 QueuedSampleCount() = 0;
+
+	// how many samples can we write in a WriteAudioData call without truncation in the internal buffer?
+	virtual uint32 MaxWriteSampleCount() = 0;
+
+	// how many samples of latency
+	virtual uint32 LatencySamplesCount() = 0;
+
+	virtual void Pause() = 0;
+	virtual void Resume() = 0;
+};
+
 	
 //-----------------------------------------------------------------------------
 // Client-server neutral effects interface

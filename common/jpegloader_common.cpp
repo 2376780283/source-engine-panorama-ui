@@ -1,4 +1,4 @@
-//========= Copyright Valve Corporation, All rights reserved. ============//
+//========= Copyright 1996-2007, Valve LLC, All rights reserved. ============
 //
 // Purpose: 
 //
@@ -23,7 +23,7 @@
 // the content will be scaled without changing the aspect ratio and black letterboxing
 // will be added if appropriate
 //-----------------------------------------------------------------------------
-bool BResizeImageInternal( CUtlBuffer &bufImage, int nWidth, int nHeight, int &nNewWidth, int &nNewHeight, bool bIsRGBA = true )
+bool BResizeImageInternal( CUtlBuffer &bufImage, int nWidth, int nHeight, int &nNewWidth, int &nNewHeight, bool bIsRGBA = true, bool bIsPreMultipledAlpha = false )
 {
 	VPROF_BUDGET( "BResizeImageRGBA", VPROF_BUDGETGROUP_OTHER_VGUI );
 	CUtlBuffer bufImageOut;
@@ -70,8 +70,8 @@ bool BResizeImageInternal( CUtlBuffer &bufImage, int nWidth, int nHeight, int &n
 	int nPaddingLeft = (nNewWidth - nNewContentWidth)/2;
 	int nPaddingRight = nNewWidth - nNewContentWidth - nPaddingLeft;
 
-	Assert( nPaddingTop + nPaddingBottom + nNewContentHeight == nNewHeight );
-	Assert( nPaddingLeft + nPaddingRight + nNewContentWidth == nNewWidth );
+	DbgVerify( nPaddingTop + nPaddingBottom + nNewContentHeight == nNewHeight );
+	DbgVerify( nPaddingLeft + nPaddingRight + nNewContentWidth == nNewWidth );
 
 	if ( nPaddingLeft > 0 ||
 		nPaddingRight > 0 ||
@@ -88,6 +88,27 @@ bool BResizeImageInternal( CUtlBuffer &bufImage, int nWidth, int nHeight, int &n
 
 	float flXRatio = (float)(nWidth-1)/(float)nNewContentWidth;
 	float flYRatio = (float)(nHeight-1)/(float)nNewContentHeight;
+
+	if ( bIsRGBA && bIsPreMultipledAlpha )
+	{
+		// Undo pre-multipled alpha first
+		byte *pSrcBits = (byte*)bufImage.Base();
+		for( int y=0; y<nHeight; ++y )
+		{
+			for ( int x=0; x<nWidth; ++x )
+			{
+				int nOffset = ((nWidth*y)+x)*bytesPerPixel;
+				byte alpha = pSrcBits[nOffset+3];
+				if ( alpha != 0xff )
+				{
+					float flAlpha = (float)alpha / (float)0xff;
+					pSrcBits[nOffset] /= flAlpha;
+					pSrcBits[nOffset+1] /= flAlpha;
+					pSrcBits[nOffset+2] /= flAlpha;
+				}
+			}
+		}
+	}
 
 	byte *pSrcBits = (byte*)bufImage.Base();
 	for( int yNew=0; yNew<nNewContentHeight; ++yNew )
@@ -137,6 +158,14 @@ bool BResizeImageInternal( CUtlBuffer &bufImage, int nWidth, int nHeight, int &n
 					);
 			}
 
+			if ( bIsRGBA && bIsPreMultipledAlpha )
+			{
+				float flAlpha = (float)alpha / (float)0xff;
+				red *= flAlpha;
+				green *= flAlpha;
+				blue *= flAlpha;
+			}
+
 			int targetOffset = (nPaddingLeft+xNew+((nPaddingTop+yNew)*nTargetStride))*bytesPerPixel;
 
 			pBits[targetOffset] = red;
@@ -153,13 +182,13 @@ bool BResizeImageInternal( CUtlBuffer &bufImage, int nWidth, int nHeight, int &n
 // Resize an RGB image using linear interpolation
 bool BResizeImageRGB( CUtlBuffer &bufRGB, int nWidth, int nHeight, int &nNewWidth, int &nNewHeight )
 {
-	return BResizeImageInternal( bufRGB, nWidth, nHeight, nNewWidth, nNewHeight, false );
+	return BResizeImageInternal( bufRGB, nWidth, nHeight, nNewWidth, nNewHeight, false, false );
 }
 
 // Resize an RGBA image using linear interpolation
-bool BResizeImageRGBA( CUtlBuffer &bufRGB, int nWidth, int nHeight, int &nNewWidth, int &nNewHeight )
+bool BResizeImageRGBA( CUtlBuffer &bufRGB, int nWidth, int nHeight, int &nNewWidth, int &nNewHeight, bool bIsPreMultipledAlpha )
 {
-	return BResizeImageInternal( bufRGB, nWidth, nHeight, nNewWidth, nNewHeight, true );
+	return BResizeImageInternal( bufRGB, nWidth, nHeight, nNewWidth, nNewHeight, true, bIsPreMultipledAlpha );
 }
 
 // Convert an RGB image to RGBA with 100% opacity

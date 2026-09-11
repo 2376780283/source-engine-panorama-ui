@@ -551,6 +551,10 @@ typedef void * HINSTANCE;
 #error "PORT: Code only tested with MSVC! Must validate with new compiler, and use built-in keyword if available."
 #endif
 
+// Portable alternative to __alignof (CSGO-era; required by VALIGNOF_PORTABLE).
+// Used by CS:GO panorama's DECLARE_STYLE_PROPERTY / CClassMemoryPool alignment argument.
+template<class T> struct AlignOf_t { AlignOf_t(){} AlignOf_t & operator=(const AlignOf_t &) { return *this; } byte b; T t; };
+
 // Pull in the /analyze code annotations.
 #include "annotations.h"
 

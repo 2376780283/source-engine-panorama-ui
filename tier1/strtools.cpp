@@ -2124,6 +2124,22 @@ const char * V_GetFileExtension( const char * path )
 	return src;
 }
 
+//-----------------------------------------------------------------------------
+// Purpose: Returns a pointer to the file extension within a file name string,
+//			never NULL (CS:GO-era helper used by panorama)
+// Input:	in - file name 
+// Output:	pointer to beginning of extension (after the "."), or ""
+//				if there is no extension
+//-----------------------------------------------------------------------------
+const char *V_GetFileExtensionSafe( const char *path )
+{
+	const char *pExt = V_GetFileExtension( path );
+	if ( pExt == NULL )
+		return "";
+	else
+		return pExt;
+}
+
 
 //-----------------------------------------------------------------------------
 // Purpose: Returns a pointer to the filename part of a path string

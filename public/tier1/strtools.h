@@ -743,6 +743,9 @@ void V_ExtractFileExtension( const char *path, char *dest, int destSize );
 
 const char *V_GetFileExtension( const char * path );
 
+// CS:GO-era variant: never returns NULL (returns "" when there is no extension)
+const char *V_GetFileExtensionSafe( const char * path );
+
 // returns a pointer to just the filename part of the path
 // (everything after the last path seperator)
 const char *V_GetFileName( const char * path );
