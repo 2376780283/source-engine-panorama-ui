@@ -365,6 +365,7 @@ enum EStringConvertErrorPolicy
 	_STRINGCONVERTFLAG_SKIP =		1,
 	_STRINGCONVERTFLAG_FAIL =		2,
 	_STRINGCONVERTFLAG_ASSERT =		4,
+	_STRINGCONVERTFLAG_TOTALSIZE =	8,	// internal flag used to optimize two-pass conversions
 
 	STRINGCONVERT_REPLACE =			0,
 	STRINGCONVERT_SKIP =			_STRINGCONVERTFLAG_SKIP,
@@ -483,6 +484,40 @@ int Q_UTF16ToUChar32( const uchar16 *pUTF16, uchar32 &uValueOut, bool &bErrorOut
 #define V_UTF16ToUTF32 Q_UTF16ToUTF32
 #define V_UTF32ToUTF8 Q_UTF32ToUTF8
 #define V_UTF32ToUTF16 Q_UTF32ToUTF16
+#define V_UnicodeAdvance Q_UnicodeAdvance
+#define V_UnicodeTruncate Q_UnicodeTruncate
+#define V_UChar32ToUTF8Len Q_UChar32ToUTF8Len
+#define V_UChar32ToUTF8 Q_UChar32ToUTF8
+#define V_UChar32ToUTF16Len Q_UChar32ToUTF16Len
+#define V_UChar32ToUTF16 Q_UChar32ToUTF16
+#define V_UTF8ToUChar32 Q_UTF8ToUChar32
+#define V_UTF16ToUChar32 Q_UTF16ToUChar32
+
+
+// Source2 Unicode Case Conversion (ported from CS:GO public/tier1/strtools.h;
+// implemented in tier1/strtools_unicode.cpp)
+enum
+{
+	// Must specify one of these:
+	STRINGCASE_LOWER = 0,
+	STRINGCASE_UPPER = 1,
+	STRINGCASE_TITLE_FIRST_WORD = 2,
+	STRINGCASE_TITLE_ALL_WORDS = 3,
+
+	// May combine it with one or more of these flags:
+	STRINGCASE_FLAG_LINGUISTIC = 8,	// enables non-reversible and many-for-1 mappings
+	STRINGCASE_FLAG_TURKISH = 16,	// enables dotless/dotted I distinction
+
+	STRINGCASE_FLAG_ALL_FLAGS = 0x18,
+};
+
+int V_UnicodeCaseConvert( const char *in, char *out, int cchOut, int nStringCaseFlags, EStringConvertErrorPolicy ePolicy = STRINGCONVERT_ASSERT_REPLACE );
+int V_UnicodeCaseConvert( const uchar16 *in, uchar16 *out, int cchOut, int nStringCaseFlags, EStringConvertErrorPolicy ePolicy = STRINGCONVERT_ASSERT_REPLACE );
+int V_UnicodeCaseConvert( const uchar32 *in, uchar32 *out, int cchOut, int nStringCaseFlags, EStringConvertErrorPolicy ePolicy = STRINGCONVERT_ASSERT_REPLACE );
+
+int V_UnicodeCaseCompare( const char *str1, const char *str2, int nStringCaseFlags, EStringConvertErrorPolicy ePolicy = STRINGCONVERT_ASSERT_REPLACE );
+int V_UnicodeCaseCompare( const uchar16 *str1, const uchar16 *str2, int nStringCaseFlags, EStringConvertErrorPolicy ePolicy = STRINGCONVERT_ASSERT_REPLACE );
+int V_UnicodeCaseCompare( const uchar32 *str1, const uchar32 *str2, int nStringCaseFlags, EStringConvertErrorPolicy ePolicy = STRINGCONVERT_ASSERT_REPLACE );
 
 
 #ifdef WIN32

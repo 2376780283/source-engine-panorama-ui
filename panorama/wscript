@@ -43,7 +43,8 @@ def build(bld):
 		'input/controller.cpp',
 		'input/steamcontroller.cpp',
 		'input/mousecursor.cpp',
-		# 'localization/localize.cpp',   # TEMP excluded: SE/CSGO localization drift (V_Unicode*/CUtlString linguistic/etc.)
+		# Batch 3b: localization (re-enabled; SE/CSGO drift patched in SE headers)
+		'localization/localize.cpp',
 	]
 
 	includes = [

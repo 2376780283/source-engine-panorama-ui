@@ -359,6 +359,10 @@ protected:
 
 //=============================================================================
 
+// CS:GO-era buffer sizes for the localized date/time helpers (see panorama/localization/localize.cpp)
+const int k_cchFormattedDate = 64;
+const int k_cchFormattedTime = 32;
+
 bool BGetLocalFormattedDateAndTime( time_t timeVal, char *pchDate, int cubDate, char *pchTime, int cubTime );
 bool BGetLocalFormattedDate( time_t timeVal, char *pchDate, int cubDate );
 bool BGetLocalFormattedTime( time_t timeVal, char *pchTime, int cubTime );

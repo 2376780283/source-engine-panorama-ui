@@ -2250,9 +2250,15 @@ bool EvaluateConditional( const char *str )
 
 //-----------------------------------------------------------------------------
 // Read from a buffer...
+// NOTE (CS:GO port): pfnEvaluateSymbolProc / bForceTypeString are accepted for source
+// compatibility with CS:GO panorama code and intentionally unused here - Source 2013's
+// parser has neither conditional evaluation nor forced-string values.
 //-----------------------------------------------------------------------------
-bool KeyValues::LoadFromBuffer( char const *resourceName, CUtlBuffer &buf, IBaseFileSystem* pFileSystem, const char *pPathID )
+bool KeyValues::LoadFromBuffer( char const *resourceName, CUtlBuffer &buf, IBaseFileSystem* pFileSystem, const char *pPathID, GetSymbolProc_t pfnEvaluateSymbolProc, bool bForceTypeString )
 {
+	( void )pfnEvaluateSymbolProc;
+	( void )bForceTypeString;
+
 	KeyValues *pPreviousKey = NULL;
 	KeyValues *pCurrentKey = this;
 	CUtlVector< KeyValues * > includedKeys;
@@ -2387,7 +2393,7 @@ bool KeyValues::LoadFromBuffer( char const *resourceName, CUtlBuffer &buf, IBase
 //-----------------------------------------------------------------------------
 // Read from a buffer...
 //-----------------------------------------------------------------------------
-bool KeyValues::LoadFromBuffer( char const *resourceName, const char *pBuffer, IBaseFileSystem* pFileSystem, const char *pPathID )
+bool KeyValues::LoadFromBuffer( char const *resourceName, const char *pBuffer, IBaseFileSystem* pFileSystem, const char *pPathID, GetSymbolProc_t pfnEvaluateSymbolProc, bool bForceTypeString )
 {
 	if ( !pBuffer )
 		return true;

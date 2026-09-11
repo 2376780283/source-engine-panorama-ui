@@ -128,6 +128,19 @@ public:
 	// Case Change
 	void		ToLower();
 	void		ToUpper();
+
+	// CS:GO-era Unicode case conversion (declaration mirrors CS:GO public/tier1/utlstring.h;
+	// implementation lives in tier1/utlstring.cpp and calls V_UnicodeCaseConvert)
+	int			UnicodeCaseConvert( int nStringCaseFlags, EStringConvertErrorPolicy ePolicy = STRINGCONVERT_ASSERT_REPLACE );
+	int			ToLowerLinguistic( EStringConvertErrorPolicy ePolicy = STRINGCONVERT_ASSERT_REPLACE )
+	{
+		return UnicodeCaseConvert( STRINGCASE_LOWER | STRINGCASE_FLAG_LINGUISTIC, ePolicy );
+	}
+	int			ToUpperLinguistic( EStringConvertErrorPolicy ePolicy = STRINGCONVERT_ASSERT_REPLACE )
+	{
+		return UnicodeCaseConvert( STRINGCASE_UPPER | STRINGCASE_FLAG_LINGUISTIC, ePolicy );
+	}
+
 	void		Append( const char *pAddition, int nChars );
 
 	void		Append( const char *pchAddition );
