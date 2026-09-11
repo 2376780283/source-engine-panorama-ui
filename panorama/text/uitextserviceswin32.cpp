@@ -63,6 +63,12 @@ bool CUITextServicesWin32::BLoadCustomFontCollection( const char *pchContainerDi
 
 //-----------------------------------------------------------------------------
 // Purpose: Register a single custom font file.
+// NOTE (SE port): the CS:GO original hands this to CUIFontLoaderLinux (the
+// freetype/fontconfig loader, which CS:GO used on Windows too).  This port uses the
+// DirectWrite backend instead, and the DirectWrite collection loader can only register
+// whole folders (BLoadCustomFontCollection above) - single-file registration has no
+// equivalent, so report and fail.  Custom font *packages* still work through
+// BLoadCustomFontCollection.
 //-----------------------------------------------------------------------------
 bool CUITextServicesWin32::BLoadCustomFontFile( const char *pchFontName, const char *pchFullPath )
 {
@@ -70,7 +76,10 @@ bool CUITextServicesWin32::BLoadCustomFontFile( const char *pchFontName, const c
 	V_FixSlashes( strPath.Access() );
 	V_FixDoubleSlashes( strPath.Access() );
 
-	return CUIFontLoaderLinux::GetInstance().RegisterFile( pchFontName, strPath );
+	Warning( "CUITextServicesWin32::BLoadCustomFontFile( \"%s\", \"%s\" ): single-file custom font "
+			 "registration is not supported by the DirectWrite text backend; use a font collection instead.\n",
+			 pchFontName ? pchFontName : "?", strPath.Get() ? strPath.Get() : "?" );
+	return false;
 }
 
 

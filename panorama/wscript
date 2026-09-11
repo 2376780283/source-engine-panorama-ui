@@ -58,10 +58,39 @@ def build(bld):
 		'data/imageloader.cpp',
 		'data/panoramavideoplayer.cpp',
 		'../common/imageloadwrapper.cpp',
+		# Batch 6: text - PARKED (see below), keep the DirectWrite files out of the build for now.
+		#
+		# CS:GO's build compiles the pango backend unconditionally (text/uitextlayoutpango.cpp,
+		# uitextservicespango.cpp, uifontfileloaderlinux.cpp) which needs pango+glib+cairo+harfbuzz.
+		# CS:GO also keeps a native Windows/DirectWrite backend in-tree
+		# (text/uitextlayoutwin32.cpp, uitextserviceswin32.cpp, uifontfileloaderwin32.cpp,
+		# renderer/dwritetextrenderer.cpp) - all marked $ExcludedFromBuild - which needs no external
+		# lib, but has 4 blockers to clear first:
+		#   1. uifontfileloaderwin32.cpp pulls uienginewin32.h -> d3d10d2dsurface.h (D3D10/D2D/openvr)
+		#      and uitoplevelwindowoverlay.h (whose OVERRIDEs no longer match their interface) - 75+ errors
+		#   2. textlayoutdrawcache.h -> vstdlib/jobthread.h declares Yield() but the panorama build has
+		#      a `Yield` macro defined by then (C4002 + C2059)
+		#   3. steamextra/common/uifontfile.cpp encrypts font packages with OpenSSL AES (not in this tree;
+		#      PANORAMA_HAS_OPENSSL guard added, encrypted packages currently unsupported)
+		#   4. uitextserviceswin32.cpp expected CUIFontLoaderLinux (freetype/fontconfig) for single-file
+		#      font registration - patched to fail loudly; collections still work via DirectWrite
+		# text/texttexturecache.cpp and *pango/uifontfileloaderlinux* stay out until the backend is chosen.
+		# 'text/texttexturecache.cpp',
+		# 'text/textlayoutdrawcache.cpp',
+		# 'text/uitextlayoutwin32.cpp',
+		# 'text/uitextserviceswin32.cpp',
+		# 'text/uifontfileloaderwin32.cpp',
+		# 'renderer/dwritetextrenderer.cpp',
+		# 'steamextra/common/uifontfile.cpp',
+		# 'steamextra/common/uifontfile_format.pb.cc',
+		# 'text/uitextlayoutpango.cpp',        # pango backend
+		# 'text/uitextservicespango.cpp',      # pango backend
+		# 'text/uifontfileloaderlinux.cpp',    # freetype/fontconfig loader used by the pango services
 	]
 
 	includes = [
 		'.',                        # panorama/ (self)
+		'steamextra/common',        # steamextra/common/uifontfile.h (included unqualified by the text loaders)
 		'..',                       # repo root (mathlib/, tier1/ ...)
 		'../panorama_s1wrapper',    # rendersystem/ resourcesystem/ materialsystem2/ assetsystem/ (lightweight, BEFORE ../public so it wins)
 		'../panorama_s1wrapper/tier1',
@@ -73,6 +102,7 @@ def build(bld):
 		'../public/panorama',
 		'../common',
 		'../thirdparty/protobuf-2.6.1/src',   # google/protobuf/descriptor.h, text_format.h (renderer/uirenderengine.cpp)
+		'../gcsdk/steamextra',  # tier1/tsmempool.h (CThreadSafeClassMemoryPool) - CS:GO's own build got this via its text PCH
 		'../external/v8/include',
 		'../external/v8',   # libplatform.h does #include "include/v8-platform.h" (v8-root relative)
 		'../external',   # so "v8/include/libplatform/libplatform.h" style includes resolve

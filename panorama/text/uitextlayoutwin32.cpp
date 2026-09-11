@@ -5,7 +5,9 @@
 
 #include "stdafx.h"
 #include "uitextlayoutwin32.h"
-#include "uienginewin32.h"
+// NOTE (SE port): CS:GO included "uienginewin32.h" here, which drags in D3D10/D2D/OpenVR
+// (that is one of the reasons the win32 text files are $ExcludedFromBuild in panorama.vpc).
+// This TU does not reference any symbol from it.
 #include "uifontfileloaderwin32.h"
 #include "renderer/dwritetextrenderer.h"
 

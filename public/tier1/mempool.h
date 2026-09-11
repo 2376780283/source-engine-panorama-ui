@@ -121,11 +121,29 @@ private:
 	CThreadFastMutex m_mutex; // @TODO: Rework to use tslist (toml 7/6/2007)
 };
 
+// Typedef for src2 compat (CS:GO-era name)
+typedef CMemoryPoolMT CUtlMemoryPoolMT;
+
 
 //-----------------------------------------------------------------------------
 // Wrapper macro to make an allocator that returns particular typed allocations
 // and construction and destruction of objects.
 //-----------------------------------------------------------------------------
+template< class T >
+class CClassMemoryPoolMT : public CMemoryPoolMT
+{
+public:
+	CClassMemoryPoolMT(int numElements, int growMode = GROW_FAST, int nAlignment = 0 ) :
+		CMemoryPoolMT( sizeof(T), numElements, growMode, MEM_ALLOC_CLASSNAME(T), nAlignment ) {}
+
+	T*		Alloc();
+	T*		AllocZero();
+	void	Free( T *pMem );
+
+	void	Clear();
+};
+
+
 template< class T >
 class CClassMemoryPool : public CUtlMemoryPool
 {
@@ -631,6 +649,86 @@ inline void CClassMemoryPool<T>::Clear()
 	}
 
 	CUtlMemoryPool::Clear();
+}
+
+
+//-----------------------------------------------------------------------------
+// CClassMemoryPoolMT inline implementations (CS:GO-era addition)
+//-----------------------------------------------------------------------------
+template< class T >
+inline T* CClassMemoryPoolMT<T>::Alloc()
+{
+	T *pRet;
+
+	{
+	MEM_ALLOC_CREDIT_CLASS();
+	pRet = (T*)CUtlMemoryPoolMT::Alloc();
+	}
+
+	if ( pRet )
+	{
+		Construct( pRet );
+	}
+	return pRet;
+}
+
+template< class T >
+inline T* CClassMemoryPoolMT<T>::AllocZero()
+{
+	T *pRet;
+
+	{
+	MEM_ALLOC_CREDIT_CLASS();
+	pRet = (T*)CUtlMemoryPoolMT::AllocZero();
+	}
+
+	if ( pRet )
+	{
+		Construct( pRet );
+	}
+	return pRet;
+}
+
+template< class T >
+inline void CClassMemoryPoolMT<T>::Free(T *pMem)
+{
+	if ( pMem )
+	{
+		Destruct( pMem );
+	}
+
+	CUtlMemoryPoolMT::Free( pMem );
+}
+
+template< class T >
+inline void CClassMemoryPoolMT<T>::Clear()
+{
+	CUtlRBTree<void *, int> freeBlocks;
+	SetDefLessFunc( freeBlocks );
+
+	void *pCurFree = m_pHeadOfFreeList;
+	while ( pCurFree != NULL )
+	{
+		freeBlocks.Insert( pCurFree );
+		pCurFree = *((void**)pCurFree);
+	}
+
+	for( CBlob *pCur=m_BlobHead.m_pNext; pCur != &m_BlobHead; pCur=pCur->m_pNext )
+	{
+		int nElements = pCur->m_NumBytes / this->m_BlockSize;
+		T *p = ( T * ) AlignValue( pCur->m_Data, this->m_nAlignment );
+		T *pLimit = p + nElements;
+		while ( p < pLimit )
+		{
+			if ( freeBlocks.Find( p ) == freeBlocks.InvalidIndex() )
+			{
+				Destruct( p );
+			}
+			p++;
+		}
+	}
+
+	CUtlMemoryPoolMT::Clear();
 }
 
 

@@ -10,9 +10,13 @@
 #include <tier0/memdbgon.h>
 
 using namespace panorama;
-#if defined( SOURCE2_PANORAMA )
 const int k_nSymmetricKeyLen = 32;						// length in bytes of keys used for symmetric encryption
 const int k_nSymmetricBlockSize = 16;
+// SE port: the encrypted-font-file path below is written against OpenSSL's AES routines,
+// which this tree does not ship.  Define PANORAMA_HAS_OPENSSL to re-enable it; otherwise
+// CUIFontPackage::BGetFontNameAndData() reports that encrypted font packages are
+// unsupported and fails.
+#if defined( SOURCE2_PANORAMA ) && defined( PANORAMA_HAS_OPENSSL )
 // openssl optimized AES routines
 #include "openssl/aes.h"
 #include "openssl/sha.h"
@@ -229,7 +233,7 @@ bool CUIFontPackage::BGetFontNameAndData( int iIndex, CUtlString &strFontName, C
 	CUtlBuffer bufDecryptedData;
 	bufDecryptedData.EnsureCapacity( ( int )fontFile.encrypted_contents().size() );
 
-#if defined( SOURCE2_PANORAMA )
+#if defined( SOURCE2_PANORAMA ) && defined( PANORAMA_HAS_OPENSSL )
 	AES_KEY key;
 	if ( AES_set_decrypt_key( rgubFontKey,  Q_ARRAYSIZE( rgubFontKey ) * 8, &key ) < 0 )
 		return false;
@@ -259,6 +263,11 @@ bool CUIFontPackage::BGetFontNameAndData( int iIndex, CUtlString &strFontName, C
 	
 #endif
 	
+#elif defined( SOURCE2_PANORAMA )
+	// SE port: OpenSSL is not available in this tree (see the note at the top of the file).
+	uint32 unDecryptedBytes = 0;
+	bool bDecrypted = false;
+	Warning( "CUIFontPackage::BGetFontNameAndData: encrypted font packages are not supported by this build.\n" );
 #else
 	uint32 unDecryptedBytes = fontFile.encrypted_contents().size();
 	bool bDecrypted = CCrypto::SymmetricDecrypt( (uint8*)fontFile.encrypted_contents().data(), fontFile.encrypted_contents().size(), (uint8*)bufDecryptedData.Base(), &unDecryptedBytes, rgubFontKey, Q_ARRAYSIZE( rgubFontKey ) ) )

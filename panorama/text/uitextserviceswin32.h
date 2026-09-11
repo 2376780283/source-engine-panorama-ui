@@ -7,6 +7,9 @@
 #define UITEXTSERVICESWIN32_H
 
 #include "uitextlayoutwin32.h"
+// SE port: CThreadSafeClassMemoryPool lives in gcsdk/steamextra/tier1/tsmempool.h.
+// CS:GO's build picked it up through its text precompiled header; we include it explicitly.
+#include "tier1/tsmempool.h"
 
 namespace panorama
 {
