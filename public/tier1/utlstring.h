@@ -496,14 +496,41 @@ class CUtlStringBuilder
 {
 public:
 	CUtlStringBuilder() : m_pData( NULL ), m_nLen( 0 ), m_nAlloc( 0 ) {}
+	explicit CUtlStringBuilder( size_t nPreallocateBytes ) : m_pData( NULL ), m_nLen( 0 ), m_nAlloc( 0 )
+	{
+		if ( nPreallocateBytes )
+			EnsureCapacity( (int)nPreallocateBytes );
+	}
+	CUtlStringBuilder( const char *pchString ) : m_pData( NULL ), m_nLen( 0 ), m_nAlloc( 0 ) { Append( pchString ); }
+	CUtlStringBuilder( const CUtlStringBuilder &src ) : m_pData( NULL ), m_nLen( 0 ), m_nAlloc( 0 ) { Append( src.String(), src.Length() ); }
 	~CUtlStringBuilder() { free( m_pData ); }
+
+	CUtlStringBuilder &operator=( const CUtlStringBuilder &src ) { if ( this != &src ) { Clear(); Append( src.String(), src.Length() ); } return *this; }
+	CUtlStringBuilder &operator=( const char *pchString ) { Clear(); Append( pchString ); return *this; }
+	CUtlStringBuilder &operator+=( const char *rhs ) { Append( rhs ); return *this; }
+	CUtlStringBuilder &operator+=( const CUtlStringBuilder &rhs ) { Append( rhs.String(), rhs.Length() ); return *this; }
 
 	void Clear() { m_nLen = 0; if ( m_pData ) m_pData[0] = 0; }
 
 	void EnsureCapacity( int n ) { if ( n + 1 > m_nAlloc ) Grow( n + 1 ); }
 
-	void Append( const char *p ) { if ( !p ) return; int n = V_strlen( p ); EnsureCapacity( m_nLen + n ); V_memcpy( m_pData + m_nLen, p, n ); m_nLen += n; m_pData[m_nLen] = 0; }
-	void AppendChar( char c ) { EnsureCapacity( m_nLen + 1 ); m_pData[m_nLen++] = c; m_pData[m_nLen] = 0; }
+	int Length() const { return m_nLen; }
+	bool IsEmpty() const { return m_nLen == 0; }
+
+	void Append( const char *p ) { if ( !p ) return; Append( p, (int)V_strlen( p ) ); }
+	void Append( const char *p, int nLen )
+	{
+		if ( !p || nLen <= 0 )
+			return;
+
+		EnsureCapacity( m_nLen + nLen );
+		V_memcpy( m_pData + m_nLen, p, nLen );
+		m_nLen += nLen;
+		m_pData[m_nLen] = 0;
+	}
+	void Append( char c ) { EnsureCapacity( m_nLen + 1 ); m_pData[m_nLen++] = c; m_pData[m_nLen] = 0; }
+	void Append( const CUtlStringBuilder &str ) { Append( str.String(), str.Length() ); }
+	void AppendChar( char c ) { Append( c ); }
 	void AppendFormat( const char *pFmt, ... )
 	{
 		char buf[4096];
@@ -511,6 +538,19 @@ public:
 		V_vsnprintf( buf, (int)sizeof( buf ), pFmt, ap );
 		va_end( ap );
 		Append( buf );
+	}
+
+	void Set( const char *p ) { Clear(); Append( p ); }
+	void SetLength( int nLen )
+	{
+		if ( nLen < 0 )
+			nLen = 0;
+
+		if ( nLen + 1 > m_nAlloc )
+			Grow( nLen + 1 );
+
+		m_nLen = nLen;
+		m_pData[m_nLen] = 0;
 	}
 
 	const char *String() const { return m_pData ? m_pData : ""; }

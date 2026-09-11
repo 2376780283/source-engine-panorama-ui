@@ -2825,7 +2825,9 @@ private:
 }
 
 #ifdef PANORAMA_USE_S1WRAPPER
-static bool UtlStringLessFunc( const CUtlString &lhs, const CUtlString &rhs )
+// NOTE (SE port): renamed from UtlStringLessFunc - public/tier1/utlstring.h already
+// provides an inline helper with that name in this tree (C2375 on MSVC).
+static bool LayoutSnippetStringLessFunc( const CUtlString &lhs, const CUtlString &rhs )
 {
 	return V_strcmp( lhs.Get(), rhs.Get() ) < 0; 
 }
@@ -2837,7 +2839,7 @@ static bool UtlStringLessFunc( const CUtlString &lhs, const CUtlString &rhs )
 CLayoutFile::CLayoutFile() : m_pPanelDescription( NULL ) , m_nReloadCount( -1 ) // first load -> 0 reloads
 {
 	m_bIsPartial = false;
-	m_mapSnippets.SetLessFunc( UtlStringLessFunc );
+	m_mapSnippets.SetLessFunc( LayoutSnippetStringLessFunc );
 }
 
 

@@ -33,7 +33,7 @@ def build(bld):
 		'layout/backgroundimage.cpp',
 		'layout/csshelpers.cpp',
 		'layout/fillbrush.cpp',
-		# 'layout/layoutfile.cpp',   # TEMP excluded: needs libparsifal (XML parser, missing third-party dep)
+		'layout/layoutfile.cpp',
 		'layout/panel2dfactory.cpp',
 		'layout/stylefile.cpp',
 		'layout/stylepropertyfactory.cpp',
@@ -58,6 +58,9 @@ def build(bld):
 		'data/imageloader.cpp',
 		'data/panoramavideoplayer.cpp',
 		'../common/imageloadwrapper.cpp',
+		# libparsifal: self-written, API-compatible XML reader for layout/layoutfile.cpp
+		# (the upstream 0.8.3 sources are unobtainable - see thirdparty/libparsifal-0.8.3/README.md)
+		'thirdparty/libparsifal-0.8.3/src/parsifal.cpp',
 		# Batch 6: text - PARKED (see below), keep the DirectWrite files out of the build for now.
 		#
 		# CS:GO's build compiles the pango backend unconditionally (text/uitextlayoutpango.cpp,
