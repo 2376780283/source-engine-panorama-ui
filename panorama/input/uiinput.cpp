@@ -722,7 +722,8 @@ void CUIInputEngine::ParseKeyConfig( const char *pchFileName )
 				break;
 
 			char rgchT[1024];
-			pchParse = ParseFile( pchParse, rgchT, sizeof( rgchT ), NULL, NULL );
+			bool bWasQuoted = false;
+			pchParse = ParseFile( pchParse, rgchT, &bWasQuoted );
 			if ( !pchParse || !pchParse[0] )
 				break;
 
@@ -744,7 +745,7 @@ void CUIInputEngine::ParseKeyConfig( const char *pchFileName )
 			}
 
 			// read the type and code
-			pchParse = ParseFile( pchParse, rgchT, sizeof( rgchT ), NULL, NULL );
+			pchParse = ParseFile( pchParse, rgchT, &bWasQuoted );
 			if ( !rgchT[0] )
 				break;
 

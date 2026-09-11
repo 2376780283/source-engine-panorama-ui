@@ -22,6 +22,8 @@ public:
 	~CMemoryStack();
 
 	bool Init( unsigned maxSize = 0, unsigned commitSize = 0, unsigned initialCommit = 0, unsigned alignment = 16 );
+	// CS:GO-era overload: takes an alloc-owner name (ignored in SE)
+	bool Init( const char *pszAllocOwner, unsigned maxSize = 0, unsigned commitSize = 0, unsigned initialCommit = 0, unsigned alignment = 16 ) { return Init( maxSize, commitSize, initialCommit, alignment ); }
 #ifdef _X360
 	bool InitPhysical( unsigned size = 0, unsigned alignment = 16 );
 #endif

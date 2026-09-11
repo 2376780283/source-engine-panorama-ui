@@ -1626,7 +1626,7 @@ CUIEngine::CUIEngine()  :
 
 	m_pV8Isolate = v8::Isolate::New( createParams );
 	v8::Isolate::Scope isolate_scope( m_pV8Isolate );
-	v8::V8::SetFatalErrorHandler( &V8FatalErrorHandler );
+	// v8::V8::SetFatalErrorHandler was removed in v8 6.x (panorama port)
 	m_bDoV8GarbageCollect = false;
 
 	v8::HandleScope handle_scope( m_pV8Isolate );
@@ -2055,7 +2055,7 @@ void JSDefineEventHelper( const v8::FunctionCallbackInfo<v8::Value>& args, bool 
 		// return;
 	}
 
-	v8::Handle<v8::Number> numEventArgs = args[1]->ToNumber();
+	v8::Handle<v8::Number> numEventArgs = args[1]->ToNumber( args.GetIsolate()->GetCurrentContext() ).FromMaybe( v8::Local<v8::Number>() );
 	if ( numEventArgs.IsEmpty() )
 	{
 		args.GetIsolate()->ThrowException( v8::String::NewFromUtf8( args.GetIsolate(), CFmtStrN<512>( "Second argument to %s must be a number: number of arguments to the event", pchFuncCall ).String() ) );
@@ -2142,7 +2142,7 @@ void JSDispatchEventHelper( const v8::FunctionCallbackInfo<v8::Value>& args, boo
 	float flAsyncDelay = 0.0f;
 	if( bAsyncDispatch )
 	{
-		v8::Local<v8::Number> num = args[0]->ToNumber();
+		v8::Local<v8::Number> num = args[0]->ToNumber( args.GetIsolate()->GetCurrentContext() ).FromMaybe( v8::Local<v8::Number>() );
 		flAsyncDelay = num->Value();
 	}
 
@@ -3270,7 +3270,7 @@ void JSSchedule( const v8::FunctionCallbackInfo<v8::Value>& args )
 		return;
 	}
 
-	v8::Handle<v8::Number> delay = args[0]->ToNumber();
+	v8::Handle<v8::Number> delay = args[0]->ToNumber( args.GetIsolate()->GetCurrentContext() ).FromMaybe( v8::Local<v8::Number>() );
 	if( delay.IsEmpty() )
 	{
 		args.GetIsolate()->ThrowException( v8::String::NewFromUtf8( args.GetIsolate(), "First argument to Schedule() must be a number as a delay in seconds" ) );
@@ -3311,7 +3311,7 @@ void JSCancelScheduled( const v8::FunctionCallbackInfo<v8::Value>& args )
 		return;
 	}
 
-	v8::Handle<v8::Uint32> hScheduled = args[0]->ToUint32();
+	v8::Handle<v8::Uint32> hScheduled = args[0]->ToUint32( args.GetIsolate()->GetCurrentContext() ).FromMaybe( v8::Local<v8::Uint32>() );
 	if ( hScheduled.IsEmpty() )
 	{
 		args.GetIsolate()->ThrowException( v8::String::NewFromUtf8( args.GetIsolate(), "First argument to CancelScheduled() must be the handle returned frome Schedule()" ) );
@@ -4109,7 +4109,7 @@ void CJSAsyncWebRequest::OnHTTPRequestCompleted( HTTPRequestCompleted_t *pParam,
 		v8::Handle<v8::Context> context = v8::Local<v8::Context>::New( UIEngineInternal()->GetV8Isolate(), *pContextRef );
 
 		v8::Context::Scope context_scope( context );
-		v8::TryCatch try_catch;
+		v8::TryCatch try_catch( UIEngineInternal()->GetV8Isolate() );
 
 		v8::Handle<v8::Object> obj = context->Global();
 
@@ -4150,7 +4150,7 @@ void CJSAsyncWebRequest::OnHTTPRequestCompleted( HTTPRequestCompleted_t *pParam,
 							bufBody.SeekPut( CUtlBuffer::SEEK_HEAD, unBodySize );
 
 							v8::Handle<v8::String> strJSON = v8::String::NewFromUtf8( UIEngineInternal()->GetV8Isolate(), (const char*)bufBody.Base(), v8::String::kNormalString, unBodySize );
-							v8::Handle<v8::Value> returnval = v8::JSON::Parse( strJSON );
+							v8::Handle<v8::Value> returnval = v8::JSON::Parse( context, strJSON ).FromMaybe( v8::Local<v8::Value>() );
 
 							if( returnval.IsEmpty() )
 							{
@@ -4491,7 +4491,7 @@ void JSAsyncWebRequest( const v8::FunctionCallbackInfo<v8::Value>& args )
 			else if( V_stricmp( *settingName, "timeout" ) == 0 )
 			{
 				v8::Handle<v8::Value> settingValue = objSettings->Get( settingNames->Get( i ) );
-				v8::Handle<v8::Number> timeoutValue = settingValue->ToNumber();
+				v8::Handle<v8::Number> timeoutValue = settingValue->ToNumber( UIEngineInternal()->GetV8Isolate()->GetCurrentContext() ).FromMaybe( v8::Local<v8::Number>() );
 				if( !timeoutValue.IsEmpty() )
 					flTimeoutMilliseconds = (float)timeoutValue->Value();
 				else
@@ -5215,7 +5215,8 @@ void CUIEngine::OutputJSExceptionToConsole( v8::TryCatch &try_catch, IUIPanel *p
 			if ( const char *szSlash2 = strrchr( szScriptName, '\\' ) )
 				szScriptName = szSlash2 + 1;
 			fmtForDump.Format( "\nJS(%s:%d:%d)\n%s\n%s\n", szScriptName, nLineNumber, nColumnNumber, V8ToCString( error ), strOut.Access() );
-			g_pEngineclient->ExecuteExceptionHandler( fmtForDump.Access() );
+			// SE IVEngineClient has no ExecuteExceptionHandler; log via Warning instead (panorama port)
+			Warning( "%s", fmtForDump.Access() );
 		}
 
 #endif
@@ -5339,7 +5340,7 @@ v8::Persistent<v8::Script> *CUIEngine::CompileScript( IUIPanel *pPanelContext, c
 	v8::Handle<v8::String> source = v8::String::NewFromUtf8( m_pV8Isolate, pchScriptString );
 	
 
-	v8::TryCatch try_catch;
+	v8::TryCatch try_catch( m_pV8Isolate );
 
 	v8::ScriptOrigin origin = v8::ScriptOrigin(
 		v8::String::NewFromUtf8( m_pV8Isolate, pchSourceFileName ), v8::Integer::NewFromUnsigned( m_pV8Isolate, 0 ), v8::Integer::NewFromUnsigned( m_pV8Isolate, 0 ) );
@@ -5534,7 +5535,7 @@ void CUIEngine::RunScript( IUIPanel *pPanelContext, const char *pchScriptString,
 	v8::Handle<v8::Script> script;
 
 	{
-		v8::TryCatch try_catch;
+		v8::TryCatch try_catch( m_pV8Isolate );
 
 		v8::ScriptOrigin origin = v8::ScriptOrigin(
 			v8::String::NewFromUtf8( m_pV8Isolate, szAbsolutePathScratch ), 
@@ -5596,7 +5597,7 @@ v8::Local<v8::Value> CUIEngine::RunJSFunctionInternal( IUIPanel *pPanelContext, 
 
 	#if V8_ENABLE_EXCEPTIONS
 
-		v8::TryCatch try_catch;
+		v8::TryCatch try_catch( m_pV8Isolate );
 	#endif
 
 		PushContextPanel( pPanelContext );
@@ -5654,7 +5655,7 @@ v8::Local<v8::Value> CUIEngine::RunJSScriptInternal( IUIPanel *pPanelContext, v8
 
 	#if V8_ENABLE_EXCEPTIONS
 
-		v8::TryCatch try_catch;
+		v8::TryCatch try_catch( m_pV8Isolate );
 
 	#endif
 
@@ -6301,10 +6302,9 @@ void CUIEngine::RunFrame()
 			VPROF_BUDGET( "V8 - Hint GC Full", VPROF_BUDGETGROUP_TENFOOT );
 			// Garbage collect a bit
 			v8::Isolate::Scope isolate_scope( m_pV8Isolate );
-			if( m_pV8Isolate->IdleNotification( 100 ) )
-				m_bDoV8GarbageCollect = false;
-			else
-				m_bWorkRemaining = true;
+			// IdleNotification removed in v8 6.x; use LowMemoryNotification (panorama port)
+			m_pV8Isolate->LowMemoryNotification();
+			m_bDoV8GarbageCollect = false;
 
 			m_flLastV8IncrementalGC = GetCurrentFrameTime();
 		}
@@ -6336,7 +6336,7 @@ void CUIEngine::RunFrame()
 	{
 		VPROF_BUDGET( "V8 - Hint GC Periodic", VPROF_BUDGETGROUP_TENFOOT );
 		v8::Isolate::Scope isolate_scope( m_pV8Isolate );
-		m_pV8Isolate->IdleNotification( 1 );
+		m_pV8Isolate->LowMemoryNotification();
 		m_flLastV8IncrementalGC = GetCurrentFrameTime();
 	}
 

@@ -1147,9 +1147,8 @@ inline CUIEngine * UIEngineInternal() { return (CUIEngine*)UIEngine(); }
 // or in a separate binary, such as in the source2 build.
 IUITextServices *UITextServices();
 // On source2 this is part of the interfaces system.
-#if !defined( SOURCE2_PANORAMA ) 
+// panorama-port (SE): declare unconditionally - uiengine.cpp references it under SOURCE2_PANORAMA too
 extern IUITextServices *g_IUITextServices;
-#endif
 
 } // namespace panorama
 

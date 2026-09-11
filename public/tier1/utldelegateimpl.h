@@ -631,6 +631,10 @@ public:
 		return m_pthis==x.m_pthis && m_pFunction==x.m_pFunction;
 	}
 #endif
+	// CS:GO-era: expose equality operators (CUtlVector::Find uses ==)
+	inline bool operator==( const CUtlAbstractDelegate &x ) const { return IsEqual( x ); }
+	inline bool operator!=( const CUtlAbstractDelegate &x ) const { return !IsEqual( x ); }
+
 	// Provide a strict weak ordering for DelegateMementos.
 	inline bool IsLess(const CUtlAbstractDelegate &right) const 
 	{

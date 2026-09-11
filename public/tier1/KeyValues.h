@@ -78,6 +78,9 @@ public:
 	//	understand the implications before using this.
 	static void SetUseGrowableStringTable( bool bUseGrowableTable );
 
+	// CS:GO-era helper used by panorama (SE has no JSON->KeyValues parser; stub for now)
+	static KeyValues *FromJSON( CUtlBuffer &inputBuffer ) { return NULL; }
+
 	KeyValues( const char *setName );
 
 	//

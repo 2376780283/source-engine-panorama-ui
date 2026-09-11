@@ -470,6 +470,54 @@ template < typename T > struct UTLConstStringCaselessStringEqualFunctor { bool o
 inline bool UtlStringLessFunc( const CUtlString &lhs, const CUtlString &rhs ) { return V_strcmp( lhs.Get(), rhs.Get() ) < 0; } 
 inline bool UtlStringCaseInsensitiveLessFunc( const CUtlString &lhs, const CUtlString &rhs ) { return V_stricmp( lhs.Get(), rhs.Get() ) < 0; } 
 
+//-----------------------------------------------------------------------------
+// CUtlStringBuilder (CS:GO-era minimal port)
+// A growable string builder used by CS:GO panorama. Minimal subset of the
+// original API as needed by the port (Append/AppendChar/AppendFormat/String/Get/Access).
+//-----------------------------------------------------------------------------
+#include <stdarg.h>
+#include <stdlib.h>
+#include <string.h>
+
+class CUtlStringBuilder
+{
+public:
+	CUtlStringBuilder() : m_pData( NULL ), m_nLen( 0 ), m_nAlloc( 0 ) {}
+	~CUtlStringBuilder() { free( m_pData ); }
+
+	void Clear() { m_nLen = 0; if ( m_pData ) m_pData[0] = 0; }
+
+	void EnsureCapacity( int n ) { if ( n + 1 > m_nAlloc ) Grow( n + 1 ); }
+
+	void Append( const char *p ) { if ( !p ) return; int n = V_strlen( p ); EnsureCapacity( m_nLen + n ); V_memcpy( m_pData + m_nLen, p, n ); m_nLen += n; m_pData[m_nLen] = 0; }
+	void AppendChar( char c ) { EnsureCapacity( m_nLen + 1 ); m_pData[m_nLen++] = c; m_pData[m_nLen] = 0; }
+	void AppendFormat( const char *pFmt, ... )
+	{
+		char buf[4096];
+		va_list ap; va_start( ap, pFmt );
+		V_vsnprintf( buf, (int)sizeof( buf ), pFmt, ap );
+		va_end( ap );
+		Append( buf );
+	}
+
+	const char *String() const { return m_pData ? m_pData : ""; }
+	const char *Get() const { return String(); }
+	char *Access() { return m_pData; }
+
+private:
+	void Grow( int n )
+	{
+		int nNew = ( n < 16 ) ? 16 : n;
+		if ( nNew < m_nAlloc * 2 ) nNew = m_nAlloc * 2;
+		char *p = (char *)realloc( m_pData, nNew );
+		if ( p ) { m_pData = p; m_nAlloc = nNew; if ( m_nLen == 0 && m_pData ) m_pData[0] = 0; }
+	}
+
+	char *m_pData;
+	int m_nLen;
+	int m_nAlloc;
+};
+
 #include "memdbgoff.h"
 
 #endif // UTLSTRING_H
