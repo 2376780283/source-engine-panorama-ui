@@ -17,6 +17,7 @@ def build(bld):
 		'ctx_debug.cpp',
 		'panoramasymbol.cpp',
 		# 'uiengine.cpp',   # TEMP excluded: V8-era API drift (B1 blocker) - needs v8-header era alignment
+		'uiengine.cpp',
 		'uisoundsystem.cpp',
 		'uievent.cpp',
 		'uievents.cpp',
@@ -37,6 +38,12 @@ def build(bld):
 		'layout/stylefile.cpp',
 		'layout/stylepropertyfactory.cpp',
 		'layout/uilength.cpp',
+		# Batch 3: input + localization (per panorama.vpc list)
+		'input/uiinput.cpp',
+		'input/controller.cpp',
+		'input/steamcontroller.cpp',
+		'input/mousecursor.cpp',
+		'localization/localize.cpp',
 	]
 
 	includes = [

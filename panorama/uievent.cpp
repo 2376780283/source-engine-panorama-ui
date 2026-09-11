@@ -18,7 +18,7 @@
 #pragma GCC diagnostic ignored "-Wshadow"
 #endif
 #if defined( SOURCE2_PANORAMA )
-#include "../thirdparty/v8/include/v8.h"
+#include "../external/v8/include/v8.h"
 #else
 #include "../external/v8/include/v8.h"
 #endif
