@@ -425,7 +425,11 @@ void CRenderDevice::ExcludeTextureFromForceIntoHardware( HRenderTexture hTexture
 	}
 
 	S1Wrapper_Texture_t *pTexture = (S1Wrapper_Texture_t *)hTexture.GetResourceHandle()->m_handle;
-	pTexture->GetS1Texture()->ExcludeTextureFromForceIntoHardware( bExclude );
+	// SE port TODO: this engine's ITexture has no ExcludeTextureFromForceIntoHardware - it
+	// always keeps textures resident, so dropping the call only affects memory policy.
+	// pTexture->GetS1Texture()->ExcludeTextureFromForceIntoHardware( bExclude );
+	( void )bExclude;
+	( void )pTexture;
 }
 
 //--------------------------------------------------------------------------------------------------

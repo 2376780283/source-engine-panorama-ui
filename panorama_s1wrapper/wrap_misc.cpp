@@ -309,5 +309,10 @@ class IVEngineClient *g_pEngineclient = NULL;
 // Logging
 //--------------------------------------------------------------------------------------------------
 
-LoggingChannelID_t LOG_PANORAMA;
-LoggingChannelID_t LOG_PANORAMA_SCRIPT;
+// SE port: in CS:GO these are the definitions of the channels declared by
+// DECLARE_LOGGING_CHANNEL() in public/panorama/iuiengine.h.  The SE shim in tier0/logging.h
+// turns that macro into an anonymous enum constant, so defining variables here would be a
+// redefinition (C2365).  The channels are created by DEFINE_LOGGING_CHANNEL_NO_TAGS() in
+// panorama/source2/panoramauiengine.cpp instead.
+// LoggingChannelID_t LOG_PANORAMA;
+// LoggingChannelID_t LOG_PANORAMA_SCRIPT;

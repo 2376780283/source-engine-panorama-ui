@@ -10,6 +10,10 @@
 #include "panorama/iuipanel.h"
 #include "panorama/iuiengine.h"
 
+// SE port: wrap_other.h only forward declares ISoundEmitterSystemBase (enough for the
+// global pointer), but this TU dereferences it - pull in the real interface header.
+#include "SoundEmitterSystem/isoundemittersystembase.h"
+
 // memdbgon must be the last include file in a .cpp file!!!
 #include <tier0/memdbgon.h>
 
@@ -103,7 +107,9 @@ SoundEventGuid_t CSoundOpSystem::StartSoundEvent( const char *pSoundEventName, v
 		return 0;
 	}
 	
-	HSOUNDSCRIPTHASH nSoundEntryHash = SOUNDEMITTER_INVALID_HASH;
+	// SE port: this tree spells the sound script handle HSOUNDSCRIPTHANDLE (a short),
+	// CS:GO uses HSOUNDSCRIPTHASH (unsigned int) - use the local spelling.
+	HSOUNDSCRIPTHANDLE nSoundEntryHash = SOUNDEMITTER_INVALID_HANDLE;
 	gender_t gender = GENDER_NONE;
 	CSoundParameters params;
 
@@ -183,11 +189,16 @@ SoundEventGuid_t CSoundOpSystem::StartSoundEvent( const char *pSoundEventName, v
 		Msg( ">>Panel: No UI element for panorama sound %s\n", pSoundEventName );
 	}
 
-	//set m_bUISound = true to tell EmitSound() to ignore the recipient filter and just play the sound locally.
-	params.m_bUISound = true;
+	// SE port: this tree's CSoundParameters has no m_bUISound flag (CS:GO uses it to bypass
+	// the recipient filter); the classic EmitSound below already plays the wave locally.
+	// params.m_bUISound = true;
 	CDummyRecipientFilter filter;
-	int guid = g_pEnginesound->EmitSound( filter, nSourceEntityIndex, params.channel, szPrefixedSoundEventName, nSoundEntryHash, params.soundname,
-		params.volume, (soundlevel_t)params.soundlevel, params.m_nRandomSeed, SND_IS_SCRIPTHANDLE, params.pitch, &vecOrigin, nullptr, nullptr, true, 0.0f, -1, &params );
+	// SE port: this engine's IEngineSound only has the classic EmitSound overloads (no
+	// sound-entry name/hash and no guid return).  Play the script's wave through the classic
+	// path and report the engine's "guid of the last sound emitted".
+	g_pEnginesound->EmitSound( filter, nSourceEntityIndex, params.channel, params.soundname,
+		params.volume, (soundlevel_t)params.soundlevel, 0, params.pitch, 0, &vecOrigin, nullptr, nullptr, true, 0.0f, -1 );
+	int guid = g_pEnginesound->GetGuidForLastSoundEmitted();
 
 	return ( ( guid > 0 ) ? SoundEventGuid_t(guid) : SoundEventGuid_t() );
 }
@@ -229,12 +240,17 @@ public:
 
 IAudioOutputStream	*CSoundSystem::CreateOutputStream( uint nSampleRate, uint nChannels, uint nBits )
 {
-	return g_pEnginesound->CreateOutputStream( nSampleRate, nChannels, nBits );
+	// SE port TODO: this engine's IEngineSound has no output-stream API (CS:GO added it for
+	// the video player's audio).  Returning NULL disables video sound for now.
+	( void )nSampleRate;
+	( void )nChannels;
+	( void )nBits;
+	return NULL;
 }
 
 void CSoundSystem::DestroyOutputStream( IAudioOutputStream *pOutputStream )
 {
-	g_pEnginesound->DestroyOutputStream( pOutputStream );
+	( void )pOutputStream;
 }
 
 CSoundSystem g_SoundSystem;

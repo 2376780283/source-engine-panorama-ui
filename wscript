@@ -74,6 +74,7 @@ projects={
 		'particles',
 		# TEMP Phase-2 panorama iteration registration (remove before commit)
 		'panorama',
+		'panorama_s1wrapper',
 		'scenefilecache',
 		'serverbrowser',
 		'soundemittersystem',

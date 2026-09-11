@@ -30,6 +30,11 @@
 #endif
 #define DEFINE_LOGGING_CHANNEL_NO_TAGS( name, ... )
 
+// CS:GO code declares channel variables of this type (e.g. s1wrapper/wrap_misc.cpp)
+// and passes them to Log_Msg/Log_Warning, which ignore the channel argument here.
+typedef int LoggingChannelID_t;
+const LoggingChannelID_t INVALID_LOGGING_CHANNEL_ID = -1;
+
 // NOTE: color/LOG_COLOR_* overload variants are intentionally NOT provided;
 // affected panorama call sites had their color argument stripped during the port.
 #define Log_Msg( ch, ... )       ::Msg( __VA_ARGS__ )

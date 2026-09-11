@@ -418,6 +418,8 @@ DBG_INTERFACE struct SDL_Window * GetAssertDialogParent();
 // is compiled out in release builds when DBGFLAG_ASSERT is not defined.
 #ifndef DevAssertMsg
 #define DevAssertMsg( _exp, _msg, ... )   AssertMsg( _exp, _msg, ##__VA_ARGS__ )
+// CS:GO-era shorthand used by CS:GO panorama/s1wrapper code
+#define DevAssert( _exp )                  Assert( _exp )
 #endif
 
 // The Always version of the assert macros are defined even when DBGFLAG_ASSERT is not, 

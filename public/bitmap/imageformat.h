@@ -104,6 +104,11 @@ enum ImageFormat
 
 	IMAGE_FORMAT_DXT1_RUNTIME,
 	IMAGE_FORMAT_DXT5_RUNTIME,
+	// SE port (CS:GO additions).  Appended here so that every pre-existing value and
+	// NUM_IMAGE_FORMATS stay unchanged; the matching rows were added to g_ImageFormatInfo
+	// in bitmap/imageformat.cpp and to the D3D format mappings.
+	IMAGE_FORMAT_DXT3_RUNTIME,
+	IMAGE_FORMAT_NULL,			// Dummy format which takes no video memory
 
 	NUM_IMAGE_FORMATS
 };
@@ -570,7 +575,7 @@ namespace ImageLoader
 
 	inline bool IsRuntimeCompressed( ImageFormat fmt )
 	{
-		return ( fmt == IMAGE_FORMAT_DXT1_RUNTIME ) || ( fmt == IMAGE_FORMAT_DXT5_RUNTIME );
+		return ( fmt == IMAGE_FORMAT_DXT1_RUNTIME ) || ( fmt == IMAGE_FORMAT_DXT5_RUNTIME ) || ( fmt == IMAGE_FORMAT_DXT3_RUNTIME );
 	}
 
 } // end namespace ImageLoader

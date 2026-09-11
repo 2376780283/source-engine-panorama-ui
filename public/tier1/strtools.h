@@ -317,6 +317,14 @@ inline bool V_isstrlower( const char *pch )
 // pDest[maxLen-1] is always NULL terminated if pSrc's length is >= maxLen.
 //
 // This means the last parameter can usually be a sizeof() of a string.
+// SE port (CS:GO addition): 3d memcpy with arbitrary source/destination strides.
+// Optimizes to a single memcpy when the strides allow it.  For 2d data pass nNumSlices = 1.
+void CopyMemory3D( void *pDestAdr, void const *pSrcAdr,
+				   int nNumCols, int nNumRows, int nNumSlices,	// dimensions of copy
+				   int nSrcBytesPerRow, int nSrcBytesPerSlice,	// strides for source.
+				   int nDestBytesPerRow, int nDestBytesPerSlice	// strides for dest
+				   );
+
 void V_strncpy( OUT_Z_CAP(maxLenInChars) char *pDest, const char *pSrc, int maxLenInChars );
 
 // Ultimate safe strcpy function, for arrays only -- buffer size is inferred by the compiler

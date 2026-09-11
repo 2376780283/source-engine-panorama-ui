@@ -5,8 +5,12 @@
 //==================================================================================================
 
 #include "s1wrapper.h"
-#include "../thirdparty/sdl/include/SDL.h"
+// SE port: this tree ships the SDL headers flat in thirdparty/SDL (no include/ subdir),
+// and ../thirdparty/SDL is on the include path.
+#include "SDL.h"
 #include "vgui/ISystem.h"
+// SE port: this tree declares g_pVGuiSystem in tier3/tier3.h (defined in tier3/tier3.cpp).
+#include <tier3/tier3.h>
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include <tier0/memdbgon.h>

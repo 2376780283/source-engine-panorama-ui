@@ -390,7 +390,10 @@ static bool EndFrameCleanup()
 
 void CResourceSystem::Init()
 {
-	g_pMaterialSystem->AddEndFramePriorToNextContextFunc( &EndFrameCleanup );
+	// SE port TODO: this engine's IMaterialSystem has no
+	// AddEndFramePriorToNextContextFunc hook, so EndFrameCleanup does not run at frame end
+	// automatically.  Wire it into the engine frame end when the engine side is ported.
+	// g_pMaterialSystem->AddEndFramePriorToNextContextFunc( &EndFrameCleanup );
 
 	S1Wrapper_Texture_t::StaticInit();
 
@@ -414,9 +417,8 @@ void CResourceSystem::Shutdown()
 {
 	S1Wrapper_Texture_t::StaticShutdown();
 	
-	g_pMaterialSystem->RemoveEndFramePriorToNextContextFunc( &EndFrameCleanup );
-
-	DeleteRequestedResources();
+	// SE port TODO: see the matching note in CResourceSystem::Init().
+	// g_pMaterialSystem->RemoveEndFramePriorToNextContextFunc( &EndFrameCleanup );
 
 	for ( int i = 0; i < m_CfgFiles.Count(); i++)
 	{

@@ -1,0 +1,80 @@
+#! /usr/bin/env python
+# encoding: utf-8
+# Phase 2: panorama_s1wrapper static lib (ported from D:\CSGO2019\panorama_s1wrapper).
+#
+# This is the Source2 -> Source1 bridge the CS:GO panorama framework is built against
+# (PANORAMA_USE_S1WRAPPER): it re-implements the rendersystem/resourcesystem/
+# materialsystem2 interfaces on top of the Source 2013 engine interfaces.
+#
+# Source list mirrors panorama_s1wrapper.vpc "Source Files".  Notes:
+#   * wrap_sdl.cpp is [$WINDOWS] only - included here.
+#   * wrap_text_pango.cpp is NOT part of this vpc (it belongs to the text vpc) so the
+#     pango dependency does not apply to this library.
+#   * thirdparty/JSON_parser/JSON_parser.c is listed by the vpc but does not exist in
+#     either source tree - excluded until something actually needs it.
+
+top = '.'
+
+def options(opt):
+	return
+
+def configure(conf):
+	return
+
+def build(bld):
+	source = [
+		'wrap_misc.cpp',
+		'wrap_render.cpp',
+		'wrap_rendercontext.cpp',
+		'wrap_resource.cpp',
+		'wrap_sdl.cpp',
+		'wrap_sound.cpp',
+		'wrap_texture.cpp',
+		'utlstringbuilder.cpp',
+		'../tier1/fileio.cpp',
+		'../public/zip_utils.cpp',
+		# '../thirdparty/JSON_parser/JSON_parser.c',   # not present in this tree
+	]
+
+	includes = [
+		'.',                        # panorama_s1wrapper/ (rendersystem/ resourcesystem/ ... lightweight versions first)
+		'..',                       # repo root
+		'steamextra/common',
+		'steamextra/public',
+		'../panorama',
+		'../public',
+		'../public/tier0',
+		'../public/tier1',
+		'../public/tier2',
+		'../public/vstdlib',
+		'../public/panorama',
+		'../public/steam',
+		'../common',
+		'../thirdparty',
+		'../thirdparty/zlib',
+		'../thirdparty/SDL/include',
+		'../thirdparty/SDL',
+		'../external/v8/include',
+		'../external',
+	]
+
+	defines = [
+		# Match panorama_s1wrapper.vpc
+		'_CLIENT',
+		'PANORAMA_EXPORTS',
+		'STEAM_API_NODLL',
+		'SOURCE2_PANORAMA_FIXME',
+		'SOURCE2_PANORAMA',
+		'PANORAMA_USE_S1WRAPPER',
+		# SE-era adaption (SE tier0/platform.h already provides the construct helpers)
+		'SE_PLATFORM_HAS_CONSTRUCT_HELPERS',
+	]
+
+	bld.stlib(
+		source   = source,
+		target   = 'panorama_s1wrapper',
+		includes = includes,
+		defines  = defines,
+		use      = [],
+		install_path = None,
+	)

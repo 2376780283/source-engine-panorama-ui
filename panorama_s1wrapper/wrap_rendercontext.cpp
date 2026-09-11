@@ -65,7 +65,11 @@ void CRenderContext::SetViewports( int nCount, const RenderViewport_t* pViewport
 	}
 
 	// Source2 is always setting the scissor rect with the viewport
-	Rect_t rectScissor( pViewports->m_nTopLeftX, pViewports->m_nTopLeftY, pViewports->m_nWidth, pViewports->m_nHeight );
+	Rect_t rectScissor; // SE port: this tree's Rect_t is a plain aggregate (no 4-arg ctor)
+    rectScissor.x = pViewports->m_nTopLeftX;
+    rectScissor.y = pViewports->m_nTopLeftY;
+    rectScissor.width = pViewports->m_nWidth;
+    rectScissor.height = pViewports->m_nHeight;
 	SetScissorRect( rectScissor );
 }
 
@@ -165,7 +169,11 @@ bool CRenderContext::BindRenderTargets( const RenderTargetDesc_t &renderTargetDe
 			S1Wrapper_Texture_t *pTexture = (S1Wrapper_Texture_t *)hNewRT.GetResourceHandle()->m_handle;
 			m_pMatRenderContext->PushRenderTargetAndViewport( pTexture->GetS1Texture() );
 
-			Rect_t scissorRect( 0, 0, pTexture->m_textureDesc.m_nWidth, pTexture->m_textureDesc.m_nHeight );
+			Rect_t scissorRect; // SE port: aggregate Rect_t (no 4-arg ctor in this tree)
+                   scissorRect.x = 0;
+                   scissorRect.y = 0;
+                   scissorRect.width = pTexture->m_textureDesc.m_nWidth;
+                   scissorRect.height = pTexture->m_textureDesc.m_nHeight;
 			SetScissorRects( 1, &scissorRect );
 
 			m_hCurrentRT = hNewRT;
@@ -298,19 +306,14 @@ void CRenderContext::SetCullMode( RenderCullMode_t eCullMode )
 #endif
 
 	// Only ever set to NONE
- 	MaterialCullMode_t matCullMode = MATERIAL_CULLMODE_NONE;
- 
- 	if ( eCullMode == RENDER_CULLMODE_CULL_BACKFACING )
- 	{
- 		matCullMode = MATERIAL_CULLMODE_CW;
- 	}
- 	else if ( eCullMode == RENDER_CULLMODE_CULL_BACKFACING )
- 	{
- 		matCullMode = MATERIAL_CULLMODE_CCW;
- 	}
- 
- 	m_pMatRenderContext->CullMode( matCullMode );
-
+    // SE port: this engine's MaterialCullMode_t has no NONE value.  Panorama only ever
+    // asks for "no culling" (MATERIAL_CULLMODE_NONE in CS:GO), which means "leave the
+    // current cull state alone", so only the CW case is forwarded.  (CS:GO's own code has
+    // a duplicated CULL_BACKFACING test, making its CCW branch dead.)
+    if ( eCullMode == RENDER_CULLMODE_CULL_BACKFACING )
+    {
+            m_pMatRenderContext->CullMode( MATERIAL_CULLMODE_CW );
+    }
 }
 
 // void CRenderContext::SetBlendMode( RenderBlendMode_t eBlendMode, float const *pBlendFactor)
@@ -338,24 +341,39 @@ void CRenderContext::SetScissorRects( int nCount, const Rect_t *pRects )
 	else
 #endif
 	{
-		for ( int i = 0; i < m_nScissorRects; ++i )
-		{
-			m_pMatRenderContext->PopScissorRect();
-		}
+           // SE port: this engine's IMatRenderContext has no scissor-rect stack - it takes a
+           // single rect (left, top, right, bottom) plus an enable flag.  Apply the
+           // intersection of the requested rects (nCount == 0 disables the scissor).
+           ( void )m_nScissorRects;
+           m_nScissorRects = nCount;
 
-		for ( int i = 0; i < nCount; ++i )
-		{
-			m_pMatRenderContext->PushScissorRect( pRects[ i ].x, pRects[ i ].y, pRects[ i ].x + pRects[ i ].width, pRects[ i ].y + pRects[ i ].height );
-		}
+           if ( nCount <= 0 )
+           {
+                   m_pMatRenderContext->SetScissorRect( 0, 0, 0, 0, false );
+           }
+           else
+           {
+                   int nLeft = pRects[ 0 ].x;
+                   int nTop = pRects[ 0 ].y;
+                   int nRight = pRects[ 0 ].x + pRects[ 0 ].width;
+                   int nBottom = pRects[ 0 ].y + pRects[ 0 ].height;
 
-		m_nScissorRects = nCount;
+                   for ( int i = 1; i < nCount; ++i )
+                   {
+                           nLeft = Max( nLeft, pRects[ i ].x );
+                           nTop = Max( nTop, pRects[ i ].y );
+                           nRight = Min( nRight, pRects[ i ].x + pRects[ i ].width );
+                           nBottom = Min( nBottom, pRects[ i ].y + pRects[ i ].height );
+                   }
 
-		// Force committing scissor rect on graphic device 
-		m_pMatRenderContext->ForceCommitScissorRect();
-
-	}
+                   m_pMatRenderContext->SetScissorRect( nLeft, nTop, nRight, nBottom, true );
+           }
 
 
 }
 
+// SE port: this brace closes CRenderContext::SetScissorRects().  In the CS:GO original the
+// Source2 scissor-rect-stack code ended the function body; that code was replaced by the SE
+// single-rect implementation above, so the function is closed here.
+}
 

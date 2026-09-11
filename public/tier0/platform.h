@@ -555,6 +555,11 @@ typedef void * HINSTANCE;
 // Used by CS:GO panorama's DECLARE_STYLE_PROPERTY / CClassMemoryPool alignment argument.
 template<class T> struct AlignOf_t { AlignOf_t(){} AlignOf_t & operator=(const AlignOf_t &) { return *this; } byte b; T t; };
 
+// Source2-style dynamic module handle (CS:GO-era; used by CS:GO panorama/s1wrapper code).
+// Upstream defines these in platform.h next to the Plat_* helpers.
+typedef class CSysModule* PlatModule_t;
+#define PLAT_MODULE_INVALID ((PlatModule_t)0)
+
 // Pull in the /analyze code annotations.
 #include "annotations.h"
 

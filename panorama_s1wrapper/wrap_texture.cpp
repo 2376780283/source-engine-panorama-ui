@@ -648,7 +648,9 @@ public:
 			m_nHeight = pTexture->GetMappingHeight();
 			m_nDepth = pTexture->GetMappingDepth();
 			m_nFmt = pTexture->GetImageFormat();
-			m_nBackingStoreSize = ImageLoader::GetMemRequired( m_nWidth, m_nHeight, m_nDepth, 1, m_nFmt );
+			// SE port: SE 2013's ImageLoader::GetMemRequired() is (w, h, d, format, bool mipmap);
+		// CS:GO's overload here passed a mip count of 1 (= base level only) which matches mipmap = false.
+		m_nBackingStoreSize = ImageLoader::GetMemRequired( m_nWidth, m_nHeight, m_nDepth, m_nFmt, false );
 			m_pBackingStore = (char*)malloc( m_nBackingStoreSize );
 		}
 
@@ -702,7 +704,7 @@ IThreadPool *S1Wrapper_Texture_t::sm_pTextureDecodeThreadPool = nullptr;
 	sm_pErrorTexture = g_pMaterialSystem->FindTexture( "error", TEXTURE_GROUP_OTHER );
 
 	// Start thread pool used to create VTF textures
-	sm_pTextureDecodeThreadPool = CreateNewThreadPool();
+	sm_pTextureDecodeThreadPool = CreateThreadPool();	// SE port: CS:GO renamed SE's CreateThreadPool()
 
 	ThreadPoolStartParams_t startParams;
 	startParams.nThreads = 1;
@@ -782,11 +784,11 @@ void S1Wrapper_Texture_t::Destroy()
 			m_pTexture->SetTextureRegenerator( nullptr );	// Should call Release() on the existing regenerator
 		}
 		m_pTexture->DecrementReferenceCount();
-		if ( m_pTexture->GetReferenceCount() == 0 )
+		if ( false )	// SE port: SE 2013's ITexture has no GetReferenceCount() (CS:GO added it) - diagnostic disabled
 		{
 			WrapTextureLog( m_textureName.String(), m_textureDesc.m_nWidth, m_textureDesc.m_nHeight, "Destroy release src1", 0, m_pTexture );
 		}
-		else if ( m_pTexture->GetReferenceCount() < 0 )
+		else if ( false )	// SE port: SE 2013's ITexture has no GetReferenceCount() (CS:GO added it) - diagnostic disabled
 		{
 			WrapTextureLog( m_textureName.String(), m_textureDesc.m_nWidth, m_textureDesc.m_nHeight, "Destroy release src1(negative)", 0, m_pTexture );
 		}
@@ -1012,8 +1014,11 @@ void S1Wrapper_Texture_t::CreateS1Texture()
 	}
 	else
 	{
-		m_pTexture->ExcludeTextureFromForceIntoHardware( true );
-		Assert( m_pTexture->GetReferenceCount() == 1 );
+		// SE port: SE 2013's ITexture has no ExcludeTextureFromForceIntoHardware() and no
+		// GetReferenceCount(); the texture stays eligible for force-into-hardware and the
+		// reference-count assert is dropped (see the same note in wrap_render.cpp).
+		( void )0;
+		// Assert( m_pTexture->GetReferenceCount() == 1 );
 	}
 }
 
@@ -1093,7 +1098,9 @@ void S1Wrapper_Texture_t::UploadTextureData()
 		{
 			//Msg( ">>>Set Proc Regen %p for texture  %s:%p  subRect %d, %d, %dx%d\n", pRegen, pTexture->GetName(), pTexture, pSubRect->x, pSubRect->y, pSubRect->width, pSubRect->height );
 
-			m_pTexture->SetTextureRegenerator( m_pRegenerator, false );		// "false" stops us releasing existing.
+			// SE port: SE 2013's SetTextureRegenerator() takes no "bReleaseExisting" argument
+			// (CS:GO added it).  TODO: verify the release semantics when a regenerator is replaced.
+			m_pTexture->SetTextureRegenerator( m_pRegenerator );
 
 			Rect_t updateRect;
 			updateRect.x = cmd.m_subRect.x;
@@ -1102,7 +1109,9 @@ void S1Wrapper_Texture_t::UploadTextureData()
 			updateRect.height = cmd.m_subRect.height;
 
 			// Force a download
-			if ( materials->CanDownloadTextures() )
+			// SE port: SE 2013 exposes CanDownloadTextures() on IShaderAPI, not on IMaterialSystem.
+			// TODO: query the shader API once the wrapper has access to it; assume the device is ready.
+			if ( true )
 			{
 				m_pTexture->Download( &updateRect );
 			}
@@ -1119,7 +1128,8 @@ void S1Wrapper_Texture_t::UploadTextureData()
 		{
 			//Msg( ">>>Set VTF Regen %p for texture  %s:%p\n", pRegen, pTexture->GetName(), pTexture );
 
-			m_pTexture->SetTextureRegenerator( m_pRegenerator, false );		// "false" stops us releasing existing.
+			// SE port: SE 2013's SetTextureRegenerator() takes no "bReleaseExisting" argument.
+			m_pTexture->SetTextureRegenerator( m_pRegenerator );
 			m_pTexture->Download();
 		}
 	}
@@ -1129,7 +1139,7 @@ void S1Wrapper_Texture_t::UploadTextureData()
 //-----------------------------------------------------------------------------
 void S1Wrapper_Texture_t::FillTextureDesc( int16 width, int16 height, ImageFormat imageFormat, bool bRenderTarget )
 {
-	bool bSupportsNPO2 = g_pMaterialSystemHardwareConfig->SupportsNPO2Textures();
+	bool bSupportsNPO2 = g_pMaterialSystemHardwareConfig->SupportsNonPow2Textures(); // SE port: CS:GO renamed this method (NPO2 -> NonPow2);
 
 	// For now we just fill in width, height and format, which is all that panorama requires.
 	
@@ -1261,8 +1271,12 @@ HRenderTexture S1Wrapper_CreateAlphaTexture( int32 iWidth, int32 iHeight )
 
 		int nFlags = TEXTUREFLAGS_NOMIP | TEXTUREFLAGS_NODEBUGOVERRIDE | TEXTUREFLAGS_SINGLECOPY | TEXTUREFLAGS_TRILINEAR | TEXTUREFLAGS_NOLOD;
 				
-		pTexture->m_pTexture = materials->CreatePanoramaAlphaTexture( textureName, TEXTURE_GROUP_OTHER, iWidth, iHeight, nFlags );
-		pTexture->m_pTexture->ExcludeTextureFromForceIntoHardware( true );
+		// SE port: SE 2013 has no CreatePanoramaAlphaTexture(); use a plain procedural A8 texture
+			// (panorama alpha textures drive additive / alpha-text effects).
+			// TODO: port the CS:GO implementation if alpha text turns out to need it.
+			pTexture->m_pTexture = materials->CreateProceduralTexture( textureName, TEXTURE_GROUP_OTHER, iWidth, iHeight, IMAGE_FORMAT_A8, nFlags );
+		// SE port: SE 2013's ITexture has no ExcludeTextureFromForceIntoHardware() (see above).
+			// pTexture->m_pTexture->ExcludeTextureFromForceIntoHardware( true );
 		pTexture->m_nUniqueId = nAlphaTextureId;
 		pTexture->FillTextureDesc( iWidth, iHeight, IMAGE_FORMAT_A8, false );
 
@@ -1279,7 +1293,9 @@ void S1Wrapper_UpdateAlphaTexture( HRenderTexture hTexture, int32 xOffset, int32
 	{
 		S1Wrapper_Texture_t *pTexture = (S1Wrapper_Texture_t *)hTexture.GetResourceHandle()->m_handle;
 
-		materials->UpdatePanoramaAlphaTexture( pTexture->m_pTexture, xOffset, yOffset, iWidth, iHeight, pImageData );
+		// SE port: SE 2013 has no UpdatePanoramaAlphaTexture().  TODO: update the procedural
+			// texture through ITexture::SetTextureData() / the regenerator instead of dropping it.
+			( void )xOffset; ( void )yOffset; ( void )iWidth; ( void )iHeight; ( void )pImageData;
 	}
 }
 

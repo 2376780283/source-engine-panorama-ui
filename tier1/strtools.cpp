@@ -2630,6 +2630,64 @@ void V_StrRight( const char *pStr, int nChars, char *pOut, int outSize )
 //-----------------------------------------------------------------------------
 // Convert multibyte to wchar + back
 //-----------------------------------------------------------------------------
+//-----------------------------------------------------------------------------
+// SE port (CS:GO addition): 3 dimensional memory copy with arbitrary strides.
+// Optimizes to a single memcpy when possible.  For 2d data pass nNumSlices = 1.
+// (CS:GO's original loops ran nNumSlices + 1 times as a side effect of the post-decrement
+// in its do/while; this version performs exactly nNumSlices iterations.)
+//-----------------------------------------------------------------------------
+void CopyMemory3D( void *pDest, void const *pSrc,
+				   int nNumCols, int nNumRows, int nNumSlices,	// dimensions of copy
+				   int nSrcBytesPerRow, int nSrcBytesPerSlice,	// strides for source.
+				   int nDestBytesPerRow, int nDestBytesPerSlice	// strides for dest
+				   )
+{
+	if ( !nNumSlices || !nNumRows || !nNumCols )
+		return;
+
+	uint8 *pDestAdr = reinterpret_cast<uint8 *>( pDest );
+	uint8 const *pSrcAdr = reinterpret_cast<uint8 const *>( pSrc );
+
+	// first check for the optimized cases
+	if ( ( nNumCols == nSrcBytesPerRow ) && ( nNumCols == nDestBytesPerRow ) )	// no row-to-row stride?
+	{
+		int n2DSize = nNumCols * nNumRows;
+		if ( nSrcBytesPerSlice == nDestBytesPerSlice )		// can we do one memcpy?
+		{
+			memcpy( pDestAdr, pSrcAdr, n2DSize * nNumSlices );
+		}
+		else
+		{
+			// there might be some slice-to-slice stride
+			do
+			{
+				memcpy( pDestAdr, pSrcAdr, n2DSize );
+				pDestAdr += nDestBytesPerSlice;
+				pSrcAdr += nSrcBytesPerSlice;
+			} while( --nNumSlices );
+		}
+	}
+	else
+	{
+		// there is a row-by-row stride - we have to do the full nested loop
+		do
+		{
+			int nRowCtr = nNumRows;
+			uint8 const *pSrcRow = pSrcAdr;
+			uint8 *pDestRow = pDestAdr;
+			do
+			{
+				memcpy( pDestRow, pSrcRow, nNumCols );
+				pDestRow += nDestBytesPerRow;
+				pSrcRow += nSrcBytesPerRow;
+			} while( --nRowCtr );
+
+			pSrcAdr += nSrcBytesPerSlice;
+			pDestAdr += nDestBytesPerSlice;
+		} while( --nNumSlices );
+	}
+}
+
 void V_strtowcs( const char *pString, int nInSize, wchar_t *pWString, int nOutSizeInBytes )
 {
 	Assert( nOutSizeInBytes >= sizeof(pWString[0]) );
