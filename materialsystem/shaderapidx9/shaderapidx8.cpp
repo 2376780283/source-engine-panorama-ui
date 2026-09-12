@@ -1244,6 +1244,10 @@ public:
 	// SE port (CS:GO addition): IShaderAPI::GetD3DTexturePtr - see public/shaderapi/ishaderapi.h
 	virtual void *GetD3DTexturePtr( ShaderAPITextureHandle_t hTexture );
 
+	// SE port (CS:GO addition): IShaderAPI::GetOS{Vertex,Pixel}Shader - see public/shaderapi/ishaderapi.h
+	virtual void *GetOSVertexShader( const char *pszName, int nIndex );
+	virtual void *GetOSPixelShader( const char *pszName, int nIndex );
+
 
 	virtual bool ShouldWriteDepthToDestAlpha( void ) const;
 
@@ -6701,6 +6705,24 @@ void CShaderAPIDx8::InvalidateDelayedShaderConstants( void )
 inline void *CShaderAPIDx8::GetD3DTexturePtr( ShaderAPITextureHandle_t hTexture )
 {
 	return (void *)CShaderAPIDx8::GetD3DTexture( hTexture );
+}
+
+//-----------------------------------------------------------------------------
+// SE port (CS:GO addition): IShaderAPI::GetOS{Vertex,Pixel}Shader.  Bodies are CS:GO's
+// (materialsystem/shaderapidx9/shaderapidx8.cpp): create the shader - which compiles/loads it from the
+// stdshader DLL - and return the D3D object for the requested dynamic combo.  The panorama renderer is
+// the only caller today (panorama/source2/renderer/source2surface.cpp, "panorama_vs30"/"panorama_ps30").
+//-----------------------------------------------------------------------------
+void *CShaderAPIDx8::GetOSVertexShader( const char *pszName, int nIndex )
+{
+	VertexShader_t vs = ShaderManager()->CreateVertexShader( pszName, 0 );
+	return ShaderManager()->GetVertexShader( vs, nIndex );
+}
+
+void *CShaderAPIDx8::GetOSPixelShader( const char *pszName, int nIndex )
+{
+	PixelShader_t ps = ShaderManager()->CreatePixelShader( pszName, 0 );
+	return ShaderManager()->GetPixelShader( ps, nIndex );
 }
 
 //-----------------------------------------------------------------------------

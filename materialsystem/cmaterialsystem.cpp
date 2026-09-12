@@ -2964,13 +2964,27 @@ void *CMaterialSystem::GetPanormaTexturePtr( ITexture *pTexture )
 	return g_pShaderAPI->GetD3DTexturePtr( ((ITextureInternal*)pTexture)->GetTextureHandle( 0 ) );
 }
 
+// SE port (CS:GO additions): the panorama renderer fetches its D3D shaders through these two
+// (panorama/source2/renderer/source2surface.cpp -> IMaterialSystem::GetOS{Vertex,Pixel}Shader).  Bodies
+// are CS:GO's (materialsystem/cmaterialsystem.cpp).
+void *CMaterialSystem::GetOSVertexShader( const char *pszName, int nIndex )
+{
+	return g_pShaderAPI->GetOSVertexShader( pszName, nIndex );
+}
+
+void *CMaterialSystem::GetOSPixelShader( const char *pszName, int nIndex )
+{
+	return g_pShaderAPI->GetOSPixelShader( pszName, nIndex );
+}
+
 // SE port (CS:GO addition): called from panoramaenginehandler.cpp (CPanoramaEngineHandler::
 // PanoramaRenderFrame) and the engine's frame hooks so that the S1 render state is reset before
-// panorama issues its own draws.  Body is CS:GO's (materialsystem/cmaterialsystem.cpp).
+// panorama issues its own draws.  CS:GO's body calls ResetRenderState( false, true ) - Source Engine
+// 2013's IShaderAPI only takes the first argument.
 void CMaterialSystem::ResetPanoramaRenderState()
 {
 #ifndef DX_TO_GL_ABSTRACTION
-	g_pShaderAPI->ResetRenderState( false, true );
+	g_pShaderAPI->ResetRenderState( false );
 #endif
 }
 

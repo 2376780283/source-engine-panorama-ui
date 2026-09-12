@@ -417,8 +417,8 @@ public:
 
 	// SE port (CS:GO additions): see public/materialsystem/imaterialsystem.h
 	bool									CanDownloadTextures() const;
-	void *								GetPanormaTexturePtr( ITexture *pTexture );
-	void								ResetPanoramaRenderState();
+	void *								GetPanormaTexturePtr( ITexture *pTexture );	void *								GetOSVertexShader( const char *pszName, int nIndex );
+	void *								GetOSPixelShader( const char *pszName, int nIndex );	void								ResetPanoramaRenderState();
 
 	void									AddTextureAlias( const char *pAlias, const char *pRealName );
 	void									RemoveTextureAlias( const char *pAlias );

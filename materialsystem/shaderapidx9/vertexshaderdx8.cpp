@@ -573,6 +573,8 @@ public:
 	virtual void				BindPixelShader( PixelShaderHandle_t shader );
 	virtual void				*GetCurrentVertexShader();
 	virtual void				*GetCurrentPixelShader();
+	virtual void				*GetVertexShader( VertexShader_t shader, int nDynamicIndex );
+	virtual void				*GetPixelShader( PixelShader_t shader, int nDynamicIndex );
 	virtual void				ResetShaderState();
 	void						FlushShaders();
 	virtual void				ClearVertexAndPixelShaderRefCounts();
@@ -3266,6 +3268,35 @@ void* CShaderManager::GetCurrentVertexShader()
 void* CShaderManager::GetCurrentPixelShader()
 {
 	return (void*)m_HardwarePixelShader;
+}
+
+//-----------------------------------------------------------------------------
+// SE port (CS:GO addition): see IShaderManager in vertexshaderdx8.h.  HardwareShader_t is already the
+// D3D shader object (locald3dtypes.h), so this is the plain dictionary lookup the panorama renderer
+// needs - it never goes through SetVertexShader/SetPixelShader/binding state.
+//-----------------------------------------------------------------------------
+void *CShaderManager::GetVertexShader( VertexShader_t shader, int nDynamicIndex )
+{
+	if ( !m_VertexShaderDict.IsValidIndex( shader ) )
+		return NULL;
+
+	ShaderStaticCombos_t &combos = m_VertexShaderDict[shader].m_ShaderStaticCombos;
+	if ( !combos.m_pHardwareShaders || nDynamicIndex < 0 || nDynamicIndex >= combos.m_nCount )
+		return NULL;
+
+	return combos.m_pHardwareShaders[nDynamicIndex];
+}
+
+void *CShaderManager::GetPixelShader( PixelShader_t shader, int nDynamicIndex )
+{
+	if ( !m_PixelShaderDict.IsValidIndex( shader ) )
+		return NULL;
+
+	ShaderStaticCombos_t &combos = m_PixelShaderDict[shader].m_ShaderStaticCombos;
+	if ( !combos.m_pHardwareShaders || nDynamicIndex < 0 || nDynamicIndex >= combos.m_nCount )
+		return NULL;
+
+	return combos.m_pHardwareShaders[nDynamicIndex];
 }
 
 
