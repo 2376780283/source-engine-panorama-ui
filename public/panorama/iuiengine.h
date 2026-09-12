@@ -45,7 +45,9 @@ FORWARD_DECLARE_HANDLE( InputContextHandle_t );
 #endif
 #if defined( SOURCE2_PANORAMA )
 //#include "google_inc_push.h"
-#include "../thirdparty/v8/include/v8.h"
+// SE port: see the note in panoramatypes.h - the thirdparty/v8 mirror is the old 6.8 API, this
+// port uses the single vendored v8 7.3.492 in external/v8.
+#include "../external/v8/include/v8.h"
 //#include "google_inc_pop.h"
 #else
 #include "tier0/memdbgoff.h"

@@ -19,7 +19,10 @@
 #pragma GCC diagnostic ignored "-Wshadow"
 #endif
 #if defined( SOURCE2_PANORAMA )
-#include "../thirdparty/v8/include/v8.h"
+// SE port: CS:GO's Source2 branch used the v8 mirror in thirdparty/v8 (a 6.8-era drop with the
+// old internal::Object** API).  This port has a single v8 (7.3.492, internal::Address API) in
+// external/v8, so always use it - mixing the two ABIs left v8 symbols unresolved at link time.
+#include "../external/v8/include/v8.h"
 #else
 #include "../external/v8/include/v8.h"
 #endif

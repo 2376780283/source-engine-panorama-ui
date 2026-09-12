@@ -4927,7 +4927,8 @@ void CUIPanel::SetPanelEventJS( const v8::FunctionCallbackInfo<v8::Value>& args 
 	CPanoramaSymbol symEvent;
 	if ( args[0]->IsString() )
 	{
-		v8::String::Utf8Value strEvent( args[0] );
+		// SE port: v8 7.x removed the single-argument String::Utf8Value constructor.
+		v8::String::Utf8Value strEvent( args.GetIsolate(), args[0] );
 		const char *pchEventName = *strEvent;
 		if ( pchEventName )
 			symEvent = CPanoramaSymbol( pchEventName );
@@ -4956,7 +4957,8 @@ void CUIPanel::SetPanelEventJS( const v8::FunctionCallbackInfo<v8::Value>& args 
 
 	if ( args[1]->IsString() )
 	{
-		v8::String::Utf8Value strScript( args[1] );
+		// SE port: v8 7.x removed the single-argument String::Utf8Value constructor.
+		v8::String::Utf8Value strScript( args.GetIsolate(), args[1] );
 		const char *pchScript = *strScript;
 		if ( pchScript )
 		{

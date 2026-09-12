@@ -1229,6 +1229,11 @@ class V8_EXPORT Script {
       Local<Context> context, Local<String> source,
       ScriptOrigin* origin = nullptr);
 
+  // SE port shims: v8 6.x forms that used the current context.  The CS:GO panorama sources call
+  // them this way; defined out of line at the bottom of this header.
+  static Local<Script> Compile(Local<String> source, ScriptOrigin* origin = nullptr);
+  Local<Value> Run();
+
   /**
    * Runs the script returning the resulting value. It will be run in the
    * context in which it was created (ScriptCompiler::CompileBound or
@@ -1621,6 +1626,9 @@ class V8_EXPORT Message {
    * Returns the number, 1-based, of the line where the error occurred.
    */
   V8_WARN_UNUSED_RESULT Maybe<int> GetLineNumber(Local<Context> context) const;
+
+  // SE port shim: v8 6.x Message::GetLineNumber() (current context).
+  int GetLineNumber() const;
 
   /**
    * Returns the index within the script of the first character where
@@ -2389,6 +2397,19 @@ class V8_EXPORT Value : public Data {
       Local<Context> context) const;
   V8_WARN_UNUSED_RESULT MaybeLocal<Object> ToObject(
       Local<Context> context) const;
+
+  // ------------------------------------------------------------------
+  // SE port shims: the v8 6.x conversion helpers had no-argument forms that used the current
+  // isolate/context implicitly.  The CS:GO panorama sources call them that way; defined out of
+  // line at the bottom of this header (Local<Context> is incomplete here).
+  // ------------------------------------------------------------------
+  Local<String> ToString() const;
+  Local<Object> ToObject() const;
+  int32_t Int32Value() const;
+  uint32_t Uint32Value() const;
+  bool BooleanValue() const;
+  double NumberValue() const;
+  int64_t IntegerValue() const;
   V8_WARN_UNUSED_RESULT MaybeLocal<Integer> ToInteger(
       Local<Context> context) const;
   V8_WARN_UNUSED_RESULT MaybeLocal<Uint32> ToUint32(
@@ -2396,6 +2417,9 @@ class V8_EXPORT Value : public Data {
   V8_WARN_UNUSED_RESULT MaybeLocal<Int32> ToInt32(Local<Context> context) const;
 
   Local<Boolean> ToBoolean(Isolate* isolate) const;
+
+  // SE port shim: v8 6.x Value::ToBoolean() (current isolate).
+  Local<Boolean> ToBoolean() const;
   V8_DEPRECATE_SOON("Use maybe version",
                     Local<Number> ToNumber(Isolate* isolate) const);
   V8_DEPRECATE_SOON("Use maybe version",
@@ -2855,6 +2879,16 @@ class V8_EXPORT String : public Name {
   class V8_EXPORT Utf8Value {
    public:
     Utf8Value(Isolate* isolate, Local<v8::Value> obj);
+
+    // ------------------------------------------------------------------
+    // SE port shim: v8 6.x had a single-argument constructor that used the
+    // current isolate implicitly.  The CS:GO panorama sources (which this port
+    // keeps intact wherever it can) call it that way, so keep the old form as
+    // a thin forwarding overload instead of touching every call site.  Defined
+    // out of line at the bottom of this header (Isolate is incomplete here).
+    // ------------------------------------------------------------------
+    explicit Utf8Value(Local<v8::Value> obj);
+
     ~Utf8Value();
     char* operator*() { return str_; }
     const char* operator*() const { return str_; }
@@ -3318,6 +3352,9 @@ class V8_EXPORT Object : public Value {
 
   V8_WARN_UNUSED_RESULT Maybe<bool> Delete(Local<Context> context,
                                            uint32_t index);
+
+  // SE port shim: v8 6.x Object::Delete(key) (bool result, current context).
+  bool Delete(Local<Value> key);
 
   /**
    * Note: SideEffectType affects the getter only, not the setter.
@@ -6189,6 +6226,30 @@ class V8_EXPORT ObjectTemplate : public Template {
    */
   void SetHandler(const NamedPropertyHandlerConfiguration& configuration);
 
+  // ------------------------------------------------------------------
+  // SE port shim: the v8 6.x SetNamedPropertyHandler form (String-based callbacks, up to five of
+  // them).  The CS:GO panorama sources use it; the ABI is identical to the 7.x Name-based
+  // callbacks (both are handle-sized), so the pointers are forwarded with a cast.  Defined out of
+  // line at the bottom of this header.
+  // ------------------------------------------------------------------
+  typedef void (*SE_NamedPropertyGetterCallback)(Local<String>,
+                                                 const PropertyCallbackInfo<Value>&);
+  typedef void (*SE_NamedPropertySetterCallback)(Local<String>, Local<Value>,
+                                                 const PropertyCallbackInfo<Value>&);
+  typedef void (*SE_NamedPropertyQueryCallback)(Local<String>,
+                                               const PropertyCallbackInfo<Integer>&);
+  typedef void (*SE_NamedPropertyDeleterCallback)(Local<String>,
+                                                 const PropertyCallbackInfo<Boolean>&);
+  typedef void (*SE_NamedPropertyEnumeratorCallback)(const PropertyCallbackInfo<Array>&);
+
+  void SetNamedPropertyHandler(
+      SE_NamedPropertyGetterCallback getter,
+      SE_NamedPropertySetterCallback setter = nullptr,
+      SE_NamedPropertyQueryCallback query = nullptr,
+      SE_NamedPropertyDeleterCallback deleter = nullptr,
+      SE_NamedPropertyEnumeratorCallback enumerator = nullptr,
+      Local<Value> data = Local<Value>());
+
   /**
    * Sets an indexed property handler on the object template.
    *
@@ -6454,6 +6515,17 @@ class V8_EXPORT ResourceConstraints {
   size_t max_old_space_size() const { return max_old_space_size_; }
   void set_max_old_space_size(size_t limit_in_mb) {
     max_old_space_size_ = limit_in_mb;
+  }
+
+  // ------------------------------------------------------------------
+  // SE port shims: v8 6.x tuning knobs removed from the 7.x API.  semi space is mapped onto the
+  // KB setter (6.x took bytes); the executable size limit no longer has an equivalent.
+  // ------------------------------------------------------------------
+  void set_max_semi_space_size(size_t limit_in_bytes) {
+    set_max_semi_space_size_in_kb(limit_in_bytes / 1024);
+  }
+  void set_max_executable_size(size_t limit_in_bytes) {
+    (void)limit_in_bytes;
   }
   uint32_t* stack_limit() const { return stack_limit_; }
   // Sets an address beyond which the VM's stack may not grow.
@@ -10631,6 +10703,73 @@ size_t SnapshotCreator::AddData(Local<T> object) {
 
 
 }  // namespace v8
+
+// SE port shims: out of line definitions of the v8 6.x compatibility helpers declared above
+// (Isolate and Local<Context> are only forward declared where the classes are declared).
+inline v8::String::Utf8Value::Utf8Value(Local<v8::Value> obj)
+    : Utf8Value(Isolate::GetCurrent(), obj) {}
+
+inline v8::Local<v8::String> v8::Value::ToString() const {
+  return ToString(Isolate::GetCurrent()->GetCurrentContext()).ToLocalChecked();
+}
+
+inline v8::Local<v8::Object> v8::Value::ToObject() const {
+  return ToObject(Isolate::GetCurrent()->GetCurrentContext()).ToLocalChecked();
+}
+
+inline int32_t v8::Value::Int32Value() const {
+  return Int32Value(Isolate::GetCurrent()->GetCurrentContext()).FromJust();
+}
+
+inline uint32_t v8::Value::Uint32Value() const {
+  return Uint32Value(Isolate::GetCurrent()->GetCurrentContext()).FromJust();
+}
+
+inline double v8::Value::NumberValue() const {
+  return NumberValue(Isolate::GetCurrent()->GetCurrentContext()).FromJust();
+}
+
+inline int64_t v8::Value::IntegerValue() const {
+  return IntegerValue(Isolate::GetCurrent()->GetCurrentContext()).FromJust();
+}
+
+inline bool v8::Value::BooleanValue() const {
+  return BooleanValue(Isolate::GetCurrent());
+}
+
+inline void v8::ObjectTemplate::SetNamedPropertyHandler(
+    SE_NamedPropertyGetterCallback getter, SE_NamedPropertySetterCallback setter,
+    SE_NamedPropertyQueryCallback query, SE_NamedPropertyDeleterCallback deleter,
+    SE_NamedPropertyEnumeratorCallback enumerator, Local<Value> data) {
+  SetHandler(NamedPropertyHandlerConfiguration(
+      reinterpret_cast<GenericNamedPropertyGetterCallback>(getter),
+      reinterpret_cast<GenericNamedPropertySetterCallback>(setter),
+      reinterpret_cast<GenericNamedPropertyQueryCallback>(query),
+      reinterpret_cast<GenericNamedPropertyDeleterCallback>(deleter),
+      reinterpret_cast<GenericNamedPropertyEnumeratorCallback>(enumerator), data));
+}
+
+inline v8::Local<v8::Script> v8::Script::Compile(Local<String> source,
+                                                 ScriptOrigin* origin) {
+  return Compile(Isolate::GetCurrent()->GetCurrentContext(), source, origin)
+      .ToLocalChecked();
+}
+
+inline v8::Local<v8::Value> v8::Script::Run() {
+  return Run(Isolate::GetCurrent()->GetCurrentContext()).ToLocalChecked();
+}
+
+inline bool v8::Object::Delete(Local<Value> key) {
+  return Delete(Isolate::GetCurrent()->GetCurrentContext(), key).FromJust();
+}
+
+inline v8::Local<v8::Boolean> v8::Value::ToBoolean() const {
+  return ToBoolean(Isolate::GetCurrent());
+}
+
+inline int v8::Message::GetLineNumber() const {
+  return GetLineNumber(Isolate::GetCurrent()->GetCurrentContext()).FromJust();
+}
 
 
 #undef TYPE_CHECK

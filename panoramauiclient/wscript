@@ -101,18 +101,16 @@ def build(bld):
 	]
 
 	# External third-party static libs (vendored, not part of the waf project list).
+	# NOTE: waf's MSVC link task ignores the `libpath` keyword and re-relativises relative stlib
+	# paths against the top directory, so these are spelled out as absolute paths (waf appends
+	# the .lib suffix itself).
+	import os
+	_topdir = os.path.dirname( bld.path.abspath() )
 	stlibs = [
-		'v8_monolith',
-		'v8_libbase',
-		'v8_libplatform',
-		'libprotobuf',
-	]
-
-	libpath = [
-		'../external/v8/lib/win/x86',
-		'../build/protobuf',
-		'../build/panorama',
-		'../build/panorama_s1wrapper',
+		os.path.join( _topdir, 'external', 'v8', 'lib', 'win', 'x86', 'v8_monolith' ),
+		os.path.join( _topdir, 'external', 'v8', 'lib', 'win', 'x86', 'v8_libbase' ),
+		os.path.join( _topdir, 'external', 'v8', 'lib', 'win', 'x86', 'v8_libplatform' ),
+		os.path.join( _topdir, 'build', 'protobuf', 'libprotobuf' ),
 	]
 
 	if bld.env.DEST_OS == 'win32':
@@ -127,7 +125,6 @@ def build(bld):
 		defines  = defines,
 		use      = libs,
 		stlib    = stlibs,
-		libpath  = libpath,
 		install_path = None,
 		subsystem = bld.env.MSVC_SUBSYSTEM,
 		idx      = bld.get_taskgen_count()

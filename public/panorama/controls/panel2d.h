@@ -1066,7 +1066,8 @@ inline CUtlString CallPanelJSFunctionArgs< CUtlString >( IUIPanel *pPanel, const
 {
 	v8::Handle< v8::Value > result = CPanel2D::CallPanelJSFunctionArgsCore( pPanel, pchFunctionName, argc, argv );
 
-	v8::String::Utf8Value strValue( result );
+	// SE port: v8 7.x removed the single-argument String::Utf8Value constructor.
+	v8::String::Utf8Value strValue( v8::Isolate::GetCurrent(), result );
 	return CUtlString( *strValue );
 }
 

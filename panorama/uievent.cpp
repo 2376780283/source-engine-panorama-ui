@@ -1152,7 +1152,8 @@ template <> void V8ParamToPanoramaType< time_t >( const v8::Handle<v8::Value> &p
 	else
 	{
 		*out = 0;
-		v8::String::Utf8Value str( pValueIn->ToString() );
+		// SE port: v8 7.x needs the isolate for ToString() and for the String::Utf8Value constructor.
+		v8::String::Utf8Value str( GetV8Isolate(), pValueIn->ToString( GetV8Isolate()->GetCurrentContext() ).ToLocalChecked() );
 		CFmtStr err( "V8ParamToPanoramaType expected Number type to convert, but got something else (%s)", *str );
 		GetV8Isolate()->ThrowException( v8::String::NewFromUtf8( GetV8Isolate(), err.Get() ) );
 	}
