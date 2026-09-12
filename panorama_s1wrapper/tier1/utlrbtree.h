@@ -6,6 +6,13 @@
 // $NoKeywords: $
 //=============================================================================//
 
+// SE port: see the note at the top of tier1/utlmap.h - these CS:GO overrides only apply to the
+// panorama modules (PANORAMA_EXPORTS), every other consumer gets the Source Engine header instead.
+// The fallback include has to come before the guard, which it defines itself.
+// PANORAMA_SE_CSGO_CONTAINERS: see the note at the top of tier1/utlmap.h (engine panorama hosting TU).
+#if !defined( PANORAMA_EXPORTS ) && !defined( PANORAMA_SE_CSGO_CONTAINERS )
+#include "../../public/tier1/utlrbtree.h"
+#else
 #ifndef UTLRBTREE_H
 #define UTLRBTREE_H
 
@@ -1736,3 +1743,4 @@ void CUtlRBTree<T, I, L, M>::Swap( CUtlRBTree< T, I, L > &that )
 
 
 #endif // UTLRBTREE_H
+#endif // SE port: panorama-only override (PANORAMA_EXPORTS); other modules returned at the top

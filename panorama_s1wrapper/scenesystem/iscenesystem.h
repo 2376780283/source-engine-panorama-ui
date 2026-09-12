@@ -6,6 +6,11 @@
 //
 //==================================================================================================
 
+// SE port: RenderTargetDesc_t is defined in the s1wrapper render context header and is only used by
+// reference here, so a forward declaration is enough (this header used to rely on the panorama stdafx.h
+// include order to have it available).
+struct RenderTargetDesc_t;
+
 /// A ISceneLayer represents a rendering pass. The layer parameters will decide which objects get
 /// routed to it, what render mode it uses, the rendertargets and viewports, etc.
 class ISceneLayer

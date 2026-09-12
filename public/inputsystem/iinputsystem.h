@@ -191,6 +191,11 @@ public:
 	virtual void SetCursorIcon( InputCursorHandle_t hCursor ) {}
 	virtual void ResetCursorIcon() {}
 
+	// SE port (CS:GO addition): the engine's IME plumbing (panoramaenginehandler.cpp, sys_dll2.cpp)
+	// asks whether IME input is currently allowed.  Source Engine 2013 has no such state yet, so this
+	// defaults to true; M4 can wire it to the IME manager once the engine tracks it.
+	virtual bool IsIMEAllowed() const { return true; }
+
 	// Helper - activate same action set for all controller slots.
 	void ActivateSteamControllerActionSet( GameActionSet_t eActionSet ) {
 		ActivateSteamControllerActionSetForSlot( 0xffffffffffffffff, eActionSet );

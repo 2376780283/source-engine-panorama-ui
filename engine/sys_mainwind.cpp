@@ -102,7 +102,13 @@ extern ConVar mat_borderless;
 
 //-----------------------------------------------------------------------------
 // Game input events
+//
+// SE port: public/inputsystem/InputEnums.h carries CS:GO's IE_Close (part of its system event block,
+// which panorama consumes).  This file has always had its own IE_Close in the IE_FirstAppEvent range,
+// so the identifier is renamed locally; the value is unchanged.
 //-----------------------------------------------------------------------------
+#define IE_Close					GameIE_Close
+
 enum GameInputEventType_t
 {
 	IE_Close = IE_FirstAppEvent,

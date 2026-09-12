@@ -791,6 +791,11 @@ public:
 	virtual bool IsConnectedUserInfoChangeAllowed( IConVar *pCvar ) = 0;
 
 	virtual void IN_TouchEvent( int type, int fingerId, int x, int y ) = 0;
+
+	// SE port (CS:GO panorama): the client tells the engine whether the HUD is painting this frame;
+	// panorama uses that to choose between cached and freshly built paint command caches.  Deliberately
+	// not pure and defaulted to false - the Source 2013 client DLLs have no opinion on it.
+	virtual bool HudShouldPaintThisFrame() { return false; }
 };
 
 #define CLIENT_DLL_INTERFACE_VERSION		"VClient017"

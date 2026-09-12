@@ -1,4 +1,4 @@
-//========= Copyright © 1996-2005, Valve Corporation, All rights reserved. ============//
+//========= Copyright ï¿½ 1996-2005, Valve Corporation, All rights reserved. ============//
 //
 // Purpose: 
 //
@@ -6,6 +6,24 @@
 // $NoKeywords: $
 //=============================================================================//
 
+// SE port: this is CS:GO's utlmap.h, kept here because the panorama modules need it (their stdafx.h
+// force-includes it ahead of the Source Engine header, which is also what makes the utlmap /
+// utlrbtree declaration order work).  panorama_s1wrapper is on the include path of every module that
+// consumes panorama - including the engine, which hosts panorama during M4 and therefore shares
+// SOURCE2_PANORAMA / PANORAMA_USE_S1WRAPPER with it - so the CS:GO content is gated on
+// PANORAMA_EXPORTS, which in this port is defined by exactly the panorama modules (framework, client
+// and s1wrapper).  Every other consumer gets Source Engine's own tier1/utlmap.h, otherwise it fails
+// with "CompareOperands_t is undefined" (e.g. engine/pr_edict.cpp).
+//
+// PANORAMA_SE_CSGO_CONTAINERS is the escape hatch for the one non-panorama module that does include the
+// framework's own headers: the engine's panorama hosting TU (engine/panoramaenginehandler.cpp) pulls in
+// panorama/uiengine.h, which needs the CS:GO containers - for that translation unit only.
+#if !defined( PANORAMA_EXPORTS ) && !defined( PANORAMA_SE_CSGO_CONTAINERS )
+// Hand over completely to the Source Engine header.  This include must come *before* the guard below,
+// because it defines the very same UTLMAP_H guard itself - including it afterwards would silently
+// produce an empty header.
+#include "../../public/tier1/utlmap.h"
+#else
 #ifndef UTLMAP_H
 #define UTLMAP_H
 
@@ -301,3 +319,4 @@ inline void CUtlMap<K, T, I, LessFunc_t>::PurgeAndDeleteElements()
 }
 
 #endif // UTLMAP_H
+#endif // SE port: panorama-only override (PANORAMA_EXPORTS); other modules returned at the top

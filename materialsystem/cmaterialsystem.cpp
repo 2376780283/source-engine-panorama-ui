@@ -2964,6 +2964,16 @@ void *CMaterialSystem::GetPanormaTexturePtr( ITexture *pTexture )
 	return g_pShaderAPI->GetD3DTexturePtr( ((ITextureInternal*)pTexture)->GetTextureHandle( 0 ) );
 }
 
+// SE port (CS:GO addition): called from panoramaenginehandler.cpp (CPanoramaEngineHandler::
+// PanoramaRenderFrame) and the engine's frame hooks so that the S1 render state is reset before
+// panorama issues its own draws.  Body is CS:GO's (materialsystem/cmaterialsystem.cpp).
+void CMaterialSystem::ResetPanoramaRenderState()
+{
+#ifndef DX_TO_GL_ABSTRACTION
+	g_pShaderAPI->ResetRenderState( false, true );
+#endif
+}
+
 void CMaterialSystem::AddTextureAlias( const char *pAlias, const char *pRealName )
 {
 	TextureManager()->AddTextureAlias( pAlias, pRealName );

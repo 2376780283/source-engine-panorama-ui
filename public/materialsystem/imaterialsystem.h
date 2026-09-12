@@ -571,6 +571,19 @@ DECLARE_POINTER_HANDLE( MaterialLock_t );
 // 
 //-----------------------------------------------------------------------------
 
+// SE port (CS:GO addition): where in a frame panorama is being invoked ("slots", analogous to
+// Scaleform's).  Declared here exactly as CS:GO does, because panoramaenginehandler.cpp and the
+// engine's gl_screen.cpp/view.cpp frame hooks pass these to PanoramaRenderFrame().
+enum EPanoramaSlot
+{
+	k_EPanoramaSlotHUD = 0,
+	k_EPanoramaSlotInGameMenus,			// Pause menu in game
+	k_EPanoramaSlotFrontEnd,			// Main menu at the front end.
+	k_EPanoramaSlotBeginFrame,
+	k_EPanoramaSlotEndFrame,
+};
+
+
 abstract_class IMaterialSystem : public IAppSystem
 {
 public:
@@ -896,6 +909,11 @@ public:
 	// shaders (materialsystem stdshaders) and the IShaderAPI lookup.
 	virtual void *				GetOSVertexShader( const char *pszName, int nIndex ) { return NULL; }
 	virtual void *				GetOSPixelShader( const char *pszName, int nIndex ) { return NULL; }
+
+	// SE port (CS:GO addition): called before panorama draws so the S1 render state does not leak into
+	// it.  CS:GO declares it pure and implements it in CMaterialSystem; it is defaulted here and also
+	// implemented by CMaterialSystem (which forwards to IShaderAPI::ResetRenderState).
+	virtual void				ResetPanoramaRenderState() {}
 
 	// Creates a procedural texture
 	virtual ITexture *			CreateProceduralTexture( const char	*pTextureName, 

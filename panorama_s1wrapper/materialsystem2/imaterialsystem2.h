@@ -6,6 +6,16 @@
 //
 //==================================================================================================
 
+// SE port: this header was only ever included after the panorama framework's private stdafx.h, which had
+// already pulled in the s1wrapper render types.  Include/declare what is used here so that any consumer
+// (the engine's panoramaenginehandler.cpp during the M4 integration) can include it directly.
+#include "tier0/platform.h"                       // abstract_class
+#include "resourcesystem/resourcehandletypes.h"  // HRenderTexture
+#include "panorama/s1wrapperRenderAttributes.h"   // CRenderAttributes
+#include "rendersystem/irendercontext.h"          // RenderInputLayout_t (used by value below)
+class IRenderContext;
+class CVsInputSignatureVector;
+
 //--------------------------------------------------------------------------------------------------
 // panormam material handles
 //--------------------------------------------------------------------------------------------------
