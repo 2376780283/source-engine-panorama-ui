@@ -7,6 +7,11 @@
 #include "tier0/fasttimer.h"
 
 #ifdef _WIN32
+#ifdef PANORAMA_ENABLE
+#include "interfaces/interfaces.h"   // g_pPanoramaUIClient / g_pPanoramaUIEngine
+#include "panoramaenginehandler.h"
+#endif
+
 #include "tier0/memdbgon.h" // needed because in release builds crtdbg.h is handled specially if USE_MEM_DEBUG is defined
 #include "tier0/memdbgoff.h"
 #include <crtdbg.h>   // For getting at current heap size
@@ -4201,6 +4206,23 @@ void Host_Init( bool bDedicated )
 
 		TRACEINIT( InitStudioRender(), ShutdownStudioRender() );
 
+#ifdef PANORAMA_ENABLE
+		// M4: the panorama UI engine has to be up before vgui's own input context exists (see the note
+		// in CPanoramaEngineHandler::Init).  A missing panoramauiclient.dll only disables the hosted
+		// UI - the engine stays usable, which matters while the port is still being brought up.
+		if ( g_pPanoramaUIClient && g_pPanoramaUIEngine )
+		{
+			if ( INIT_OK != PanoramaEngineHandler().Init() )
+			{
+				Error( "Failed to initialize panorama engine!" );
+			}
+		}
+		else
+		{
+			Msg( "panorama: UI client module not available, engine hosted UI disabled\n" );
+		}
+#endif
+
 		//startup vgui
 		TRACEINIT( EngineVGui()->Init(), EngineVGui()->Shutdown() );
 
@@ -4885,6 +4907,10 @@ void Host_Shutdown(void)
 
 	// Disconnect from server
 	Host_Disconnect(true);
+
+#ifdef PANORAMA_ENABLE
+	PanoramaEngineHandler().Shutdown();
+#endif
 
 #ifndef SWDS
 	// keep ConMsg from trying to update the screen

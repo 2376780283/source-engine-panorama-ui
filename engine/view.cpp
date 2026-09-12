@@ -49,6 +49,10 @@
 #endif
 
 // memdbgon must be the last include file in a .cpp file!!!
+#ifdef PANORAMA_ENABLE
+#include "panoramaenginehandler.h"
+#endif
+
 #include "tier0/memdbgon.h"
 
 class IClientEntity;
@@ -155,6 +159,16 @@ void V_RenderVGuiOnly_NoSwap()
 void V_RenderVGuiOnly( void )
 {
 	materials->BeginFrame( host_frametime );
+
+#ifdef PANORAMA_ENABLE
+	// M4: surround the vgui-only frame with the panorama frame slots (the UI itself is ticked in
+	// SCR_UpdateScreen - this path is the loading screen).
+	if ( PanoramaEngineHandler().IsPanoramaEnabled() )
+	{
+		PanoramaEngineHandler().PanoramaRenderFrame( k_EPanoramaSlotBeginFrame );
+	}
+#endif
+
 	EngineVGui()->Simulate();
 
 	g_EngineRenderer->FrameBegin();
@@ -162,6 +176,13 @@ void V_RenderVGuiOnly( void )
 	toolframework->RenderFrameBegin();
 
 	V_RenderVGuiOnly_NoSwap();
+
+#ifdef PANORAMA_ENABLE
+	if ( PanoramaEngineHandler().IsPanoramaEnabled() )
+	{
+		PanoramaEngineHandler().PanoramaRenderFrame( k_EPanoramaSlotEndFrame );
+	}
+#endif
 
 	toolframework->RenderFrameEnd();
 

@@ -99,6 +99,11 @@
 #include "xbox/xboxstubs.h"
 #endif
 
+#ifdef PANORAMA_ENABLE
+#include "interfaces/interfaces.h"   // g_pPanoramaUIClient / g_pPanoramaUIEngine
+#include "panoramaenginehandler.h"
+#endif
+
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
 #include "tier0/memalloc.h"
@@ -1036,6 +1041,15 @@ bool CEngineAPI::Connect( CreateInterfaceFn factory )
 	}
 
 	g_pHammer = (IHammer*)factory( INTERFACEVERSION_HAMMER, NULL );
+
+#ifdef PANORAMA_ENABLE
+	// M4: panorama hosting.  The UI client module registers itself with this factory (it is part of the
+	// engine's app system group), so this is the engine's one and only link to panoramauiclient.dll -
+	// the engine links no panorama library at all.  Both stay NULL when the module is not present,
+	// which simply leaves the hosted UI disabled (see the check in Host_Init).
+	g_pPanoramaUIClient = (IPanoramaUIClient *)factory( PANORAMAUI_CLIENT_INTERFACE_VERSION, NULL );
+	g_pPanoramaUIEngine = (IPanoramaUIEngine *)factory( PANORAMAUI_ENGINE_INTERFACE_VERSION, NULL );
+#endif
 
 #if defined( USE_SDL )
 	g_pLauncherMgr = (ILauncherMgr *)factory( SDLMGR_INTERFACE_VERSION, NULL );
@@ -2540,6 +2554,124 @@ public:
 		if ( cl.IsConnected() )
 			return Steam3Client().BGSSecure();
 		return false;
+	}
+
+	//-----------------------------------------------------------------------------
+	// M4: panorama hosting.  The game DLLs drive the panorama UI through these
+	// (views, frames and input arbitration) - ported from CS:GO's CGameUIFuncs.
+	//-----------------------------------------------------------------------------
+	virtual void *AddPanoramaView( const char *pchViewName, void *pWindow )
+	{
+#ifdef PANORAMA_ENABLE
+		return (void*)PanoramaEngineHandler().AddPanoramaView( pchViewName, (panorama::IUIWindow *)pWindow );
+#else
+		return NULL;
+#endif
+	}
+
+	virtual void RemovePanoramaView( void *pWindow )
+	{
+#ifdef PANORAMA_ENABLE
+		PanoramaEngineHandler().RemovePanoramaView( ( panorama::IUIWindow * )pWindow );
+#endif
+	}
+
+	virtual void PanoramaRunFrame( int nSlot )
+	{
+#ifdef PANORAMA_ENABLE
+		PanoramaEngineHandler().PanoramaRunFrame( nSlot );
+#endif
+	}
+
+	virtual void PanoramaRenderFrame( int nSlot )
+	{
+#ifdef PANORAMA_ENABLE
+		PanoramaEngineHandler().PanoramaRenderFrame( nSlot );
+#endif
+	}
+
+	virtual InputContextHandle_t GetPanoramaInputContext()
+	{
+#ifdef PANORAMA_ENABLE
+		return PanoramaEngineHandler().GetInputContext();
+#else
+		return INPUT_CONTEXT_HANDLE_INVALID;
+#endif
+	}
+
+	virtual uint64 PanoramaAddGameInputHandler( panorama::IUIPanel *pPanel, panorama::EGameInputFlags eFlags, const char *pchDebugContextName )
+	{
+#ifdef PANORAMA_ENABLE
+		return PanoramaEngineHandler().AddGameInputHandler( pPanel, eFlags, pchDebugContextName );
+#else
+		return 0;
+#endif
+	}
+
+	virtual uint64 PanoramaAddDenyAllInputToGame( panorama::IUIPanel *pPanel, const char *pchDebugContextName )
+	{
+#ifdef PANORAMA_ENABLE
+		return PanoramaEngineHandler().AddGameInputHandler( pPanel, panorama::k_EGameInputCaptureAll, pchDebugContextName );
+#else
+		return 0;
+#endif
+	}
+
+	virtual uint64 PanoramaAddDenyMouseInputToGame( panorama::IUIPanel *pPanel, const char *pchDebugContextName )
+	{
+#ifdef PANORAMA_ENABLE
+		return PanoramaEngineHandler().AddGameInputHandler( pPanel, panorama::k_EGameInputCaptureMouse, pchDebugContextName );
+#else
+		return 0;
+#endif
+	}
+
+	virtual void PanoramaReleaseDenyMouseInputToGame( uint64 handle )
+	{
+#ifdef PANORAMA_ENABLE
+		PanoramaEngineHandler().ReleaseGameInputHandler( handle );
+#endif
+	}
+
+	virtual void PanoramaReleaseGameInputHandler( uint64 handle )
+	{
+#ifdef PANORAMA_ENABLE
+		PanoramaEngineHandler().ReleaseGameInputHandler( handle );
+#endif
+	}
+
+	virtual void PanoramaReleaseDenyAllInputToGame( uint64 handle )
+	{
+#ifdef PANORAMA_ENABLE
+		PanoramaEngineHandler().ReleaseGameInputHandler( handle );
+#endif
+	}
+
+	virtual bool PanoramaDeniesInputToGame()
+	{
+#ifdef PANORAMA_ENABLE
+		return PanoramaEngineHandler().DeniesInputToGame( panorama::k_EGameInputCaptureAll );
+#else
+		return false;
+#endif
+	}
+
+	virtual bool PanoramaDeniesInputToGame( panorama::EGameInputFlags eFlags )
+	{
+#ifdef PANORAMA_ENABLE
+		return PanoramaEngineHandler().DeniesInputToGame( eFlags );
+#else
+		return false;
+#endif
+	}
+
+	virtual bool IsPanoramaInECOMode()
+	{
+#ifdef PANORAMA_ENABLE
+		return PanoramaEngineHandler().IsInECOMode();
+#else
+		return false;
+#endif
 	}
 };
 

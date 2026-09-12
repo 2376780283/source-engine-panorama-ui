@@ -16,6 +16,14 @@
 #include "igame.h"
 #include "IGameUIFuncs.h"
 
+// SE port: pulling in the panorama UI headers drags <winbase.h> in with it, and the Windows SDK defines
+// a no-argument Yield() macro there.  That silently breaks the thread/job declarations included later
+// (IJob::Yield, CThread::Yield, ...) - tier0/threadtools.h carries the very same guard for the same
+// reason.  Drop it for everything that includes this header.
+#ifdef Yield
+#undef Yield
+#endif
+
 //-----------------------------------------------------------------------------
 // Panorama Engine code
 //-----------------------------------------------------------------------------
