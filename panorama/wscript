@@ -182,6 +182,17 @@ def build(bld):
 		'controls/tooltip.cpp',
 		'controls/verticalscrolllist.cpp',
 		'controls/vumeter.cpp',
+		# Batch 4: the debug overlay (panorama_client.vpc - everything except console.cpp,
+		# which the vpc itself has commented out with //APS)
+		'controls/debug/debugautocomplete.cpp',
+		# 'controls/debug/debuglayout.cpp',   # TEMP excluded: needs pcre/pcrecpp.h, which only
+		#                                     # exists in CS:GO's common/pcre (not in this tree).
+		#                                     # The file is the JS/layout inspection pane of the
+		#                                     # debugger - port the PCRE dependency or shim the two
+		#                                     # regex helpers it uses before enabling it.
+		'controls/debug/debugpanel.cpp',
+		'controls/debug/debugpanelparents.cpp',
+		'controls/debug/debugpanelstyle.cpp',
 	]
 
 	client_defines = defines + [

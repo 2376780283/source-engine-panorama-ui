@@ -173,6 +173,20 @@ public:
 		m_nLength = 0; 
 	}
 
+	// SE port (CS:GO addition): reformat into this buffer and return it; panorama code such as
+	// controls/debug/debugpanel.cpp calls it as s.Format( "%.0f", value ).  CS:GO's version just
+	// passes the format string through to FmtStrVSNPrintf (which drops the arguments), this one
+	// forwards the va_list properly.
+	const char *Format( PRINTF_FORMAT_STRING const char *pszFormat, ... ) FMTFUNCTION( 2, 3 )
+	{
+		va_list args;
+		va_start( args, pszFormat );
+		V_vsnprintf( m_szBuf, SIZE_BUF, pszFormat, args );
+		va_end( args );
+		m_nLength = V_strlen( m_szBuf );
+		return m_szBuf;
+	}
+
 	void AppendFormat( PRINTF_FORMAT_STRING const char *pchFormat, ... ) FMTFUNCTION( 2, 3 )
 	{ 
 		char *pchEnd = m_szBuf + m_nLength; 
