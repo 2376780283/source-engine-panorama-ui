@@ -1,4 +1,4 @@
-//===== Copyright © 1996-2005, Valve Corporation, All rights reserved. ======//
+//===== Copyright ï¿½ 1996-2005, Valve Corporation, All rights reserved. ======//
 //
 // Purpose: This is input priority system, allowing various clients to
 // cause input messages / cursor control to be routed to them as opposed to
@@ -14,6 +14,12 @@
 
 #include "appframework/iappsystem.h"
 #include "inputsystem/iinputsystem.h"
+
+// SE port: the DECLARE_TIER2_INTERFACE at the bottom of this header comes from tier2/tier2.h (or
+// interfaces/interfaces.h).  CS:GO's precompiled headers made sure one of them was already in scope;
+// here the game/client TUs include this header standalone and fail with C2061/C4430 (see
+// game/client/fx_sparks.cpp), so pull the declaration in explicitly.
+#include "tier2/tier2.h"
 
 
 ///-----------------------------------------------------------------------------
