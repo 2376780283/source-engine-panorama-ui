@@ -615,6 +615,9 @@ public:
 	CCopyableUtlVector( T* pMemory, int numElements ) : BaseClass( pMemory, numElements ) {}
 	virtual ~CCopyableUtlVector() {}
 	CCopyableUtlVector( CCopyableUtlVector const& vec ) { this->CopyArray( vec.Base(), vec.Count() ); }
+	// SE port (CS:GO addition): let a plain CUtlVector convert into a CCopyableUtlVector, which
+	// is what brace-initialising a struct member of this type from a local CUtlVector needs.
+	CCopyableUtlVector( CUtlVector<T> const& vec ) { this->CopyArray( vec.Base(), vec.Count() ); }
 };
 
 //-----------------------------------------------------------------------------
@@ -632,6 +635,8 @@ public:
 	CCopyableUtlVectorFixed( T* pMemory, int numElements ) : BaseClass( pMemory, numElements ) {}
 	virtual ~CCopyableUtlVectorFixed() {}
 	CCopyableUtlVectorFixed( CCopyableUtlVectorFixed const& vec ) { this->CopyArray( vec.Base(), vec.Count() ); }
+	// SE port (CS:GO addition): see CCopyableUtlVector above.
+	CCopyableUtlVectorFixed( CUtlVectorFixed< T, MAX_SIZE > const& vec ) { this->CopyArray( vec.Base(), vec.Count() ); }
 };
 
 // TODO (Ilya): It seems like all the functions in CUtlVector are simple enough that they should be inlined.

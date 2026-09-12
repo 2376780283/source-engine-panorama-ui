@@ -103,6 +103,7 @@ def build(bld):
 		'../public/tier2',
 		'../public/vstdlib',
 		'../public/panorama',
+		'../public/steam',     # isteamcontroller.h (panorama_client.vpc also has ..\public\steam)
 		'../common',
 		'../thirdparty/protobuf-2.6.1/src',   # google/protobuf/descriptor.h, text_format.h (renderer/uirenderengine.cpp)
 		'../gcsdk/steamextra',  # tier1/tsmempool.h (CThreadSafeClassMemoryPool) - CS:GO's own build got this via its text PCH
@@ -145,6 +146,42 @@ def build(bld):
 	client_source = [
 		'controls/panel2d.cpp',
 		'controls/debug/debugger.cpp',
+		# Batch 2: the controls a minimal surface needs to paint something
+		# (image/label/frame/button/scrollbar - the rest of panorama_client.vpc follows)
+		'controls/image.cpp',
+		'controls/label.cpp',
+		'controls/frame.cpp',
+		'controls/button.cpp',
+		'controls/scrollbar.cpp',
+		# Batch 3: the rest of the controls listed by panorama_client.vpc (renderpanel /
+		# debug overlays / textinput follow in later batches)
+		'controls/animatedimagestrip.cpp',
+		'controls/carousel.cpp',
+		'controls/carouselnav.cpp',
+		'controls/carouselnavbutton.cpp',
+		'controls/circularprogressbar.cpp',
+		'controls/contextui.cpp',
+		'controls/countdown.cpp',
+		'controls/contextmenu.cpp',
+		'controls/delayloadlist.cpp',
+		'controls/delayloadpanel.cpp',
+		'controls/dragzoom.cpp',
+		'controls/dropdown.cpp',
+		'controls/edgescroller.cpp',
+		'controls/fileopendialog.cpp',
+		'controls/grid.cpp',
+		'controls/html.cpp',
+		'controls/mousescroll.cpp',
+		'controls/movieplayer.cpp',
+		'controls/numberentry.cpp',
+		'controls/progressbar.cpp',
+		'controls/scrollforwarding.cpp',
+		'controls/slider.cpp',
+		'controls/slideshow.cpp',
+		'controls/textentry.cpp',
+		'controls/tooltip.cpp',
+		'controls/verticalscrolllist.cpp',
+		'controls/vumeter.cpp',
 	]
 
 	client_defines = defines + [

@@ -275,6 +275,8 @@ void CFmtStrN< SIZE_BUF, QUIET_TRUNCATION >::AppendFormatV( const char *pchForma
 #define FMTSTR_STD_LEN 256
 
 typedef CFmtStrN<FMTSTR_STD_LEN> CFmtStr;
+// SE port (CS:GO addition): 32 byte scratch buffer form used by the panorama controls.
+typedef CFmtStrN<32> CFmtStr32;
 typedef CFmtStrQuietTruncationN<FMTSTR_STD_LEN> CFmtStrQuietTruncation;
 typedef CFmtStrN<1024> CFmtStr1024;
 typedef CFmtStrN<8192> CFmtStrMax;

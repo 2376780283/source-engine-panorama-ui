@@ -64,6 +64,14 @@ void CUtlString::SetDirect( const char *pValue, int nChars )
 }
 
 
+// SE port (CS:GO addition): swap the contents of two strings without reallocating.
+void CUtlString::Swap( CUtlString &src )
+{
+	char *pTemp = m_pString;
+	m_pString = src.m_pString;
+	src.m_pString = pTemp;
+}
+
 void CUtlString::Set( const char *pValue )
 {
 	int length = pValue ? V_strlen( pValue ) : 0;

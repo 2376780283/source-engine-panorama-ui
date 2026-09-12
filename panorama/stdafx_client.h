@@ -90,6 +90,9 @@
 
 #include "time.h"
 #include "tier1/strtools.h"
+// SE port: label.cpp (and others) use CommandLine() - in Source 2013 that is a macro provided
+// by tier0/icommandline.h (the framework's stdafx.h includes it, this PCH did not).
+#include "tier0/icommandline.h"
 #include "../gcsdk/steamextra/tier1/utlstringbuilder.h"
 
 inline const char*	V_strchr( const char *s, char c )				{ return strchr( s, c ); }

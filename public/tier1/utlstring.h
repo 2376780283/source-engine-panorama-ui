@@ -107,6 +107,9 @@ public:
 	// Does nothing if pValue == String()
 	void		SetDirect( const char *pValue, int nChars );
 
+	// SE port (CS:GO addition): swap the contents of two strings without reallocating
+	void		Swap( CUtlString &src );
+
 	// for compatibility switching items from UtlSymbol
 	const char  *String() const { return Get(); }
 

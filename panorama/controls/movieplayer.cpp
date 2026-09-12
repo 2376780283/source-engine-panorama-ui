@@ -1480,7 +1480,7 @@ void CMoviePanel::SetMovie( const char *pchFile, bool bChooseOptimalResolution )
 		bool bExists = false;
 
 		if ( ( nHeight < 720 ) || 
-			 ( GetCPUInformation().m_nLogicalProcessors < 3 ) ||
+			 ( GetCPUInformation()->m_nLogicalProcessors < 3 ) ||	// SE port: SE's GetCPUInformation() returns a pointer, CS:GO returned a reference ||
 			 ( gpu_level.GetInt() <= GPU_LEVEL_MEDIUM ) ||
 			 ( gpu_mem_level.GetInt() <= GPU_MEM_LEVEL_LOW ) )
 		{

@@ -35,11 +35,67 @@
 typedef int LoggingChannelID_t;
 const LoggingChannelID_t INVALID_LOGGING_CHANNEL_ID = -1;
 
-// NOTE: color/LOG_COLOR_* overload variants are intentionally NOT provided;
-// affected panorama call sites had their color argument stripped during the port.
-#define Log_Msg( ch, ... )       ::Msg( __VA_ARGS__ )
-#define Log_Detailed( ch, ... )  ::Msg( __VA_ARGS__ )
-#define Log_Warning( ch, ... )   ::Warning( __VA_ARGS__ )
-#define Log_Error( ch, ... )     ::Error( __VA_ARGS__ )
+// CS:GO's logging API is Log_Msg( ChannelID, [Color], Format, ... ).  Source 2013 has no logging
+// subsystem, so the channel is ignored, an optional Color argument (the form the IME text-entry
+// code uses) is dropped, and the rest is forwarded to the engine console via MsgV/WarningV/ErrorV.
+// The colour overloads are templates so this header does not have to pull in Color.h.
+inline void PanoramaLog_Msg( const char *pFmt, ... )
+{
+	va_list args;
+	va_start( args, pFmt );
+	MsgV( pFmt, args );
+	va_end( args );
+}
+
+template < typename TCOLOR >
+inline void PanoramaLog_Msg( const TCOLOR & /*color*/, const char *pFmt, ... )
+{
+	va_list args;
+	va_start( args, pFmt );
+	MsgV( pFmt, args );
+	va_end( args );
+}
+
+inline void PanoramaLog_Warning( const char *pFmt, ... )
+{
+	va_list args;
+	va_start( args, pFmt );
+	WarningV( pFmt, args );
+	va_end( args );
+}
+
+template < typename TCOLOR >
+inline void PanoramaLog_Warning( const TCOLOR & /*color*/, const char *pFmt, ... )
+{
+	va_list args;
+	va_start( args, pFmt );
+	WarningV( pFmt, args );
+	va_end( args );
+}
+
+inline void PanoramaLog_Error( const char *pFmt, ... )
+{
+	va_list args;
+	va_start( args, pFmt );
+	ErrorV( pFmt, args );
+	va_end( args );
+}
+
+template < typename TCOLOR >
+inline void PanoramaLog_Error( const TCOLOR & /*color*/, const char *pFmt, ... )
+{
+	va_list args;
+	va_start( args, pFmt );
+	ErrorV( pFmt, args );
+	va_end( args );
+}
+
+#define Log_Msg( ch, ... )       PanoramaLog_Msg( __VA_ARGS__ )
+#define Log_Detailed( ch, ... )  PanoramaLog_Msg( __VA_ARGS__ )
+#define Log_Warning( ch, ... )   PanoramaLog_Warning( __VA_ARGS__ )
+#define Log_Error( ch, ... )     PanoramaLog_Error( __VA_ARGS__ )
+
+// Channel used by the CS:GO IME / text entry code.
+DECLARE_LOGGING_CHANNEL( LOG_GENERAL );
 
 #endif // TIER0_LOGGING_H
