@@ -75,12 +75,11 @@ public:
 
 //-----------------------------------------------------------------------------
 // Specifies a module + interface name for initialization
+//
+// SE port: the definition now lives in appframework/IAppSystem.h (which this header includes at the
+// top), because panorama/source2/panoramauiengine.h overrides IAppSystem::GetDependencies() while
+// only including IAppSystem.h.  Keeping a second copy here is a C2011 redefinition.
 //-----------------------------------------------------------------------------
-struct AppSystemInfo_t
-{
-	const char *m_pModuleName;
-	const char *m_pInterfaceName;
-};
 
 
 //-----------------------------------------------------------------------------

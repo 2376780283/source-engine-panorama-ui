@@ -113,11 +113,9 @@ CDebugger::CDebugger( IUIWindow *pWindow, const char *pchName ) : CPanel2D( pWin
 	DispatchEvent( PanoramaDebuggerOpened(), ( const IUIPanelClient * )nullptr );	// SE port: be explicit - the IUIPanel overloads only exist under PANORAMA_EXPORTS, so nullptr alone is ambiguous on MSVC 14.4
 }
 
-// SE port: controls/debug/debuglayout.cpp is parked (it needs pcre/pcrecpp.h, which this tree does
-// not have) but its linker hook symbol is referenced from the client panels, so define it here to
-// keep the module linkable.  Forward declare instead of including debuglayout.h (which needs PCRE).
-namespace panorama { class CDebugLayout; }
-namespace panorama { CDebugLayout *g_DebugLayoutLinkerHack = NULL; }
+// SE port: the g_DebugLayoutLinkerHack placeholder that used to live here (while
+// controls/debug/debuglayout.cpp was parked behind PCRE) is gone - the real definition is compiled
+// again now that seport/pcre_shim supplies pcrecpp.
 
 
 //-----------------------------------------------------------------------------

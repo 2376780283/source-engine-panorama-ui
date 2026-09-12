@@ -889,6 +889,14 @@ public:
 	virtual bool				CanDownloadTextures() const { return false; }
 	virtual void *				GetPanormaTexturePtr( ITexture *pTexture ) { return NULL; }   // (CS:GO's spelling)
 
+	// SE port (CS:GO additions): CS:GO's CMaterialSystem forwards these to
+	// IShaderAPI::GetOS{Vertex,Pixel}Shader(), which Source Engine 2013 does not have, and the
+	// "panorama_vs30"/"panorama_ps30" shaders they look up are not part of this tree yet either.
+	// Returning NULL makes source2surface.cpp fall back to its unshaded path; M4 has to add both the
+	// shaders (materialsystem stdshaders) and the IShaderAPI lookup.
+	virtual void *				GetOSVertexShader( const char *pszName, int nIndex ) { return NULL; }
+	virtual void *				GetOSPixelShader( const char *pszName, int nIndex ) { return NULL; }
+
 	// Creates a procedural texture
 	virtual ITexture *			CreateProceduralTexture( const char	*pTextureName, 
 		const char *pTextureGroupName, 
@@ -1136,6 +1144,15 @@ public:
 
 	// read to a unsigned char rgb image.
 	virtual void				ReadPixels( int x, int y, int width, int height, unsigned char *data, ImageFormat dstFormat ) = 0;
+
+	// SE port (CS:GO addition): CS:GO's ReadPixels takes the source render target as a 7th argument.
+	// Rather than change the existing pure virtual (and every implementation of it), the CS:GO form is
+	// provided as a delegating overload that reads from the currently bound render target - which is
+	// what the panorama debugger path wants when it passes its own render target texture.
+	virtual void				ReadPixels( int x, int y, int width, int height, unsigned char *data, ImageFormat dstFormat, ITexture *pRenderTargetTexture )
+	{
+		ReadPixels( x, y, width, height, data, dstFormat );
+	}
 
 	// Sets lighting
 	virtual void				SetAmbientLight( float r, float g, float b ) = 0;

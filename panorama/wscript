@@ -132,6 +132,7 @@ def build(bld):
 		'../public/steam',     # isteamcontroller.h (panorama_client.vpc also has ..\public\steam)
 		'../common',
 		'../gcsdk',             # gcsdk/enumutils.h (common/currencyamount.cpp)
+		'seport/pcre_shim',     # pcrecpp.h / pcre/pcrecpp.h for controls/debug/debuglayout.cpp
 		'../thirdparty',        # stb/stb_image.h, stb/stb_image_resize.h (seport/se_image_codecs.cpp)
 		'../thirdparty/protobuf-2.6.1/src',   # google/protobuf/descriptor.h, text_format.h (renderer/uirenderengine.cpp)
 		'../gcsdk/steamextra',  # tier1/tsmempool.h (CThreadSafeClassMemoryPool) - CS:GO's own build got this via its text PCH
@@ -228,11 +229,10 @@ def build(bld):
 		# Batch 4: the debug overlay (panorama_client.vpc - everything except console.cpp,
 		# which the vpc itself has commented out with //APS)
 		'controls/debug/debugautocomplete.cpp',
-		# 'controls/debug/debuglayout.cpp',   # TEMP excluded: needs pcre/pcrecpp.h, which only
-		#                                     # exists in CS:GO's common/pcre (not in this tree).
-		#                                     # The file is the JS/layout inspection pane of the
-		#                                     # debugger - port the PCRE dependency or shim the two
-		#                                     # regex helpers it uses before enabling it.
+		# Batch 4b: the layout inspection pane.  It includes pcrecpp (both "pcre/pcrecpp.h" and
+		# <pcrecpp.h>) for a single URL-highlighting regex; seport/pcre_shim/ provides that subset on top
+		# of <regex> (see the header for the exact usage).
+		'controls/debug/debuglayout.cpp',
 		'controls/debug/debugpanel.cpp',
 		'controls/debug/debugpanelparents.cpp',
 		'controls/debug/debugpanelstyle.cpp',

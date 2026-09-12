@@ -1143,13 +1143,23 @@ private:
 
 inline CUIEngine * UIEngineInternal() { return (CUIEngine*)UIEngine(); }
 
-// Text services can be built in, such as in the Steam build,
-// or in a separate binary, such as in the source2 build.
 IUITextServices *UITextServices();
 // On source2 this is part of the interfaces system.
-// panorama-port (SE): declare unconditionally - uiengine.cpp references it under SOURCE2_PANORAMA too
+// panorama-port (SE): CS:GO only declares the namespace-level pointer for non-SOURCE2 builds; ours
+// uses the interface-system global below, so declaring it here as well would create a second,
+// unconnected variable (and an ambiguous-name error in TUs that see both).
+#if !defined( SOURCE2_PANORAMA )
+// Text services can be built in, such as in the Steam build,
+// or in a separate binary, such as in the source2 build.
 extern IUITextServices *g_IUITextServices;
+#endif
 
 } // namespace panorama
+
+// SE port: on Source2-style builds the text services pointer lives in the interface system
+// (public/interfaces/interfaces.h); panorama/uiengine.cpp references it unqualified.
+#if defined( SOURCE2_PANORAMA )
+extern panorama::IUITextServices *g_IUITextServices;
+#endif
 
 #endif // UIENGINE_H

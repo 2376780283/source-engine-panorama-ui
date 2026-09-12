@@ -32,6 +32,10 @@ IAsyncFileSystem *g_pAsyncFileSystem = 0;
 // this module now defines).
 IIMEManager *g_pIMEManager = 0;
 
+// panorama/source2/uitoplevelwindowsource2.cpp routes its cursor changes through the input stack
+// system when an input context exists (it is NULL until the engine integration of M4 connects one).
+IInputStackSystem *g_pInputStackSystem = 0;
+
 // NOTE: CS:GO guards these with #ifdef PANORAMA_ENABLE (its interfaces library is built both with and
 // without panorama).  The framework library this file belongs to always contains panorama/uiengine.cpp,
 // which references g_IUITextServices, so the definition is unconditional here.

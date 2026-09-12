@@ -84,6 +84,34 @@ enum Sampler_t
 	SHADER_SAMPLER15,
 };
 
+//----------------------------------------------------------------------
+// texture binding options
+// SE port (CS:GO addition): panorama's Source 2 surface passes these flags into the sampler-state
+// commands (see panorama/source2/renderer/source2surface.cpp).  CS:GO declares them in this header;
+// they are appended here without touching any existing Source Engine values.
+//----------------------------------------------------------------------
+enum TextureBindFlags_t
+{
+	// these flags are OR'd into the sampler index for texture binding commands
+	TEXTURE_BINDFLAGS_SRGBREAD =  ( 1 << 31 ),
+	
+	// Enables shadow filtering or ATI Fetch4 depending on the platform/device caps.
+	TEXTURE_BINDFLAGS_SHADOWDEPTH = ( 1 << 30 ),
+
+	// Disables mipmapping
+	TEXTURE_BINDFLAGS_NOMIP = ( 1 << 29 ),
+
+	TEXTURE_BINDFLAGS_NONE = 0,
+};
+
+#define TEXTURE_BINDFLAGS_VALID_MASK ( TEXTURE_BINDFLAGS_SRGBREAD | TEXTURE_BINDFLAGS_SHADOWDEPTH | TEXTURE_BINDFLAGS_NOMIP )
+
+// return the appropriate bindflags based upon a bool which reflects whether srgbread is desired.
+static inline TextureBindFlags_t SRGBReadMask( bool bSRGBRead )
+{
+	return ( bSRGBRead ) ? TEXTURE_BINDFLAGS_SRGBREAD : TEXTURE_BINDFLAGS_NONE;
+}
+
 //-----------------------------------------------------------------------------
 // Vertex texture sampler identifiers
 //-----------------------------------------------------------------------------

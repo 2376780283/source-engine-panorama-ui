@@ -20,6 +20,9 @@
 #include "rendersystem/irenderdevice.h"
 
 #include "materialsystem/imaterialsystem.h"
+// SE port: g_pIMEManager (and the other panorama interface globals) live in
+// interfaces/interfaces.h under PANORAMA_ENABLE; CS:GO reached it through its own include chain.
+#include "interfaces/interfaces.h"
 
 #include "tgaloader.h"
 //#include "steam/steamvr.h"

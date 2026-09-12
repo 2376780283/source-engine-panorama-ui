@@ -686,5 +686,45 @@ inline void Vector4DWeightMADSSE( vec_t w, Vector4DAligned const& vInA, Vector4D
 #endif
 }
 
+//-----------------------------------------------------------------------------
+// SE port (CS:GO additions): CS:GO's Vector4D declares the arithmetic operators as member functions
+// (public/mathlib/vector4d.h).  They are provided here as inline free functions, which behaves
+// identically at every call site and leaves the class body untouched.
+//-----------------------------------------------------------------------------
+inline Vector4D operator-( const Vector4D &v )
+{
+	return Vector4D( -v.x, -v.y, -v.z, -v.w );
+}
+
+inline Vector4D operator+( const Vector4D &a, const Vector4D &b )
+{
+	Vector4D res; Vector4DAdd( a, b, res ); return res;
+}
+
+inline Vector4D operator-( const Vector4D &a, const Vector4D &b )
+{
+	Vector4D res; Vector4DSubtract( a, b, res ); return res;
+}
+
+inline Vector4D operator*( const Vector4D &a, float fl )
+{
+	Vector4D res; Vector4DMultiply( a, fl, res ); return res;
+}
+
+inline Vector4D operator*( float fl, const Vector4D &a )
+{
+	Vector4D res; Vector4DMultiply( a, fl, res ); return res;
+}
+
+inline Vector4D operator*( const Vector4D &a, const Vector4D &b )
+{
+	Vector4D res; Vector4DMultiply( a, b, res ); return res;
+}
+
+inline Vector4D operator/( const Vector4D &a, float fl )
+{
+	Vector4D res; Vector4DDivide( a, fl, res ); return res;
+}
+
 #endif // VECTOR4D_H
 
