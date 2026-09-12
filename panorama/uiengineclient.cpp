@@ -9,6 +9,25 @@
 
 #include "uijsregistration.h"
 
+// SE port: this port compiles every panorama module with PANORAMA_EXPORTS (see panorama/wscript),
+// because the framework is statically linked here instead of being a separate DLL.  With that
+// define public/panorama/iuiengine.h leaves the client-side bootstrap API undeclared, so declare
+// it here - this file defines it and the client module is its only consumer.
+namespace panorama
+{
+	extern IUIEngine *g_pUIEngineSingleton;
+	#if defined( SOURCE2_PANORAMA ) && !defined( PANORAMA_USE_S1WRAPPER )
+	extern PlatModule_t g_PanoramaModule;
+	#else
+	extern CSysModule *g_PanoramaModule;
+	#endif
+	extern bool LoadPanoramaModule( const char *pchPanoramaModulePath );
+	extern void UnloadPanoramaModule();
+	extern IUIEngine *CreatePanoramaUIEngine();
+	extern void ConnectPanoramaUIEngine( IUIEngine *pEngine );
+	extern void ShutdownPanoramaUIEngine( IUIEngine *pEngine );
+}
+
 using namespace panorama;
 
 IUIEngine *panorama::g_pUIEngineSingleton = NULL;

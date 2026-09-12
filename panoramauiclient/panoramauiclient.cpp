@@ -1,8 +1,15 @@
-//====== Copyright © 2014-2015, Valve Corporation, All rights reserved. =======
+//====== Copyright ï¿½ 2014-2015, Valve Corporation, All rights reserved. =======
 //
 // Purpose: IPanoramaUIClient app system implementation
 //
 //=============================================================================
+
+// SE port: the CS:GO project compiled this file with a precompiled header.  Include the panorama
+// client PCH explicitly: among other things it force-includes the CS:GO container headers
+// (tier1/utlrbtree.h & utlmap.h from panorama_s1wrapper/tier1) *before* anything can pull in the
+// Source 2013 versions - they share the UTLRBTREE_H/UTLMAP_H guards, and the Source 2013
+// utlrbtree.h has no CompareOperands_t that panoramauiclient's headers need.
+#include "stdafx_client.h"
 
 #ifdef PLATFORM_WINDOWS
 #include "windows.h"
@@ -21,8 +28,18 @@
 // NOTE: This has to be the last file included!
 #include "tier0/memdbgon.h"
 
+// SE port: with PANORAMA_EXPORTS defined (see the note in the wscript) public/panorama/iuiengine.h
+// does not declare the client bootstrap API; it is defined in panorama/uiengineclient.cpp.
+namespace panorama { extern void ConnectPanoramaUIEngine( IUIEngine *pEngine ); }
+
 CPanoramaUIClient s_PanoramaUIClient;
 CPanoramaUIClient *g_pPanoramaUIClientImpl = &s_PanoramaUIClient;
+
+// SE port: public/interfaces/interfaces.h declares g_pPanoramaUIEngine as an extern tier3
+// interface (DECLARE_TIER3_INTERFACE).  In CS:GO the engine module owns that global; here the
+// panorama client proxies it, so provide the definition until the engine integration (M4) lands.
+// It is fill in by CPanoramaUIClient::Connect() below.
+IPanoramaUIEngine *g_pPanoramaUIEngine = NULL;
 EXPOSE_SINGLE_INTERFACE_GLOBALVAR( CPanoramaUIClient, IPanoramaUIClient, PANORAMAUI_CLIENT_INTERFACE_VERSION, s_PanoramaUIClient )
 
 // Trivial thunk class to virtualize access to a CDebugger.
@@ -112,16 +129,18 @@ private:
 	CUtlString m_strLanguage;
 };
 
-static AppSystemInfo_t s_pDependencies[] =
-{
-#ifdef PANORAMA_USE_S1WRAPPER
-	{ "filesystem_stdio" DLL_EXT_STRING	, ASYNCFILESYSTEM_INTERFACE_VERSION },
-	{ "panorama" DLL_EXT_STRING			, PANORAMAUI_ENGINE_INTERFACE_VERSION },
-#else
-	{ "panorama", PANORAMAUI_ENGINE_INTERFACE_VERSION },
-#endif
-	{ NULL, NULL }
-};
+// SE port: CS:GO's IAppSystem exposes a module dependency list (GetDependencies()); SE 2013's
+// does not, and the engine's app system group resolves interfaces itself.  Kept for reference.
+// static AppSystemInfo_t s_pDependencies[] =
+// {
+// #ifdef PANORAMA_USE_S1WRAPPER
+// 	{ "filesystem_stdio" DLL_EXT_STRING	, ASYNCFILESYSTEM_INTERFACE_VERSION },
+// 	{ "panorama" DLL_EXT_STRING			, PANORAMAUI_ENGINE_INTERFACE_VERSION },
+// #else
+// 	{ "panorama", PANORAMAUI_ENGINE_INTERFACE_VERSION },
+// #endif
+// 	{ NULL, NULL }
+// };
 
 CPanoramaUIClient::CPanoramaUIClient()
 {
@@ -139,10 +158,11 @@ bool CPanoramaUIClient::Connect( CreateInterfaceFn factory )
 
 }
 
-const AppSystemInfo_t *CPanoramaUIClient::GetDependencies()
-{
-	return s_pDependencies;
-}
+// SE port: see the note above the (commented out) s_pDependencies table.
+// const AppSystemInfo_t *CPanoramaUIClient::GetDependencies()
+// {
+// 	return s_pDependencies;
+// }
 
 void CPanoramaUIClient::Disconnect()
 {

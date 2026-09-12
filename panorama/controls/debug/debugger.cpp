@@ -110,8 +110,14 @@ CDebugger::CDebugger( IUIWindow *pWindow, const char *pchName ) : CPanel2D( pWin
 	RegisterEventHandler( UpdateJSConsoleNextHistory(), this, &CDebugger::OnUpdateJSConsoleNextHistory );
 	RegisterEventHandler( RebuildDebugLayout(), this, &CDebugger::OnRebuildLayout );
 
-	DispatchEvent( PanoramaDebuggerOpened(), ( const IUIPanel * )nullptr );	// SE port: nullptr alone is ambiguous between the IUIPanel*/IUIPanelClient* overloads on MSVC 14.4
+	DispatchEvent( PanoramaDebuggerOpened(), ( const IUIPanelClient * )nullptr );	// SE port: be explicit - the IUIPanel overloads only exist under PANORAMA_EXPORTS, so nullptr alone is ambiguous on MSVC 14.4
 }
+
+// SE port: controls/debug/debuglayout.cpp is parked (it needs pcre/pcrecpp.h, which this tree does
+// not have) but its linker hook symbol is referenced from the client panels, so define it here to
+// keep the module linkable.  Forward declare instead of including debuglayout.h (which needs PCRE).
+namespace panorama { class CDebugLayout; }
+namespace panorama { CDebugLayout *g_DebugLayoutLinkerHack = NULL; }
 
 
 //-----------------------------------------------------------------------------
@@ -128,7 +134,7 @@ CDebugger::~CDebugger()
 	UnregisterForUnhandledEvent( ReloadStyleFile(), this, &CDebugger::OnStyleFileReloaded );
 	UnregisterForUnhandledEvent( JSConsoleOutput(), this, &CDebugger::OnJSConsoleOutput );
 
-	DispatchEvent( PanoramaDebuggerClosed(), ( const IUIPanel * )nullptr );	// SE port: see the note above about the nullptr overload ambiguity
+	DispatchEvent( PanoramaDebuggerClosed(), ( const IUIPanelClient * )nullptr );	// SE port: see the note above about the nullptr overload ambiguity
 }
 
 
@@ -221,7 +227,7 @@ void CDebugger::SetDebugPanel( IUIPanel *pPanel, bool bNotifyOtherPanels )
 	if ( !pPanel || !m_pDebugPanelLastNotify.BPreviouslySet() || (m_pDebugPanelLastNotify.Get() != pPanel && bNotifyOtherPanels) )
 	{
 		m_pDebugPanelLastNotify = pPanel;
-		DispatchEvent( SetDebugTarget(), ( const IUIPanel * )nullptr, ToPanel2D(m_pDebugPanel.Get()) );	// SE port: see the note above about the nullptr overload ambiguity
+		DispatchEvent( SetDebugTarget(), ( const IUIPanelClient * )nullptr, ToPanel2D(m_pDebugPanel.Get()) );	// SE port: see the note above about the nullptr overload ambiguity
 	}
 }
 
@@ -355,7 +361,7 @@ void CDebugger::BeginInspect()
 		UIEngine()->UIInputEngine()->SetInputCapture( this );
 		UIEngine()->UIInputEngine()->SetDebugHitTesting( true );
 		m_bHasInputCapture = true;
-		DispatchEvent( ActivateMainWindow(), ( const IUIPanel * )nullptr, false );	// SE port: see the note above about the nullptr overload ambiguity
+		DispatchEvent( ActivateMainWindow(), ( const IUIPanelClient * )nullptr, false );	// SE port: see the note above about the nullptr overload ambiguity
 
 		// now that the main window should have focus.. set the hovered panel to focused
 		CUtlVector< panorama::IUIWindow* > vecWindows;

@@ -54,6 +54,9 @@ extern IColorCorrectionSystem *colorcorrection;
 extern IP4 *p4;
 extern IMdlLib *mdllib;
 extern IQueuedLoader *g_pQueuedLoader;
+// SE port (CS:GO addition): resourcesystem/stronghandle.h and resourcefile/resourcetype.h
+// use this frame counter; CS:GO declares it in tier2.h and defines it in tier2.cpp.
+extern uint32 g_nResourceFrameCount;
 
 
 //-----------------------------------------------------------------------------

@@ -1,4 +1,4 @@
-//====== Copyright © 2014-2015, Valve Corporation, All rights reserved. =======
+//====== Copyright ï¿½ 2014-2015, Valve Corporation, All rights reserved. =======
 //
 // Purpose: IPanoramaUIClient app system implementation
 //
@@ -28,7 +28,10 @@ public:
 	// 7ls src1
 	virtual bool Connect( CreateInterfaceFn factory ) OVERRIDE;
 
-	virtual const AppSystemInfo_t *GetDependencies() OVERRIDE;
+	// SE port: SE 2013's IAppSystem (public/appframework/iappsystem.h) has no
+	// GetDependencies()/AppSystemInfo_t - CS:GO added them.  The engine finds the panorama
+	// engine through its own app system group, so the dependency list is not needed here.
+	// virtual const AppSystemInfo_t *GetDependencies() OVERRIDE;
 	virtual void Disconnect() OVERRIDE;
 	virtual void *QueryInterface( const char *pInterfaceName ) OVERRIDE;
 	virtual void Shutdown() OVERRIDE;

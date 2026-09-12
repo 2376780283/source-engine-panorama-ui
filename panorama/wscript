@@ -120,6 +120,12 @@ def build(bld):
 		# CSGO panorama framework is built against the Source1 wrapper (CSGO's uiengine.h #else
 		# branch with CDefFastCaselessStringLess is dead code there)
 		'PANORAMA_USE_S1WRAPPER',
+		# In CS:GO the framework is a DLL (built with PANORAMA_EXPORTS) and the client module uses the
+		# inline UIEngine()/UILocalize()/UISoundSystem()/UIInputEngine() from the headers.  Here the
+		# framework is a static lib linked into the same module as panorama_client, so *every*
+		# panorama module is compiled WITH PANORAMA_EXPORTS: the accessors then have a single
+		# out-of-line definition in uiengine.cpp.  Without it the client's inline copies collide with
+		# it (LNK2005), and the framework loses uievent.h's IUIPanel DispatchEvent overloads.
 		'PANORAMA_EXPORTS',
 		'STEAM_API_NODLL',
 		# SE-era adaptions: SE tier0/platform.h already provides these helpers
@@ -200,8 +206,12 @@ def build(bld):
 		'textinput/textinput_fullscreen.cpp',
 		'textinput/textinput_settings.cpp',
 		'textinput/textinput_suggest.cpp',
+		# panorama_client.vpc "Public" folder: the client-side engine bootstrap
+		# (panorama::ConnectPanoramaUIEngine / g_pUIEngineSingleton, used by panoramauiclient.dll)
+		'uiengineclient.cpp',
 	]
 
+	# NOTE: the client lib is built like the framework here - see the PANORAMA_EXPORTS note above.
 	client_defines = defines + [
 		# Match CSGO2019 panorama_client.vpc build config
 		'_CLIENT',

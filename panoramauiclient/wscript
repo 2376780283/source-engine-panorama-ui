@@ -1,0 +1,134 @@
+#! /usr/bin/env python
+# encoding: utf-8
+# Phase 2: panoramauiclient.dll (ported from D:\CSGO2019\panoramauiclient).
+#
+# This is CS:GO's thin client-side proxy DLL: it exposes a single interface
+# (IPanoramaUIClient, EXPOSE_SINGLE_INTERFACE_GLOBALVAR at the bottom of
+# panoramauiclient.cpp) and forwards to the panorama UI engine created by the engine's
+# IPanoramaUIEngine factory.  In CS:GO it also links the pre-built panorama_client lib.
+#
+# Source list mirrors panoramauiclient.vpc "Source Files".  Notes:
+#   * thirdparty/JSON_parser/JSON_parser.c is listed by the vpc but does not exist in
+#     either source tree - excluded until something actually needs it.
+#   * pcre/pcrecpp and video are only listed as link libraries in the vpc; the port does
+#     not need them yet (debuglayout.cpp is the only PCRE consumer and it is parked).
+#
+# The DLL links the three panorama static libs from this tree.
+
+top = '.'
+PROJECT_NAME = 'panoramauiclient'
+
+
+def options(opt):
+	return
+
+
+def configure(conf):
+	return
+
+
+def build(bld):
+	source = [
+		'panoramauiclient.cpp',
+		'../panorama_s1wrapper/utlstringbuilder.cpp',
+		'../panorama_s1wrapper/wrap_misc.cpp',
+		# '../thirdparty/JSON_parser/JSON_parser.c',   # not present in this tree
+	]
+
+	includes = [
+		'.',
+		'../panorama',              # panorama/uipanel.h, stdafx_client.h (CS:GO's private framework headers)
+		'..',
+		# The lightweight Source2 interfaces from panorama_s1wrapper must win over ../public
+		# (same order as panorama/wscript): public/rendersystem/irenderdevice.h would otherwise
+		# declare VertexBufferHandle_t as a pointer handle and clash with the int typedef in
+		# public/materialsystem/imaterialsystem.h.
+		'../panorama_s1wrapper',
+		'../panorama_s1wrapper/tier1',
+		'../panorama/steamextra/common',
+		'../panorama/steamextra/public',
+		'../public',
+		'../public/tier0',
+		'../public/tier1',
+		'../public/tier2',
+		'../public/vstdlib',
+		'../public/panorama',
+		'../public/steam',
+		'../common',
+		'../gcsdk/steamextra',
+		'../thirdparty/protobuf-2.6.1/src',
+		'../external/v8/include',
+		'../external/v8',
+		'../external',
+	]
+
+	defines = [
+		# Match panoramauiclient.vpc
+		'SOURCE2_PANORAMA',
+		'SOURCE2_PANORAMA_FIXME',
+		'PANORAMA_USE_S1WRAPPER',
+		# public/interfaces/interfaces.h only exposes PANORAMAUI_CLIENT/ENGINE_INTERFACE_VERSION,
+		# g_pPanoramaUIEngine ... inside #ifdef PANORAMA_ENABLE (CS:GO's VPC conditional).
+		'PANORAMA_ENABLE',
+		# See the long note in panorama/wscript: every panorama module of this port is built with
+		# PANORAMA_EXPORTS so that the out-of-line UIEngine()/... from the framework lib are used.
+		'PANORAMA_EXPORTS',
+		# NOTE: PANORAMA_EXPORTS is deliberately NOT defined here.  panoramauiclient.vpc does not
+		# define it either: in public/panorama/iuiengine.h the declarations of
+		# g_pUIEngineSingleton / CreatePanoramaUIEngine() / ConnectPanoramaUIEngine() / ... are
+		# inside #ifndef PANORAMA_EXPORTS (that define is for the panorama framework itself).
+		'STEAM_API_NODLL',
+		'_CLIENT',
+		# SE-era adaption (SE tier0/platform.h already provides the construct helpers)
+		'SE_PLATFORM_HAS_CONSTRUCT_HELPERS',
+	]
+
+	# The three panorama static libs plus the engine modules their code calls into.
+	libs = [
+		'panorama',
+		'panorama_client',
+		'panorama_s1wrapper',
+		'tier0',
+		'tier1',
+		'tier2',
+		'tier3',
+		'mathlib',
+		'vstdlib',
+		'bitmap',
+		'materialsystem',
+		'vgui_controls',
+		'vgui_surfacelib',
+	]
+
+	# External third-party static libs (vendored, not part of the waf project list).
+	stlibs = [
+		'v8_monolith',
+		'v8_libbase',
+		'v8_libplatform',
+		'libprotobuf',
+	]
+
+	libpath = [
+		'../external/v8/lib/win/x86',
+		'../build/protobuf',
+		'../build/panorama',
+		'../build/panorama_s1wrapper',
+	]
+
+	if bld.env.DEST_OS == 'win32':
+		libs += ['USER32', 'GDI32', 'SHELL32', 'SHLWAPI', 'ADVAPI32', 'WS2_32', 'OLE32', 'WINMM', 'DBGHELP', 'USERENV']
+
+	bld.shlib(
+		source   = source,
+		target   = PROJECT_NAME,
+		name     = PROJECT_NAME,
+		features = 'c cxx',
+		includes = includes,
+		defines  = defines,
+		use      = libs,
+		stlib    = stlibs,
+		libpath  = libpath,
+		install_path = None,
+		subsystem = bld.env.MSVC_SUBSYSTEM,
+		idx      = bld.get_taskgen_count()
+	)
