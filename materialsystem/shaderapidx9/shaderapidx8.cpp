@@ -1241,6 +1241,9 @@ public:
 	// Gets the texture 
 	IDirect3DBaseTexture* GetD3DTexture( ShaderAPITextureHandle_t hTexture );
 
+	// SE port (CS:GO addition): IShaderAPI::GetD3DTexturePtr - see public/shaderapi/ishaderapi.h
+	virtual void *GetD3DTexturePtr( ShaderAPITextureHandle_t hTexture );
+
 
 	virtual bool ShouldWriteDepthToDestAlpha( void ) const;
 
@@ -6689,6 +6692,16 @@ void CShaderAPIDx8::InvalidateDelayedShaderConstants( void )
 // Methods dealing with texture stage state
 //
 //-----------------------------------------------------------------------------
+
+//-----------------------------------------------------------------------------
+// SE port (CS:GO addition): IShaderAPI::GetD3DTexturePtr, the accessor
+// IMaterialSystem::GetPanormaTexturePtr (materialsystem/cmaterialsystem.cpp) uses to hand panorama
+// the D3D texture behind an ITexture.  Source Engine 2013 already exposes CShaderAPIDx8::GetD3DTexture.
+//-----------------------------------------------------------------------------
+inline void *CShaderAPIDx8::GetD3DTexturePtr( ShaderAPITextureHandle_t hTexture )
+{
+	return (void *)CShaderAPIDx8::GetD3DTexture( hTexture );
+}
 
 //-----------------------------------------------------------------------------
 // Gets the texture associated with a texture state...

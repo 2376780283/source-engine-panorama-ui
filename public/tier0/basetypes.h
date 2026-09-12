@@ -299,6 +299,15 @@ struct Rect_t
 {
     int x, y;
 	int width, height;
+
+	// SE port: CS:GO's Rect_t carries constructors (panorama's source2 surface builds scissor
+	// rects as Rect_t( x, y, width, height )).  The only aggregate-initialisation of Rect_t in this
+	// tree, materialsystem/ctexture.cpp, was converted to the constructor form at the same time.
+	inline Rect_t() {}
+	inline Rect_t( int nX, int nY, int nWidth, int nHeight )
+	{
+		x = nX; y = nY; width = nWidth; height = nHeight;
+	}
 };
 
 

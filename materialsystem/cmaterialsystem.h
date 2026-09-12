@@ -415,6 +415,10 @@ public:
 
 	bool									IsTextureLoaded( const char* pTextureName ) const;
 
+	// SE port (CS:GO additions): see public/materialsystem/imaterialsystem.h
+	bool									CanDownloadTextures() const;
+	void *								GetPanormaTexturePtr( ITexture *pTexture );
+
 	void									AddTextureAlias( const char *pAlias, const char *pRealName );
 	void									RemoveTextureAlias( const char *pAlias );
 

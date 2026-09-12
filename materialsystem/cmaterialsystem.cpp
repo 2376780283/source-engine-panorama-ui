@@ -2948,6 +2948,22 @@ bool CMaterialSystem::IsTextureLoaded( char const* pTextureName ) const
 	return TextureManager()->IsTextureLoaded( pTextureName );
 }
 
+// SE port (CS:GO additions): used by panorama/source2/renderer/source2surface.cpp.  Bodies are
+// CS:GO's (materialsystem/cmaterialsystem.cpp); CanDownloadTextures() follows the same pattern as
+// the other g_pShaderAPI passthroughs in this file.
+bool CMaterialSystem::CanDownloadTextures() const
+{
+	return g_pShaderAPI->CanDownloadTextures();
+}
+
+void *CMaterialSystem::GetPanormaTexturePtr( ITexture *pTexture )
+{
+	if ( !pTexture )
+		return NULL;
+
+	return g_pShaderAPI->GetD3DTexturePtr( ((ITextureInternal*)pTexture)->GetTextureHandle( 0 ) );
+}
+
 void CMaterialSystem::AddTextureAlias( const char *pAlias, const char *pRealName )
 {
 	TextureManager()->AddTextureAlias( pAlias, pRealName );

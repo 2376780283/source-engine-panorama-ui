@@ -10,6 +10,11 @@
 
 #include "resourcesystem/iresourcesystem.h"
 
+// SE port: g_pIMEManager / g_pPanoramaUIEngine / panorama::g_IUITextServices and
+// SOUNDEMITTERSYSTEM_INTERFACE_VERSION are declared in interfaces/interfaces.h under PANORAMA_ENABLE
+// (CS:GO reached it through its own include chain).
+#include "interfaces/interfaces.h"
+
 #include "panorama/source2/ipanoramaui.h"
 #include "panoramauiengine.h"
 #include "inputsystem/InputEnums.h"
@@ -187,10 +192,20 @@ static bool PanoramaResourceFileIntegrityCheck( CUtlBuffer &bufFileData, void *&
 	pvResourceData = ( ( char * ) bufFileData.Base() ) + 4 + numSignatureDigestBytes;
 	numResourceBytes = bufFileData.TellPut() - 4 - numSignatureDigestBytes - 1;
 
+	// SE port: CS:GO verifies the signed panorama resource pack against the public key in
+	// devtools/bin/certificates/panoramapack.public.h, which does not exist in this tree (and this
+	// tree has no package signing infrastructure).  Reject signed packs loudly rather than pretending
+	// to verify them; unsigned packs never reach this function.
+#if !defined( PANORAMA_HAVE_SIGNED_PACKS )
+	NOTE_UNUSED( numResourceBytes );
+	AssertMsg( false, "Panorama pack signature verification is not available in this build" );
+	return false;
+#else
 	const byte CertificateData[] = {
-#include "../../devtools/bin/certificates/panoramapack.public.h"
+#include PANORAMA_PACK_PUBLIC_KEY_HEADER
 	};
 	return launcher_keypair_verifymsg( ( const byte * ) pvResourceData, numResourceBytes + 1, CertificateData, sizeof( CertificateData ), ( const byte * )( ( ( char * ) bufFileData.Base() ) + 4 ), numSignatureDigestBytes );
+#endif
 }
 
 static void PanoramaReleaseMaterialSystemObjects( int nChangeFlags )
@@ -204,6 +219,12 @@ static void PanoramaRestoreMaterialSystemObjects( int nChangeFlags )
 	if ( g_pPanoramaUIEngineImpl && g_pPanoramaUIEngineImpl->m_pUIEngine )
 		( ( panorama::CUIEngineSource2* )( g_pPanoramaUIEngineImpl->m_pUIEngine ) )->OnDeviceRestored();
 }
+
+// SE port: Source Engine 2013's IMaterialSystem::AddReleaseFunc takes a void(*)() callback while
+// AddRestoreFunc keeps CS:GO's int nChangeFlags argument (see MaterialBuffer{}Release,Restore}Func_t
+// in public/materialsystem/imaterialsystem.h).  The release flag is not used by the panorama
+// renderer, so a thin wrapper bridges that one signature.
+static void PanoramaReleaseMaterialSystemObjectsSE() { PanoramaReleaseMaterialSystemObjects( 0 ); }
 #endif
 
 
@@ -232,7 +253,7 @@ InitReturnVal_t CPanoramaUIEngine::Init()
 
 	if ( g_pMaterialSystem )
 	{
-		g_pMaterialSystem->AddReleaseFunc( PanoramaReleaseMaterialSystemObjects );
+		g_pMaterialSystem->AddReleaseFunc( PanoramaReleaseMaterialSystemObjectsSE );
 		g_pMaterialSystem->AddRestoreFunc( PanoramaRestoreMaterialSystemObjects );
 	}
 	
@@ -393,8 +414,12 @@ void CPanoramaUIEngine::Shutdown( void )
 #define bswap_16 __bswap_16
 #define bswap_64 __bswap_64
 
+#if defined( PANORAMA_HAVE_SIGNED_PACKS )
+// SE port: Crypto++ (cryptlib.h/rsa.h) is not vendored in this tree and this build does not sign
+// panorama packs, so the verifier below is compiled as a rejecting stub.
 #include "cryptlib.h"
 #include "rsa.h"
+#endif
 
 // Special usage here in the launcher without linking in tier0 tslist implementation
 // list of auto-seeded RNG pointers
@@ -402,6 +427,15 @@ void CPanoramaUIEngine::Shutdown( void )
 
 bool launcher_keypair_verifymsg( const byte *pubData, int cbData, const byte *pubPublicKey, int cbPublicKey, const byte *pubSignature, int cbSignature )
 {
+#if !defined( PANORAMA_HAVE_SIGNED_PACKS )
+	NOTE_UNUSED( pubData );
+	NOTE_UNUSED( cbData );
+	NOTE_UNUSED( pubPublicKey );
+	NOTE_UNUSED( cbPublicKey );
+	NOTE_UNUSED( pubSignature );
+	NOTE_UNUSED( cbSignature );
+	return false;
+#else
 	try           // handle any exceptions crypto++ may throw
 	{
 		CryptoPP::StringSource stringSourcePublicKey( pubPublicKey, cbPublicKey, true );
@@ -413,5 +447,6 @@ bool launcher_keypair_verifymsg( const byte *pubData, int cbData, const byte *pu
 	{
 	}
 	return false;
+#endif // PANORAMA_HAVE_SIGNED_PACKS
 }
 #endif

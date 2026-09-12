@@ -7,7 +7,11 @@
 
 #include "timeutils.h"
 #include "tier1/fmtstr.h"
-#include "tier1/timeutils.h"
+// SE port: CS:GO has public/tier1/timeutils.h (the movieobjects DmeTime/CUtlFramerate helpers).
+// This tree does not, and this file does not reference anything from it, so the include is dropped.
+// Keeping a public/tier1/timeutils.h instead would have shadowed common/timeutils.h in every
+// panorama translation unit that does #include "timeutils.h" (public/tier1 is an include dir there).
+// #include "tier1/timeutils.h"
 #include "tier1/utlbuffer.h"
 #include "language.h"
 

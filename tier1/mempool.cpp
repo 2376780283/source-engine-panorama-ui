@@ -354,3 +354,265 @@ int CUtlMemoryPool::Size() const
 	return size;
 }
 
+
+//-----------------------------------------------------------------------------
+//
+// SE port: CUtlScratchMemoryPool (CS:GO's tier1/mempool.cpp).
+//
+// public/tier1/mempool.h in this tree already declares the class, but Source Engine 2013's
+// mempool.cpp stopped at CUtlMemoryPool, so panorama's renderer/uianimationengine.cpp left
+// CUtlScratchMemoryPool::{ctor,dtor,AllocAligned,FreeAll} unresolved at link time.
+// Ported verbatim from CSGO2019/tier1/mempool.cpp.
+//
+//-----------------------------------------------------------------------------
+CUtlScratchMemoryPool::CUtlScratchMemoryPool()
+{
+	m_pFirstBlock = NULL;
+	m_nBlockSize = 0;
+	m_bSearchAllBlocks = false;
+#if UTL_SCRATCH_MEMORY_POOL_STATS
+	m_nNumAllocs = 0;
+	m_nBytesAllocated = 0;
+	m_nBytesWasted = 0;
+#endif
+}
+
+CUtlScratchMemoryPool::CUtlScratchMemoryPool( int nBlockSize, void *pExternalMem, bool bSearchAllBlocks )
+{
+	m_pFirstBlock = NULL;
+	m_nBlockSize = 0;
+	m_bSearchAllBlocks = false;
+
+	Init( nBlockSize, pExternalMem, bSearchAllBlocks );
+}
+
+CUtlScratchMemoryPool::~CUtlScratchMemoryPool()
+{
+	FreeAll();
+}
+
+void CUtlScratchMemoryPool::Init( int nBlockSize, void *pExternalMem, bool bSearchAllBlocks )
+{
+	Assert( !IsInitialized() );
+
+	// The stack memory must be 16-byte aligned, as must be the block size
+	Assert( AlignValue( (intp)pExternalMem, 16 ) == (intp)pExternalMem );
+	Assert( AlignValue( nBlockSize, 16 ) == nBlockSize );
+
+	// It's nonsensical if this is not true
+	Assert( nBlockSize >= 16 * sizeof( MemoryBlock_t ) );
+
+	m_pFirstBlock = NULL;
+	m_nBlockSize = nBlockSize;
+	m_bSearchAllBlocks = bSearchAllBlocks;
+#if UTL_SCRATCH_MEMORY_POOL_STATS
+	m_nNumAllocs = 0;
+	m_nBytesAllocated = 0;
+	m_nBytesWasted = 0;
+#endif
+
+	if ( pExternalMem )
+	{
+		Assert( nBlockSize <= 128 * 1024 );	// Using more than 128k of stack memory is probably not a good idea
+		m_pFirstBlock = (MemoryBlock_t*)pExternalMem;
+		m_pFirstBlock->m_pNext = NULL;
+		m_pFirstBlock->m_bSkipDeallocation = true;
+		m_pFirstBlock->m_nBytesFree = nBlockSize - sizeof( MemoryBlock_t );
+		Assert( AlignValue( m_pFirstBlock->m_nBytesFree, 16 ) == m_pFirstBlock->m_nBytesFree );
+
+		//MemAlloc_InitFillAlloc( m_pFirstBlock->GetAllocPtr( 0 ), m_pFirstBlock->m_nBytesFree, m_pFirstBlock );
+	}
+}
+
+void* CUtlScratchMemoryPool::AllocAligned( int nSizeInBytes, int nAlignment )
+{
+	AssertDbg( IsInitialized() );
+	AssertDbg( nAlignment >= 1 && nAlignment <= 16 && IsPowerOfTwo( nAlignment ) );
+
+	if ( nSizeInBytes == 0 )
+		return NULL;
+
+#if UTL_SCRATCH_MEMORY_POOL_STATS
+	m_nNumAllocs++;
+	m_nBytesAllocated += nSizeInBytes;
+#endif
+
+	MemoryBlock_t *pBlock = m_pFirstBlock;
+	while ( pBlock )
+	{
+		// Determine our free space adjusted by the requested alignment.
+		// This rounds down as we're adjusting for how much free space we
+		// will lose due to alignment.
+		int nBytesFreeAligned = pBlock->m_nBytesFree & ~( nAlignment - 1 );
+
+		// Do we have room?
+		if ( nBytesFreeAligned >= nSizeInBytes )
+		{
+			// Yes! Use it
+#if UTL_SCRATCH_MEMORY_POOL_STATS
+			// Track space wasted due to alignment.
+			m_nBytesWasted += pBlock->m_nBytesFree - nBytesFreeAligned;
+#endif
+			int nOffset = GetBlockUsableBytes() - nBytesFreeAligned;
+			pBlock->m_nBytesFree = nBytesFreeAligned - nSizeInBytes;
+			uint8* pMemory = pBlock->GetAllocPtr( nOffset );
+			AssertDbg( AlignValue( (intp)pMemory, nAlignment ) == (intp)pMemory );
+			return pMemory;
+		}
+
+		if ( !m_bSearchAllBlocks )
+		{
+			break;
+		}
+
+		pBlock = pBlock->m_pNext;
+	}
+
+	// No room? Allocate a new block
+
+#if UTL_SCRATCH_MEMORY_POOL_STATS
+	if ( !m_bSearchAllBlocks )
+	{
+		// Anything free in the current block will now be unusable.
+		m_nBytesWasted += m_pFirstBlock->m_nBytesFree;
+	}
+#endif
+
+	void *pMemory = AddNewBlock( nSizeInBytes );
+	AssertDbg( AlignValue( (intp)pMemory, nAlignment ) == (intp)pMemory );
+	return pMemory;
+}
+
+void *CUtlScratchMemoryPool::AddNewBlock( int nSizeInBytes )
+{
+	// Should we just allocate a standalone block?
+	// Let's do it if the request is large enough (and, of course, we didn't fit in the alloc call before).
+	bool bUseStandaloneBlock = ( nSizeInBytes > ( m_nBlockSize >> 1 ) );
+	if ( !bUseStandaloneBlock )
+	{
+		// The block size must be a multiple of 16 bytes so by the IMemAlloc rules
+		// it will always be 16-byte aligned.
+		MemoryBlock_t *pNewBlock = (MemoryBlock_t*)MemAlloc_Alloc( m_nBlockSize );
+		pNewBlock->m_bSkipDeallocation = false;
+		pNewBlock->m_pNext = m_pFirstBlock;
+		m_pFirstBlock = pNewBlock;
+		pNewBlock->m_nBytesFree = GetBlockUsableBytes() - nSizeInBytes;
+
+		// Return the memory after the block header
+		return pNewBlock->GetAllocPtr( 0 );
+	}
+	else
+	{
+		// Make sure that the alloc size is a multiple of 16 bytes so by the IMemAlloc rules
+		// it will always be 16-byte aligned.
+		MemoryBlock_t *pNewBlock = (MemoryBlock_t*)MemAlloc_Alloc( AlignValue( nSizeInBytes + sizeof( MemoryBlock_t ), 16 ) );
+		pNewBlock->m_bSkipDeallocation = false;
+		pNewBlock->m_nBytesFree = 0;
+		if ( m_pFirstBlock )
+		{
+			// Don't disturb the current block we're adding to
+			pNewBlock->m_pNext = m_pFirstBlock->m_pNext;
+			m_pFirstBlock->m_pNext = pNewBlock;
+		}
+		else
+		{
+			pNewBlock->m_pNext = NULL;
+			m_pFirstBlock = pNewBlock;
+		}
+
+		// Return the memory after the block header
+		return pNewBlock->GetAllocPtr( 0 );
+	}
+}
+
+// It is sometimes possible to free the last allocation(s) you made
+UtlScratchMemoryPoolMark_t CUtlScratchMemoryPool::GetCurrentAllocPoint() const
+{
+	Assert( !m_bSearchAllBlocks );
+
+	UtlScratchMemoryPoolMark_t mark;
+	mark.m_pBlock = m_pFirstBlock;
+	mark.m_nBytesFree = GetFirstBytesFree();
+#if UTL_SCRATCH_MEMORY_POOL_STATS
+	mark.m_nNumAllocs = m_nNumAllocs;
+	mark.m_nBytesAllocated = m_nBytesAllocated;
+	mark.m_nBytesWasted = m_nBytesWasted;
+#endif
+	return mark;
+}
+
+void CUtlScratchMemoryPool::FreeToAllocPoint( UtlScratchMemoryPoolMark_t mark )
+{
+	Assert( !m_bSearchAllBlocks );
+
+	// NOTE: This works even in light of the fact that oversized blocks are not
+	// allocated as part of the current block, since those oversized blocks are always
+	// inserted *prior* to the current block. It does mean that oversized blocks
+	// will not get deallocated in the course of this function, though.
+	while ( m_pFirstBlock != (MemoryBlock_t*)mark.m_pBlock )
+	{
+		Assert( m_pFirstBlock );
+		MemoryBlock_t *pNext = m_pFirstBlock->m_pNext;
+		Assert( !m_pFirstBlock->m_bSkipDeallocation );	// Illegal to free the external allocation
+		MemAlloc_Free( m_pFirstBlock );
+		m_pFirstBlock = pNext;
+	}
+
+	if ( m_pFirstBlock )
+	{
+		m_pFirstBlock->m_nBytesFree = mark.m_nBytesFree;
+	}
+#if UTL_SCRATCH_MEMORY_POOL_STATS
+	m_nNumAllocs = mark.m_nNumAllocs;
+	m_nBytesAllocated = mark.m_nBytesAllocated;
+	m_nBytesWasted = mark.m_nBytesWasted;
+#endif
+	if ( m_pFirstBlock )
+	{
+		//MemAlloc_InitFillAlloc( m_pFirstBlock->GetAllocPtr( m_pFirstBlock->m_nBytesFree ), GetBlockUsableBytes() - m_pFirstBlock->m_nBytesFree, m_pFirstBlock );
+	}
+}
+
+// Frees everything	(except the external allocation)
+void CUtlScratchMemoryPool::FreeAll()
+{
+	MemoryBlock_t *pExternalAllocation = NULL;
+	MemoryBlock_t *pNext;
+	for ( MemoryBlock_t *pBlock = m_pFirstBlock; pBlock != NULL; pBlock = pNext )
+	{
+		pNext = pBlock->m_pNext;
+		if ( !pBlock->m_bSkipDeallocation )
+		{
+			MemAlloc_Free( pBlock );
+		}
+		else
+		{
+			Assert( !pExternalAllocation );
+			pExternalAllocation = pBlock;
+			pExternalAllocation->m_pNext = NULL;	// Blat out the next ptr for next time
+		}
+	}
+	m_pFirstBlock = pExternalAllocation;
+	if ( m_pFirstBlock )
+	{
+		m_pFirstBlock->m_nBytesFree = GetBlockUsableBytes();
+		//MemAlloc_InitFillAlloc( m_pFirstBlock->GetAllocPtr( 0 ), m_pFirstBlock->m_nBytesFree, m_pFirstBlock );
+	}
+#if UTL_SCRATCH_MEMORY_POOL_STATS
+	m_nNumAllocs = 0;
+	m_nBytesAllocated = 0;
+	m_nBytesWasted = 0;
+#endif
+}
+
+#if UTL_SCRATCH_MEMORY_POOL_STATS
+void CUtlScratchMemoryPool::LogStats( LoggingChannelID_t nChannel, const char *pName ) const
+{
+	Log_Msg( nChannel, "Scratch memory pool stats for %s:\n", pName );
+	Log_Msg( nChannel, "%u allocs with %u bytes allocated across %u %u-byte blocks%s\n",
+		m_nNumAllocs, m_nBytesAllocated, GetNumBlocks(), m_nBlockSize,
+		HasExternalBlock() ? " (one external)" : "" );
+	Log_Msg( nChannel, "%u bytes free in first block, %u bytes wasted (unused total %u)\n",
+		GetFirstBytesFree(), m_nBytesWasted, GetBytesUnused() );
+}
+#endif

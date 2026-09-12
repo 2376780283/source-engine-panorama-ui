@@ -195,6 +195,12 @@ public:
 	// Installs a callback to get called 
 	virtual void AddModeChangeCallback( ShaderModeChangeCallbackFunc_t func ) = 0;
 	virtual void RemoveModeChangeCallback( ShaderModeChangeCallbackFunc_t func ) = 0;
+
+	// SE port (CS:GO addition): panorama/source2/panoramauiengine.h registers IShaderDeviceDependentObject
+	// instances (device lost/reset/resize notifications).  Defaulted here so the existing Source Engine
+	// device managers need no change; a DX9 device manager can forward these to its own device-dependent list.
+	virtual void AddDeviceDependentObject( IShaderDeviceDependentObject *pObject ) {}
+	virtual void RemoveDeviceDependentObject( IShaderDeviceDependentObject *pObject ) {}
 };
 
 

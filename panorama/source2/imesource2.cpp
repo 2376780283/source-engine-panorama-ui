@@ -6,6 +6,9 @@
 #include "stdafx.h"
 
 #include "iimemanager.h"
+// SE port: g_pIMEManager is declared in interfaces/interfaces.h under PANORAMA_ENABLE (CS:GO reached
+// it through its own include chain).
+#include "interfaces/interfaces.h"
 #include "imesource2.h"
 #include "panorama/controls/textentry.h"
 

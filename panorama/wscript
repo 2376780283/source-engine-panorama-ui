@@ -61,6 +61,32 @@ def build(bld):
 		# libparsifal: self-written, API-compatible XML reader for layout/layoutfile.cpp
 		# (the upstream 0.8.3 sources are unobtainable - see thirdparty/libparsifal-0.8.3/README.md)
 		'thirdparty/libparsifal-0.8.3/src/parsifal.cpp',
+		# Batch 5b: the CS:GO common/ helpers that CS:GO's own panorama.vpc compiles into the framework
+		# ("Source 2" folder of the vpc) - the loaders imageloadwrapper.cpp calls into, the SVG
+		# attribute helpers controls/image.cpp needs, and the localization helpers localize.cpp needs.
+		'../common/tgaloader.cpp',
+		'../common/currencyamount.cpp',
+		'../common/language.cpp',
+		'../common/timeutils.cpp',
+		'../common/svg/svghelpers.cpp',
+		# seport/: SE-side replacements for CS:GO pieces whose external dependencies are absent from this
+		# tree (stb_image based JPEG/PNG decode + resizer, SVG stub).  See the file header for details.
+		'seport/se_image_codecs.cpp',
+		# seport/: the interface globals CS:GO's interfaces/interfaces.cpp provides.
+		'seport/se_interfaces.cpp',
+		# Batch 8: Source 2 UI engine + renderer (panorama.vpc "Source 2" folder).  CS:GO compiles these
+		# into the same framework library: CUIEngineSource2 is the concrete UIEngine, and the "PanDx"
+		# functions (g_bPanDx/PanDxFlushBatch/...) live in source2/renderer/source2surface.cpp, which
+		# draws panorama through the rendersystem/ interfaces that panorama_s1wrapper implements on
+		# top of the Source 1 shader/material system (togl/rendermechanism.h).
+		'source2/panoramauiengine.cpp',
+		'source2/uienginesource2.cpp',
+		'source2/uitoplevelwindowsource2.cpp',
+		'source2/uisoundsystemsource2.cpp',
+		'source2/uirenderdevicesource2.cpp',
+		'source2/imesource2.cpp',
+		'source2/renderer/source2surface.cpp',
+		'../public/filesystem_helpers.cpp',
 		# Batch 6: text - PARKED (see below), keep the DirectWrite files out of the build for now.
 		#
 		# CS:GO's build compiles the pango backend unconditionally (text/uitextlayoutpango.cpp,
@@ -105,6 +131,8 @@ def build(bld):
 		'../public/panorama',
 		'../public/steam',     # isteamcontroller.h (panorama_client.vpc also has ..\public\steam)
 		'../common',
+		'../gcsdk',             # gcsdk/enumutils.h (common/currencyamount.cpp)
+		'../thirdparty',        # stb/stb_image.h, stb/stb_image_resize.h (seport/se_image_codecs.cpp)
 		'../thirdparty/protobuf-2.6.1/src',   # google/protobuf/descriptor.h, text_format.h (renderer/uirenderengine.cpp)
 		'../gcsdk/steamextra',  # tier1/tsmempool.h (CThreadSafeClassMemoryPool) - CS:GO's own build got this via its text PCH
 		'../external/v8/include',
@@ -127,7 +155,16 @@ def build(bld):
 		# out-of-line definition in uiengine.cpp.  Without it the client's inline copies collide with
 		# it (LNK2005), and the framework loses uievent.h's IUIPanel DispatchEvent overloads.
 		'PANORAMA_EXPORTS',
+		# CS:GO's VPC sets this for every panorama module.  public/interfaces/interfaces.h gates
+		# g_pPanoramaUIEngine / g_pIMEManager / g_IUITextServices / SOUNDEMITTERSYSTEM_INTERFACE_VERSION
+		# behind it, and panorama/source2/*.cpp uses all of those.
+		'PANORAMA_ENABLE',
 		'STEAM_API_NODLL',
+		# CS:GO's video player is created through CreateVideoPlayer()/DeleteVideoPlayer() from the
+		# prebuilt video.lib.  SE's video module exposes the IVideoServices interface instead, so the
+		# video *player* is disabled for now: data/panoramavideoplayer.cpp only guards the two calls
+		# with this define and fails gracefully everywhere else (m_pVideoPlayer stays NULL).
+		'PANORAMA_DISABLE_VIDEO',
 		# SE-era adaptions: SE tier0/platform.h already provides these helpers
 		'SE_PLATFORM_HAS_CONSTRUCT_HELPERS',
 	]

@@ -882,6 +882,13 @@ public:
 	// Checks to see if a particular texture is loaded
 	virtual bool				IsTextureLoaded( char const* pTextureName ) const = 0;
 
+	// SE port (CS:GO additions): the panorama renderer asks the material system for the D3D texture
+	// behind an ITexture, and whether texture data may be read back from the GPU.  Declared here so
+	// panorama/source2/renderer/source2surface.cpp compiles; CMaterialSystem implements both, and the
+	// default bodies keep other IMaterialSystem implementers (mat_stub, shaderapiempty) link-compatible.
+	virtual bool				CanDownloadTextures() const { return false; }
+	virtual void *				GetPanormaTexturePtr( ITexture *pTexture ) { return NULL; }   // (CS:GO's spelling)
+
 	// Creates a procedural texture
 	virtual ITexture *			CreateProceduralTexture( const char	*pTextureName, 
 		const char *pTextureGroupName, 

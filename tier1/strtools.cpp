@@ -2537,6 +2537,58 @@ void V_SplitString( const char *pString, const char *pSeparator, CUtlVector<char
 }
 
 
+//-----------------------------------------------------------------------------
+// SE port: CS:GO's CUtlString based split (public/tier1/strtools.h declares the 4 argument
+// V_SplitString; the panorama modules use it).  Ported verbatim from CSGO2019/tier1/strtools.cpp.
+//-----------------------------------------------------------------------------
+void V_SplitString2( const char *pString, const char * const *pSeparators, int nSeparators, CUtlVector<CUtlString> &outStrings, bool bIncludeEmptyStrings )
+{
+	outStrings.Purge();
+	const char *pCurPos = pString;
+	for (;;)
+	{
+		int iFirstSeparator = -1;
+		const char *pFirstSeparator = 0;
+		for ( int i = 0; i < nSeparators; i++ )
+		{
+			const char *pTest = V_stristr_fast( pCurPos, pSeparators[i] );
+			if ( pTest && ( !pFirstSeparator || pTest < pFirstSeparator ) )
+			{
+				iFirstSeparator = i;
+				pFirstSeparator = pTest;
+			}
+		}
+
+		if ( pFirstSeparator )
+		{
+			// Split on this separator and continue on.
+			int separatorLen = (int)strlen( pSeparators[iFirstSeparator] );
+			if ( pFirstSeparator > pCurPos || ( pFirstSeparator == pCurPos && bIncludeEmptyStrings ) )
+			{
+				outStrings[outStrings.AddToTail()].SetDirect( pCurPos, (int)( pFirstSeparator - pCurPos ) );
+			}
+
+			pCurPos = pFirstSeparator + separatorLen;
+		}
+		else
+		{
+			// Copy the rest of the string, if there's anything there
+			if ( pCurPos[0] != 0 )
+			{
+				outStrings[outStrings.AddToTail()].Set( pCurPos );
+			}
+			return;
+		}
+	}
+}
+
+
+void V_SplitString( const char *pString, const char *pSeparator, CUtlVector<CUtlString> &outStrings, bool bIncludeEmptyStrings )
+{
+	V_SplitString2( pString, &pSeparator, 1, outStrings, bIncludeEmptyStrings );
+}
+
+
 bool V_GetCurrentDirectory( char *pOut, int maxLen )
 {
 	return _getcwd( pOut, maxLen ) == pOut;

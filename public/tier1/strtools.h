@@ -483,6 +483,11 @@ int Q_UTF16ToUChar32( const uchar16 *pUTF16, uchar32 &uValueOut, bool &bErrorOut
 #define V_UTF8ToUnicode Q_UTF8ToWString
 #define V_UnicodeToUTF8 Q_WStringToUTF8
 
+// SE port: the CS:GO-era spelling of the same two aliases (common/currencyamount.cpp uses
+// V_WStringToUTF8; Source Engine 2013 only ever shipped the V_...Unicode names above).
+#define V_UTF8ToWString Q_UTF8ToWString
+#define V_WStringToUTF8 Q_WStringToUTF8
+
 // V_-style aliases over the Q_ unicode helpers (CSGO-era / Source2 code uses the V_ names)
 #define V_strlen16 Q_strlen16
 #define V_strlen32 Q_strlen32

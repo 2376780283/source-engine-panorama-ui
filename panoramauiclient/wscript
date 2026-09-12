@@ -98,6 +98,14 @@ def build(bld):
 		'materialsystem',
 		'vgui_controls',
 		'vgui_surfacelib',
+		# vtf: panorama_s1wrapper/wrap_texture.cpp creates textures through CreateVTFTexture()/
+		# DestroyVTFTexture(), which Source Engine 2013 defines in its vtf module.
+		'vtf',
+		# stub_steam: the CCallback/CCallResult templates in public/steam/steam_api.h call the
+		# extern "C" SteamAPI_Register{Callback,CallResult}()/Unregister... entry points, which this
+		# tree provides through its stub steam_api implementation (stub_steam/wscript builds a shlib
+		# whose target name is 'steam_api', matching how gameui/vtex/engine link it).
+		'steam_api',
 	]
 
 	# External third-party static libs (vendored, not part of the waf project list).

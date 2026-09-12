@@ -2377,7 +2377,7 @@ bool CTexture::SaveToFile( const char *fileName )
 			bCleanupTexture = true;
 		}
 
-		Rect_t SrcRect = { 0, 0, width, height };
+		Rect_t SrcRect( 0, 0, width, height );
 		Rect_t DstRect = SrcRect;
 
 		if ( ( width > 0 ) && ( height > 0 ) )
