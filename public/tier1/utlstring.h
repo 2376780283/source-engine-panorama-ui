@@ -560,6 +560,15 @@ public:
 	const char *Get() const { return String(); }
 	char *Access() { return m_pData; }
 
+	// SE port (CS:GO parity): panorama/textinput/utlradixtrie.h uses these
+	// (the implicit conversion when passing the builder as a CUtlDict const char* key).
+	operator const char *() const { return String(); }
+	void Truncate( size_t nChars )
+	{
+		if ( nChars < (size_t)m_nLen )
+			SetLength( (int)nChars );
+	}
+
 private:
 	void Grow( int n )
 	{

@@ -193,6 +193,13 @@ def build(bld):
 		'controls/debug/debugpanel.cpp',
 		'controls/debug/debugpanelparents.cpp',
 		'controls/debug/debugpanelstyle.cpp',
+		# Batch 5: text input (panorama_client.vpc "TextInput" folder) - the daisywheel /
+		# fullscreen / settings handlers used by CTextEntry
+		'textinput/textinput.cpp',
+		'textinput/textinput_daisywheel.cpp',
+		'textinput/textinput_fullscreen.cpp',
+		'textinput/textinput_settings.cpp',
+		'textinput/textinput_suggest.cpp',
 	]
 
 	client_defines = defines + [
