@@ -1,0 +1,7 @@
+// Minimal HUD animation manifest for the panorama test mod.
+// LoadHudAnimations() (game/client/game_controls/baseviewport.cpp) simply returns false when this is
+// missing; keys other than "file" are ignored.
+"hudanimations_manifest"
+{
+	"note"		"panorama test mod: no HUD animation scripts"
+}

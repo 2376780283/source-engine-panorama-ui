@@ -1071,7 +1071,10 @@ public:
 	// Local code and data
 
 	void UpdateMesh(IMesh* pMesh);
-	void UpdateMaterial();
+
+	// SE port: returns false when the panorama material is unusable (the CS:GO "panorama" /
+	// "panoramafancy" stdshader classes are not ported yet).  Callers must skip the draw then.
+	bool UpdateMaterial();
 
 	CRenderAttributes* m_pAttr;
 	CMatRenderContextPtr m_pMatRenderContext;

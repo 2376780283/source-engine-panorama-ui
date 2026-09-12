@@ -255,6 +255,15 @@ void CTopLevelWindow::ClearGPUResourcesBeforeNextFrame()
 //-----------------------------------------------------------------------------
 void CTopLevelWindow::PaintEmptyFrameAndForceLaterRepaint()
 {
+	// SE port (bring-up aid): an empty frame means no panel painted this frame.
+	{
+		static int s_nSEEmptyPaints = 0;
+		if ( s_nSEEmptyPaints < 4 )
+		{
+			Warning( "SE_PORT_PAINT: PaintEmptyFrameAndForceLaterRepaint (visiblePanels=%d)\n", m_listVisiblePanels.Count() );
+			s_nSEEmptyPaints++;
+		}
+	}
 	VPROF_BUDGET( "CTopLevelWindow - PaintEmptyFrame", VPROF_BUDGETGROUP_TENFOOT );
 
 	if( !m_bAlreadyForcedRepaintAllSinceLastPaint )
@@ -287,6 +296,16 @@ void CTopLevelWindow::PaintEmptyFrameAndForceLaterRepaint()
 //-----------------------------------------------------------------------------
 void CTopLevelWindow::LayoutAndPaintIfNeeded()
 {
+	// SE port (bring-up aid): this is the pass that applies styles, performs layout and paints panels.
+	{
+		static int s_nSELayoutPaints = 0;
+		if ( s_nSELayoutPaints < 6 )
+		{
+			Warning( "SE_PORT_PAINT: LayoutAndPaintIfNeeded enter (visiblePanels=%d visible=%d)\n",
+				m_listVisiblePanels.Count(), (int)BIsVisible() );
+			s_nSELayoutPaints++;
+		}
+	}
 	{
 		VPROF_BUDGET( "CTopLevelWindow - ApplyStyles", VPROF_BUDGETGROUP_TENFOOT );
 
@@ -325,6 +344,28 @@ void CTopLevelWindow::LayoutAndPaintIfNeeded()
 	{
 		m_flLastLayoutAndPaintTime = UIEngine()->GetCurrentFrameTime();
 		PerformLayout();
+	}
+
+	// SE port (bring-up aid): what did the layout pass compute for the visible panels?
+	{
+		static int s_nSELayoutDump = 0;
+		if ( s_nSELayoutDump < 3 )
+		{
+			FOR_EACH_LL( m_listVisiblePanels, i )
+			{
+				CUIPanel *pPanel = m_listVisiblePanels[ i ];
+				Warning( "SE_PORT_LAYOUT: %s w=%.1f h=%.1f children=%d\n", pPanel->GetID(),
+					pPanel->GetActualLayoutWidth(), pPanel->GetActualLayoutHeight(), pPanel->GetChildCount() );
+
+				for ( int c = 0; c < pPanel->GetChildCount() && c < 4; ++c )
+				{
+					IUIPanel *pChild = pPanel->GetChild( c );
+					Warning( "SE_PORT_LAYOUT:   child %d %s w=%.1f h=%.1f children=%d\n", c, pChild->GetID(),
+						pChild->GetActualLayoutWidth(), pChild->GetActualLayoutHeight(), pChild->GetChildCount() );
+				}
+			}
+			s_nSELayoutDump++;
+		}
 	}
 
 	// Let image loader run frame

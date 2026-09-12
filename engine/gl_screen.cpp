@@ -297,6 +297,9 @@ void SCR_UpdateScreen( void )
 #ifdef PANORAMA_ENABLE
 	if ( PanoramaEngineHandler().IsPanoramaEnabled() )
 	{
+		// BeginFrame/EndFrame only reset the panorama render state - the windows themselves are drawn
+		// for any other slot (see CPanoramaEngineHandler::PanoramaRenderFrame), so ask for one here too.
+		PanoramaEngineHandler().PanoramaRenderFrame( k_EPanoramaSlotFrontEnd );
 		PanoramaEngineHandler().PanoramaRenderFrame( k_EPanoramaSlotEndFrame );
 	}
 #endif

@@ -1214,19 +1214,27 @@ void CResourceSystem::PreloadResources(bool bFromZip)
 
 		if ( !g_pFullFileSystem->ReadFile( pZipName, NULL, buf ) )
 		{
-			Error( "Resource %s failed to load.\n", pZipName );
+			// SE port: the packaged panorama JS (code.pbin) ships with CS:GO's depot, and this port runs
+			// without any retail content on purpose.  Plain XML layouts do not need the JS layer, so a
+			// missing package is a warning instead of CS:GO's fatal error.
+			Warning( "panorama: %s not found - continuing without the packaged JS layer.\n", pZipName );
+			return;
 		}
 
 		if ( !g_pfnPanoramaResourceFileIntegrityCheck )
 		{
-			Error( "Resource %s parser is not configured.\n", pZipName );
+			Warning( "panorama: %s integrity check is not configured - skipping the packaged JS layer.\n", pZipName );
+			return;
 		}
 
 		void *pvResourceFileData = NULL;
 		int numResourceFileBytes = 0;
 		if ( !(*g_pfnPanoramaResourceFileIntegrityCheck)( buf, pvResourceFileData, numResourceFileBytes ) )
 		{
-			Error( "Resource %s has invalid data.\n", pZipName );
+			// Signed-package verification is a stub in this port (PANORAMA_HAVE_SIGNED_PACKS), so a failure
+			// here means "cannot verify", not "corrupt": carry on without the JS layer as well.
+			Warning( "panorama: %s could not be verified - continuing without the packaged JS layer.\n", pZipName );
+			return;
 		}
 
 		IZip* pZip = IZip::CreateZip();

@@ -2268,7 +2268,11 @@ public:
 		m_parser->UserData = this;
 
 		// parse buffer
-		bool bRet = (XMLParser_Parse( m_parser, cstream, this, (XMLCH *)"UTF-8" ) != XML_OK);
+		// SE port: this tree ships its own libparsifal implementation (panorama/thirdparty/
+		// libparsifal-0.8.3), and it follows the documented constants: XMLParser_Parse() returns
+		// XML_OK on a parse that ran to completion and a non-zero ERR_XMLP_* code when the document
+		// was malformed or a handler aborted.  Treat XML_OK as success.
+		bool bRet = (XMLParser_Parse( m_parser, cstream, this, (XMLCH *)"UTF-8" ) == XML_OK);
 
 		// the layout file will own the allocated memory
 		if ( bRet )

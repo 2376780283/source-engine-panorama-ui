@@ -82,6 +82,11 @@ public:
 	bool IsIdxValid( I i ) const;
 	static I InvalidIndex() { return ( I )-1; }
 
+	// SE port: CS:GO-era tier1 code (panorama_s1wrapper/tier1/utlrbtree.h) instantiates
+	// CUtlLinkedList with this memory class, and that class' COMPILE_TIME_ASSERT wants the constant
+	// form of the invalid index (the way CUtlMemory declares it).
+	static const I INVALID_INDEX = ( I )-1;
+
 	void Swap( CUtlBlockMemory< T, I > &mem );
 
 	// Size

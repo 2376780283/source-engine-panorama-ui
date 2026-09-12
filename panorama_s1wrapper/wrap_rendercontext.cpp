@@ -252,7 +252,7 @@ int				CRenderContext::m_nScissorRects = 0;
 ResourceData_t	CRenderContext::m_backBufferResourceData = { 0, RESOURCE_TYPE_BACKBUFFER };
 HRenderTexture	CRenderContext::m_hCurrentRT = &CRenderContext::m_backBufferResourceData;
 
-void CRenderContext::UpdateMaterial()
+bool CRenderContext::UpdateMaterial()
 {
 	// Decide which material we'll use
 
@@ -265,22 +265,49 @@ void CRenderContext::UpdateMaterial()
 		m_pMaterial = m_apFancyMaterial[m_blendState];
 	}
 
+	// SE port: the "panorama" / "panoramafancy" shaders are CS:GO stdshader classes that have not
+	// been ported to this tree yet, so CreateMaterial() hands us its error material and
+	// "$renderattr" does not exist on it.  Bail out here instead of dereferencing a NULL
+	// IMaterialVar (the old Assert() was compiled out in release builds -> hard crash).
+	if ( !m_pMaterial || m_pMaterial->IsErrorMaterial() )
+	{
+		static bool bWarnedOnce = false;
+		if ( !bWarnedOnce )
+		{
+			bWarnedOnce = true;
+			Warning( "Panorama: the 'panorama'/'panoramafancy' shaders are not compiled into this "
+					 "stdshader_dx9.dll yet - panorama draws are skipped, the game keeps running.\n" );
+		}
+
+		m_pMaterial = NULL;
+		return false;
+	}
+
 	// Set the $renderattr
 	
 	bool bFound = false;
 	IMaterialVar *pVar = m_pMaterial->FindVar( "$renderattr", &bFound );
-	Assert( bFound );
+	if ( !bFound || !pVar )
+	{
+		m_pMaterial = NULL;
+		return false;
+	}
+
 #ifdef PLATFORM_64BITS
 	intptr_t val = (intptr_t)m_pAttr;
 	pVar->SetIntValue( val & 0xffffffff );
 	
 	bFound = false;
 	pVar = m_pMaterial->FindVar( "$renderattr_high", &bFound );
-	Assert( bFound );
-	pVar->SetIntValue( ( val >> 32 ) & 0xffffffff );
+	if ( bFound && pVar )
+	{
+		pVar->SetIntValue( ( val >> 32 ) & 0xffffffff );
+	}
 #else
 	pVar->SetIntValue( uintp( m_pAttr ) );
 #endif
+
+	return true;
 }
 
 
@@ -288,8 +315,21 @@ void CRenderContext::CtxDraw( RenderPrimitiveType_t type, int nFirstVertex, int 
 {
 	if ( type != RENDER_PRIM_TRIANGLES ) Error( "Panorama : Invalid prim type\n" );
 
+	// SE port (bring-up aid): is panorama reaching the draw path at all?
+	{
+		static int s_nSECtxDrawLogged = 0;
+		if ( s_nSECtxDrawLogged < 8 )
+		{
+			Warning( "SE_PORT_DRAW: CtxDraw verts=%d panMaterial=%d blend=%d material=%p\n",
+				nVertexCount, m_nPanMaterial, (int)m_blendState, (void*)m_pMaterial );
+			s_nSECtxDrawLogged++;
+		}
+	}
+
 	// Update material ( anything we push via the material rather than src1 context e.g. blendstate)
-	UpdateMaterial();
+	if ( !UpdateMaterial() )
+		return;
+
 	m_pMatRenderContext->Bind( m_pMaterial, NULL );
 
 	// Finalise mesh building

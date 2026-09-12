@@ -1,0 +1,6 @@
+// Minimal particle manifest for the panorama test mod.
+// CParticleMgr::Init() only Warn()s when this is missing, but shipping it
+// keeps the log clean.
+"particles_manifest"
+{
+}

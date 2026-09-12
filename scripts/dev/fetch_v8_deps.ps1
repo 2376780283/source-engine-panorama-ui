@@ -47,18 +47,35 @@ if (Test-Path $extract) { Remove-Item -Recurse -Force $extract }
 Write-Host "expand  $nupkg"
 [System.IO.Compression.ZipFile]::ExtractToDirectory($nupkg, $extract)
 
-$inc = Join-Path $Root 'external\v8\include'
-if (Test-Path $inc) { Remove-Item -Recurse -Force $inc }
-New-Item -ItemType Directory -Force -Path $inc | Out-Null
-Copy-Item -Recurse -Force (Join-Path $extract 'build\build\include\*') $inc
-Write-Host ("headers -> " + $inc)
-
+# Libs first: a package without binaries must fail before anything is replaced on disk (the x64
+# package of 7.3.492 is a 0.2 MB stub with neither libs nor a usable include set).
 $libSrc = Join-Path $extract "build\build\native\lib\win\$Arch\win-$Arch-release"
 $libDst = Join-Path $Root "external\v8\lib\win\$Arch"
 New-Item -ItemType Directory -Force -Path $libDst | Out-Null
 foreach ($l in @('v8_monolith.lib', 'v8_libbase.lib', 'v8_libplatform.lib')) {
-    Copy-Item -Force (Join-Path $libSrc $l) (Join-Path $libDst $l)
-    Write-Host ("lib     -> " + (Join-Path $libDst $l))
+    # The layout inside the .nupkg differs between the x86 and x64 packages, so locate the lib
+    # instead of trusting $libSrc.
+    $hit = Get-ChildItem -Path $extract -Recurse -Filter $l -File -ErrorAction SilentlyContinue | Select-Object -First 1
+    if (-not $hit) { throw ($l + ' not found inside ' + $extract) }
+    Copy-Item -Force $hit.FullName (Join-Path $libDst $l)
+    Write-Host ("lib     -> " + (Join-Path $libDst $l) + "   (from " + $hit.FullName.Substring($extract.Length + 1) + ")")
+}
+
+# The v8 headers in this tree are tracked by git and carry the port's 6.x compatibility shims, so the
+# package headers are only used to bootstrap a fresh checkout - never to replace what is already there
+# (the 7.3.492 packages do not even ship v8-debug.h, which panorama/uiengine.h still includes).
+$incSrc = Join-Path $extract 'build\build\include'
+$inc = Join-Path $Root 'external\v8\include'
+if (Test-Path (Join-Path $inc 'v8.h')) {
+    Write-Host ("headers kept: " + $inc + " already has v8.h (tracked, with the port's shims)")
+}
+elseif (Test-Path (Join-Path $incSrc 'v8.h')) {
+    New-Item -ItemType Directory -Force -Path $inc | Out-Null
+    Copy-Item -Recurse -Force (Join-Path $incSrc '*') $inc
+    Write-Host ("headers -> " + $inc)
+}
+else {
+    Write-Host ("headers skipped: neither " + $inc + " nor " + $incSrc + " has v8.h")
 }
 
 # ---------- 2. icudtl.dat (Electron of the matching Chromium milestone) ----------

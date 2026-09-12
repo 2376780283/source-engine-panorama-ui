@@ -26,6 +26,8 @@
 
 using namespace panorama;
 
+// SE port (temporary bring-up probe): the process exits silently while the UI engine is being set up,
+// and Warning() output is lost with it, so these probes append straight to a file.
 CSteamAPIContext steamAPIContext;
 
 struct ImageInfo_t
@@ -618,10 +620,12 @@ bool CSource2UIFileSystem::LoadFileIntoBuffer( const char *pchFile, CUtlBuffer &
 			g_pResourceSystem->DestroyResourceManifest( hResourceManifest );
 		}
 
+		Warning( "Panorama resource '%s' failed to load\n", filenameString.Get() );
 		return bSuccess;
 	}
 	else
 	{
+		Warning( "Panorama resource '%s' is not a panorama resource type - reading it directly\n", filenameString.Get() );
 		((CUIEngineSource2*)UIEngine())->MonitorFileForChanges( pchFile, fileChangeCallback );
 	}
 
@@ -720,12 +724,23 @@ bool CUIEngineSource2::StartupSubsystems( IUISettings *pSettings, PlatWindow_t h
 	g_pRenderDeviceMgr->AddDeviceEventListener( this );
 
 	if ( !CUIEngine::StartupSubsystems( pSettings, hWindow ) )
+	{
 		return false;
+	}
 
     if ( !steamAPIContext.SteamHTMLSurface() )
-        return false;
-    
-    steamAPIContext.SteamHTMLSurface()->Init();
+    {
+        // SE port: CS:GO bails out here because its html panels need Steam's browser surface.  This
+        // port runs against the stub Steam API, and everything below this point (the resource type
+        // managers for layouts/styles/scripts) is what makes layouts load at all - without them the
+        // mod's own file://{resources}/layout/... cannot be resolved.  So a missing browser only
+        // disables html panels.
+        Warning( "panorama: Steam HTML surface unavailable - html panels are disabled\n" );
+    }
+    else
+    {
+        steamAPIContext.SteamHTMLSurface()->Init();
+    }
 
 // 7ls	
 //	if ( g_pApplication->IsInToolsMode() )

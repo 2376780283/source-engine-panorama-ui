@@ -8,8 +8,16 @@
 // NOTE (SE port): CS:GO included "uienginewin32.h" here, which drags in D3D10/D2D/OpenVR
 // (that is one of the reasons the win32 text files are $ExcludedFromBuild in panorama.vpc).
 // This TU does not reference any symbol from it.
+#if defined( PANORAMA_SE_CPU_TEXT )
+// SE port: only the font *package* loaders are dropped (they need protobuf-generated sources that
+// this tree does not have - see PANORAMA_SE_CPU_TEXT in panorama/wscript), and the Direct2D renderer
+// header stays out too (it pulls D3D10/D2D types and CS:GO's container set into this TU).  What the
+// CPU path needs instead - the drawing effect - comes from the backend's own header.
+#include "seport/se_dwrite_cpu_text.h"
+#else
 #include "uifontfileloaderwin32.h"
 #include "renderer/dwritetextrenderer.h"
+#endif
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include <tier0/memdbgon.h>
@@ -20,7 +28,9 @@ using namespace panorama;
 IDWriteFactory *CUITextLayoutWin32::s_pDWriteFactory = NULL;
 IDWriteFontCollection *CUITextLayoutWin32::s_pCustomFontCollection = NULL;
 
-CUtlSortVector< CUtlString > CUITextLayoutWin32::m_vecSortedValidFontNames( DefLessFuncCtx( CUtlString ) );
+// SE port: this tree's CUtlSortVector takes no less-context functor (CS:GO's constructor took
+// DefLessFuncCtx(...)), and the default CUtlString comparison is what CS:GO's context compared with.
+CUtlSortVector< CUtlString > CUITextLayoutWin32::m_vecSortedValidFontNames;
 
 
 //-----------------------------------------------------------------------------
@@ -77,9 +87,61 @@ DWRITE_FONT_WEIGHT GetDWriteFontWeight( EFontWeight eFontWeight )
 
 
 //-----------------------------------------------------------------------------
+// Purpose: SE port helper - this tree has no UCS-4 converter, so UCS-4 text (which the panorama
+//			layout/style files never use) is turned into UTF-8 here.
+//-----------------------------------------------------------------------------
+static void SEConvertUCS4ToUTF8( const uchar32 *pchUCS4, CUtlVector< char > &vecOut )
+{
+	vecOut.RemoveAll();
+
+	if ( pchUCS4 )
+	{
+		for ( ; *pchUCS4 != 0; ++pchUCS4 )
+		{
+			uint32 unChar = (uint32)*pchUCS4;
+			char rgchEncoded[4];
+			int nBytes = 0;
+
+			if ( unChar < 0x80 )
+			{
+				rgchEncoded[0] = (char)unChar;
+				nBytes = 1;
+			}
+			else if ( unChar < 0x800 )
+			{
+				rgchEncoded[0] = (char)( 0xC0 | ( unChar >> 6 ) );
+				rgchEncoded[1] = (char)( 0x80 | ( unChar & 0x3F ) );
+				nBytes = 2;
+			}
+			else if ( unChar < 0x10000 )
+			{
+				rgchEncoded[0] = (char)( 0xE0 | ( unChar >> 12 ) );
+				rgchEncoded[1] = (char)( 0x80 | ( ( unChar >> 6 ) & 0x3F ) );
+				rgchEncoded[2] = (char)( 0x80 | ( unChar & 0x3F ) );
+				nBytes = 3;
+			}
+			else
+			{
+				rgchEncoded[0] = (char)( 0xF0 | ( unChar >> 18 ) );
+				rgchEncoded[1] = (char)( 0x80 | ( ( unChar >> 12 ) & 0x3F ) );
+				rgchEncoded[2] = (char)( 0x80 | ( ( unChar >> 6 ) & 0x3F ) );
+				rgchEncoded[3] = (char)( 0x80 | ( unChar & 0x3F ) );
+				nBytes = 4;
+			}
+
+			for ( int i = 0; i < nBytes; ++i )
+				vecOut.AddToTail( rgchEncoded[i] );
+		}
+	}
+
+	vecOut.AddToTail( '\0' );
+}
+
+
+//-----------------------------------------------------------------------------
 // Purpose: Helper to create a DWrite text range
 //-----------------------------------------------------------------------------
-DWRITE_TEXT_RANGE GetDWriteTextRange( uint unCharStartIndex, uint unCharEndIndex )
+DWRITE_TEXT_RANGE CUITextLayoutWin32::GetDWriteTextRange( uint unCharStartIndex, uint unCharEndIndex )
 {
 	if ( unCharStartIndex > unCharEndIndex )
 		std::swap( unCharStartIndex, unCharEndIndex );
@@ -295,6 +357,28 @@ bool CUITextLayoutWin32::BInitGlobals()
 	VPROF_BUDGET( "CUITextLayoutWin32::BInitGlobals()", VPROF_BUDGETGROUP_TENFOOT );
 	if ( s_pDWriteFactory == NULL )
 	{
+#if defined( PANORAMA_SE_CPU_TEXT )
+		// SE port: g_DWriteCreateFactory is set up by CUIEngineWin32::BInitialize(), which is the
+		// Source 1 backend this port does not use, so DWrite is loaded here directly.
+		typedef HRESULT ( WINAPI *tDWriteCreateFactoryFn )( DWRITE_FACTORY_TYPE factoryType, REFIID iid, IUnknown **factory );
+
+		static HMODULE hModDWrite = LoadLibraryA( "DWrite.dll" );
+		if ( !hModDWrite )
+		{
+			Warning( "CUITextLayoutWin32::BInitGlobals(): DWrite.dll is not available\n" );
+			return false;
+		}
+
+		tDWriteCreateFactoryFn pfnDWriteCreateFactory = (tDWriteCreateFactoryFn)GetProcAddress( hModDWrite, "DWriteCreateFactory" );
+		if ( !pfnDWriteCreateFactory )
+			return false;
+
+		if ( FAILED( pfnDWriteCreateFactory( DWRITE_FACTORY_TYPE_SHARED, __uuidof(IDWriteFactory), (IUnknown **)&s_pDWriteFactory ) ) )
+		{
+			s_pDWriteFactory = NULL;
+			return false;
+		}
+#else
 		if ( FAILED( g_DWriteCreateFactory( DWRITE_FACTORY_TYPE_SHARED, __uuidof(IDWriteFactory), (IUnknown **)&s_pDWriteFactory ) ) )
 		{
 			s_pDWriteFactory = NULL;
@@ -304,6 +388,7 @@ bool CUITextLayoutWin32::BInitGlobals()
 		// Singleton instance
 		UIFontCollectionLoader::SetInstance( new UIFontCollectionLoader() );
 		UIFontFileLoader::SetInstance( new UIFontFileLoader() );
+#endif
 	}
 	return true;
 }
@@ -316,6 +401,14 @@ bool CUITextLayoutWin32::BLoadCustomFontCollection( const char *pchPathForCustom
 {
 	CUITextLayoutWin32::BInitGlobals();
 
+#if defined( PANORAMA_SE_CPU_TEXT )
+	// SE port: custom font collections come out of CS:GO's encrypted font *packages*, which are
+	// implemented by uifontfileloaderwin32.cpp + steamextra/common/uifontfile.cpp (protobuf
+	// generated sources that this tree does not have).  System fonts keep working.
+	Warning( "CUITextLayoutWin32::BLoadCustomFontCollection( \"%s\" ): custom font collections are not "
+			 "supported by this build; using the system font collection.\n", pchPathForCustomFonts ? pchPathForCustomFonts : "?" );
+	return false;
+#else
 	DbgVerify( SUCCEEDED( s_pDWriteFactory->RegisterFontFileLoader( UIFontFileLoader::GetLoader() ) ) );
 	DbgVerify( SUCCEEDED( s_pDWriteFactory->RegisterFontCollectionLoader( UIFontCollectionLoader::GetLoader() ) ) );
 
@@ -332,12 +425,16 @@ bool CUITextLayoutWin32::BLoadCustomFontCollection( const char *pchPathForCustom
 		s_pCustomFontCollection = NULL;
 		return false;
 	}
+#endif // PANORAMA_SE_CPU_TEXT
 }
 
 
 //-----------------------------------------------------------------------------
 // Purpose: Calculates the dimenions and character offsets for clipping text
 //-----------------------------------------------------------------------------
+#if !defined( PANORAMA_SE_CPU_TEXT )
+// SE port: only the Direct2D draw path clipped against the line metrics, so this (and
+// CalculatedTextClip_t, which lives in renderer/dwritetextrenderer.h) is not compiled here.
 bool BCalculateTextClip( CalculatedTextClip_t *pResults, IDWriteTextLayout *pDWriteLayout, float flClipHeight )
 {
 	VPROF_BUDGET( "BCalculateTextClip", VPROF_BUDGETGROUP_STEAMUI );
@@ -407,6 +504,7 @@ bool BCalculateTextClip( CalculatedTextClip_t *pResults, IDWriteTextLayout *pDWr
 
 	return true;
 }
+#endif // PANORAMA_SE_CPU_TEXT
 
 
 //-----------------------------------------------------------------------------
@@ -414,6 +512,14 @@ bool BCalculateTextClip( CalculatedTextClip_t *pResults, IDWriteTextLayout *pDWr
 //-----------------------------------------------------------------------------
 bool CUITextLayoutWin32::BDraw( CUtlVector<UITextOpacityMaskDataRange_t> &drawRanges, const UITextFormatProperties_t *pFormatProps, int cFormatProps, IUITextTextureStorage *pStorage, float flHeight, void *pRenderContext )
 {
+#if defined( PANORAMA_SE_CPU_TEXT )
+	// SE port: rasterise straight into the surface's text atlas instead of going through the
+	// Direct2D render target the CS:GO renderer expects (see seport/se_dwrite_cpu_text.cpp).
+	NOTE_UNUSED( pFormatProps );
+	NOTE_UNUSED( cFormatProps );
+	NOTE_UNUSED( pRenderContext );
+	return SEDrawTextLayoutToAlphaMasks( this, drawRanges, flHeight, pStorage );
+#else
 	CalculatedTextClip_t textClip;
 	if ( !BCalculateTextClip( &textClip, GetDWriteTextLayout(), flHeight ) )
 	{
@@ -438,6 +544,7 @@ bool CUITextLayoutWin32::BDraw( CUtlVector<UITextOpacityMaskDataRange_t> &drawRa
 		Assert( SUCCEEDED( hr ) );
 	}
 	return true;
+#endif // PANORAMA_SE_CPU_TEXT
 }
 
 
@@ -450,10 +557,12 @@ void CUITextLayoutWin32::FreeGlobals()
 	{
 		SAFE_RELEASE( s_pCustomFontCollection );
 
+#if !defined( PANORAMA_SE_CPU_TEXT )
 		s_pDWriteFactory->UnregisterFontCollectionLoader( UIFontCollectionLoader::GetLoader() );
 		s_pDWriteFactory->UnregisterFontFileLoader( UIFontFileLoader::GetLoader() );
 		UIFontCollectionLoader::ReleaseInstance();
 		UIFontFileLoader::ReleaseInstance();
+#endif
 	}
 
 	SAFE_RELEASE( s_pDWriteFactory );
@@ -476,6 +585,11 @@ const CUtlSortVector< CUtlString > &CUITextLayoutWin32::GetSortedValidFontNames(
 		for( int iCollection=0; iCollection < V_ARRAYSIZE( rgFontCollections ); ++iCollection )
 		{
 			IDWriteFontCollection *pFontCollection = rgFontCollections[iCollection];
+
+			// SE port: with PANORAMA_SE_CPU_TEXT there is no custom collection (custom font
+			// packages are not supported by this build), so the entry stays NULL.
+			if ( !pFontCollection )
+				continue;
 
 			UINT32 familyCount = pFontCollection->GetFontFamilyCount();
 			for ( UINT32 i = 0; i < familyCount; ++i )
@@ -514,7 +628,7 @@ const CUtlSortVector< CUtlString > &CUITextLayoutWin32::GetSortedValidFontNames(
 								if ( SUCCEEDED( hres ) )
 								{
 									CStrAutoEncode strEncode( pwchName );
-									m_vecSortedValidFontNames.Insert( CUtlString( strEncode.ToUTF8() ) );
+									m_vecSortedValidFontNames.Insert( CUtlString( strEncode.ToString() ) );
 								}
 								delete[] pwchName;
 							}
@@ -567,21 +681,28 @@ bool CUITextLayoutWin32::BInitialize( const void *pRawText, int cbRawText, int c
 
 	Assert( pLayoutMetrics == nullptr );
 
-	CStrAutoEncode strEncode( "" );
+	// SE port: Source Engine's CStrAutoEncode has no Set()/ToUTF16() - it is constructed from the
+	// string it converts, and this tree has no UCS-4 helper on it either, so UCS-4 text is turned
+	// into UTF-8 first and the converter is built from that (it has to outlive the conversion).
+	CUtlVector< char > vecUTF8Text;
+	if ( eTextEncoding == k_EPanoramaTextEncodingUChar32 )
+	{
+		SEConvertUCS4ToUTF8( (const uchar32 *)pRawText, vecUTF8Text );
+	}
+
+	CStrAutoEncode strEncode( ( eTextEncoding == k_EPanoramaTextEncodingUChar32 ) ? vecUTF8Text.Base() : (const char *)pRawText );
 	const wchar_t *pwchText;
 
 	switch( eTextEncoding )
 	{
 	case k_EPanoramaTextEncodingUTF8:
-		strEncode.Set( (const char*)pRawText );
-		pwchText = strEncode.ToUTF16();
+		pwchText = strEncode.ToWString();
 		break;
 	case k_EPanoramaTextEncodingUChar16:
 		pwchText = (const wchar_t*)pRawText;
 		break;
 	case k_EPanoramaTextEncodingUChar32:
-		strEncode.Set( (const uchar32*)pRawText );
-		pwchText = strEncode.ToUTF16();
+		pwchText = strEncode.ToWString();
 		break;
 	default:
 		AssertMsg( false, "Unknown text encoding" );
@@ -911,7 +1032,11 @@ void CUITextLayoutWin32::MarkColorRangeForMeasurement( uint32 unCharStartIndex, 
 	if ( !m_pTextLayout )
 		return;
 
+#if defined( PANORAMA_SE_CPU_TEXT )
+	CSECTextDrawingEffect *pEffect = new CSECTextDrawingEffect( iColorIndex );
+#else
 	CTextDrawingEffect *pEffect = new CTextDrawingEffect( iColorIndex );
+#endif
 	DWRITE_TEXT_RANGE dwRange = GetDWriteTextRange( unCharStartIndex, unCharEndIndex );
 	HRESULT hr = m_pTextLayout->SetDrawingEffect( pEffect, dwRange );
 	Assert( SUCCEEDED( hr ) );
@@ -967,7 +1092,7 @@ uint32 CUITextLayoutWin32::LayoutWCharIndexToCharIndex( uint32 unWCharIndex )
 uint32 CUITextLayoutWin32::CharIndexToLayoutWCharIndex( uint32 unCharIndex )
 {
 	const wchar_t *pwch = m_vecLayoutText16.Base();
-	if ( !pwch || pwch[0] == 0 || unWCharIndex == 0 )
+	if ( !pwch || pwch[0] == 0 || unCharIndex == 0 )
 		return 0;
 
 #ifdef DBGFLAG_ASSERT

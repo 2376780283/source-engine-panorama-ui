@@ -1124,6 +1124,9 @@ int CUIRenderEngine::CUIAnimationThread::Run()
 //-----------------------------------------------------------------------------
 void CUIRenderEngine::CUIAnimationThread::RunSingleFrame()
 {
+	// SE port (bring-up aid): is the paint thread feeding us anything?
+	static int s_nSEAnimLogged = 0;
+
 	VPROF_BUDGET_THREAD( "Animation Thread Outer", VPROF_BUDGETGROUP_TENFOOT );
 	VPROF_BUDGET( "Panorama Animation RunSingleFrame", VPROF_BUDGETGROUP_GAME );
 
@@ -1167,6 +1170,12 @@ void CUIRenderEngine::CUIAnimationThread::RunSingleFrame()
 
 		if ( m_pRenderEngine->m_pCurrentAnimationList )
 		{
+			if ( s_nSEAnimLogged < 6 )
+			{
+				Warning( "SE_PORT_ANIM: animation list ready (queue=%d)\n", m_pRenderEngine->m_paintListsQueue.Count() );
+				s_nSEAnimLogged++;
+			}
+
 			RenderCommandList_t *pAnimList = m_pRenderEngine->m_pCurrentAnimationList;
 
 			pRenderListOut = new RenderCommandList_t();
@@ -1544,6 +1553,9 @@ void CUIRenderEngine::CUIRenderThread::RunSingleFrame()
 		pProfile->MarkFrame( "Tenfoot Render Thread" );
 #endif
 
+	// SE port (bring-up aid): is the render thread getting a command list?
+	static int s_nSERenderLogged = 0;
+
 	EndFrameRenderCommand_t *pEndFrameCommand = nullptr;
 	VPROF_BUDGET_THREAD( "Render Msg Loop Outer", VPROF_BUDGETGROUP_TENFOOT );
 	VPROF_BUDGET( "Panorama Render RunSingleFrame", VPROF_BUDGETGROUP_GAME );
@@ -1553,6 +1565,12 @@ void CUIRenderEngine::CUIRenderThread::RunSingleFrame()
 
 		if ( m_pRenderEngine->m_pCurrentRenderList )
 		{
+			if ( s_nSERenderLogged < 6 )
+			{
+				Warning( "SE_PORT_RENDERTHREAD: render list present\n" );
+				s_nSERenderLogged++;
+			}
+
 			VPROF_BUDGET_THREAD( "Render Msg Loop", VPROF_BUDGETGROUP_TENFOOT );
 			RenderCommandList_t *pRenderList = m_pRenderEngine->m_pCurrentRenderList;
 			pRenderList->m_unRenderCount++;

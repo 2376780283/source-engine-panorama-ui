@@ -30,6 +30,10 @@ public:
 	static bool BInitGlobals();
 	static void FreeGlobals();
 
+	// SE port: the CPU rasteriser (seport/se_dwrite_cpu_text.cpp) needs the factory that
+	// BInitGlobals() creates; CS:GO's D2D renderer got it through its surface instead.
+	static IDWriteFactory *GetDWriteFactory() { return s_pDWriteFactory; }
+
 	static bool BLoadCustomFontCollection( const char *pchPathForCustomFonts );
 
 	bool BInitialize( const void *pRawText, int cbRawText, int cTextChars, EPanoramaTextEncoding eTextEncoding, const IUITextServices::TextLayoutParams_t *pParams, UITextLayoutFontMetrics_t *pLayoutMetrics );
@@ -64,6 +68,10 @@ public:
 private:
 	uint32 CharIndexToLayoutWCharIndex( uint32 unCharIndex );
 	uint32 LayoutWCharIndexToCharIndex( uint32 unWCharIndex );
+
+	// SE port: CS:GO had this as a free helper that called a global index conversion; the
+	// conversion needs m_vecLayoutText16, so it is a member here.
+	DWRITE_TEXT_RANGE GetDWriteTextRange( uint unCharStartIndex, uint unCharEndIndex );
 
 	static CUtlSortVector< CUtlString > m_vecSortedValidFontNames;
 	static IDWriteFactory *s_pDWriteFactory;

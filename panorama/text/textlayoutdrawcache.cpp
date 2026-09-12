@@ -5,7 +5,13 @@
 
 #include "stdafx.h"
 #include "textlayoutdrawcache.h"
+#if !defined( PANORAMA_SE_CPU_TEXT )
+// SE port: Source Engine's public/vstdlib/jobthread.h does not compile in this translation unit
+// (its `virtual void Yield( unsigned )` member trips over a `Yield` macro that is visible here), and
+// the port's text backend draws synchronously so no CJob is ever created - textlayoutdrawcache.h
+// already forward declares CJob for the (guarded) pending-job member.
 #include "jobthread.h"
+#endif
 
 using namespace panorama;
 
@@ -200,10 +206,16 @@ UITextOpacityMaskData_t *CTextLayoutDrawCache::GetTextOpacityMask( const void *p
 
 		if( pCacheEntry->m_pPendingDrawJob )
 		{
+#if defined( PANORAMA_SE_CPU_TEXT )
+			// SE port: no async draw jobs (see GetTextOpacityMaskAsync) - unreachable, and the job
+			// interface is not available in this build.
+			Assert( false );
+#else
 			// Block until drawing job completes
 			m_pTextServices->BDrawComplete( pCacheEntry->m_pPendingDrawJob, pCacheEntry->m_textOpacityMaskData, m_pTextureStorage, true );
 			pCacheEntry->m_pPendingDrawJob->Release();
 			pCacheEntry->m_pPendingDrawJob = NULL;
+#endif
 		}
 	}
 	else
@@ -286,28 +298,19 @@ UITextOpacityMaskData_t *CTextLayoutDrawCache::GetTextOpacityMask( const void *p
 //-----------------------------------------------------------------------------
 void CTextLayoutDrawCache::GetTextOpacityMaskAsync( const void *pRawText, int cbRawText, int cTextChars, EPanoramaTextEncoding eTextEncoding, const char *pchFontName, UITextLayoutProperties_t *pProps, const char **pchRangeFontNames, float flUsageTime )
 {
-	AUTO_LOCK( s_drawCacheMutex );
-
-	CacheEntry_t *pCacheEntry = LookupCacheEntry( pProps );
-
-	if( !pCacheEntry )
-	{
-		VPROF_BUDGET_THREAD( "CTextLayoutDrawCache::GetTextOpacityMaskAsync - miss", VPROF_BUDGETGROUP_TENFOOT );
-
-		pCacheEntry = AddCacheEntry( pProps, flUsageTime );
-		UITextLayoutProperties_t *pKey = m_mapCacheEntries.Key( pCacheEntry->m_iMap );
-
-		// Kick off job to generate text bitmap
-		CJob* pDrawJob = m_pTextServices->BDrawAsync( pRawText, cbRawText, cTextChars, eTextEncoding, *pKey, pchFontName, pchRangeFontNames, m_pTextureStorage );
-		if( pDrawJob )
-		{
-			pCacheEntry->m_pPendingDrawJob = pDrawJob;
-		}
-		else
-		{
-			Warning( "Failed to create job to generate pango text ranges\n" );
-		}
-	}
+	// SE port: this path needs IUITextServices::BDrawAsync(), which CS:GO backed with a job
+	// system (pango backend).  The port's DirectWrite backend draws synchronously, so nothing is
+	// queued here: without a cache entry the render thread's GetTextOpacityMask() builds the
+	// mask itself on its next call.
+	REFERENCE( pRawText );
+	REFERENCE( cbRawText );
+	REFERENCE( cTextChars );
+	REFERENCE( eTextEncoding );
+	REFERENCE( pchFontName );
+	REFERENCE( pProps );
+	REFERENCE( pchRangeFontNames );
+	REFERENCE( flUsageTime );
+	return;
 }
 
 //-----------------------------------------------------------------------------
@@ -364,9 +367,14 @@ void CTextLayoutDrawCache::DeleteOldestEntry()
 	UITextOpacityMaskData_t &data = pCacheEntry->m_textOpacityMaskData;
 	if( pCacheEntry->m_pPendingDrawJob )
 	{
+#if defined( PANORAMA_SE_CPU_TEXT )
+		// SE port: no async draw jobs in this build (see GetTextOpacityMaskAsync).
+		Assert( false );
+#else
 		pCacheEntry->m_pPendingDrawJob->WaitForFinish();
 		pCacheEntry->m_pPendingDrawJob->Release();
 		pCacheEntry->m_pPendingDrawJob = NULL;
+#endif
 	}
 	if( data.m_pRangeData )
 	{

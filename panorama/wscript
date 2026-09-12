@@ -12,6 +12,15 @@ def configure(conf):
 	return
 
 def build(bld):
+	# Panorama hosts V8, and the only prebuilt V8 this tree can fetch for Windows is the x86 build
+	# (scripts/dev/fetch_v8_deps.ps1 -Arch x86; the NuGet x64 package for 7.3.492 ships no binaries),
+	# so the panorama projects are 32-bit only.  A 64-bit build skips them, and the engine reports the
+	# UI client module as unavailable and keeps running (see the check in Host_Init).
+	if bld.env.DEST_CPU in ('x86_64', 'amd64'):
+		from waflib import Logs
+		Logs.warn('panorama: skipped in 64-bit builds (no x64 prebuilt V8)')
+		return
+
 	source = [
 		# Batch 1: core top-level UI framework TUs (grown from panorama.vpc list)
 		'ctx_debug.cpp',
@@ -87,34 +96,30 @@ def build(bld):
 		'source2/imesource2.cpp',
 		'source2/renderer/source2surface.cpp',
 		'../public/filesystem_helpers.cpp',
-		# Batch 6: text - PARKED (see below), keep the DirectWrite files out of the build for now.
+		# Batch 6: text - the native DirectWrite backend, rasterised on the CPU.
 		#
 		# CS:GO's build compiles the pango backend unconditionally (text/uitextlayoutpango.cpp,
-		# uitextservicespango.cpp, uifontfileloaderlinux.cpp) which needs pango+glib+cairo+harfbuzz.
-		# CS:GO also keeps a native Windows/DirectWrite backend in-tree
-		# (text/uitextlayoutwin32.cpp, uitextserviceswin32.cpp, uifontfileloaderwin32.cpp,
-		# renderer/dwritetextrenderer.cpp) - all marked $ExcludedFromBuild - which needs no external
-		# lib, but has 4 blockers to clear first:
-		#   1. uifontfileloaderwin32.cpp pulls uienginewin32.h -> d3d10d2dsurface.h (D3D10/D2D/openvr)
-		#      and uitoplevelwindowoverlay.h (whose OVERRIDEs no longer match their interface) - 75+ errors
-		#   2. textlayoutdrawcache.h -> vstdlib/jobthread.h declares Yield() but the panorama build has
-		#      a `Yield` macro defined by then (C4002 + C2059)
-		#   3. steamextra/common/uifontfile.cpp encrypts font packages with OpenSSL AES (not in this tree;
-		#      PANORAMA_HAS_OPENSSL guard added, encrypted packages currently unsupported)
-		#   4. uitextserviceswin32.cpp expected CUIFontLoaderLinux (freetype/fontconfig) for single-file
-		#      font registration - patched to fail loudly; collections still work via DirectWrite
-		# text/texttexturecache.cpp and *pango/uifontfileloaderlinux* stay out until the backend is chosen.
-		# 'text/texttexturecache.cpp',
-		# 'text/textlayoutdrawcache.cpp',
-		# 'text/uitextlayoutwin32.cpp',
-		# 'text/uitextserviceswin32.cpp',
-		# 'text/uifontfileloaderwin32.cpp',
-		# 'renderer/dwritetextrenderer.cpp',
-		# 'steamextra/common/uifontfile.cpp',
-		# 'steamextra/common/uifontfile_format.pb.cc',
-		# 'text/uitextlayoutpango.cpp',        # pango backend
-		# 'text/uitextservicespango.cpp',      # pango backend
-		# 'text/uifontfileloaderlinux.cpp',    # freetype/fontconfig loader used by the pango services
+		# uitextservicespango.cpp, uifontfileloaderlinux.cpp), which needs pango+glib+cairo+harfbuzz -
+		# neither the sources nor their prebuilt import libraries exist in this tree.  CS:GO also keeps
+		# a native Windows/DirectWrite backend in-tree, but its draw path
+		# (renderer/dwritetextrenderer.cpp) paints into Direct2D render targets owned by
+		# CD3D10D2DSurface, i.e. the Source 2 D3D10 renderer - not the s1wrapper/materialsystem surface
+		# this port renders with.
+		#
+		# PANORAMA_SE_CPU_TEXT switches CUITextLayoutWin32::BDraw() over to
+		# seport/se_dwrite_cpu_text.cpp, which rasterises each glyph run with DirectWrite (ClearType,
+		# reduced to 8-bit coverage) and uploads the mask through IUITextTextureStorage - the same
+		# protocol the pango backend uses.  CUITextServicesWin32 is instantiated by
+		# CPanoramaUIEngine::Connect() (see the note there).
+		#
+		# Still out of the build: the pango backend, the Direct2D renderer (ditto above) and the font
+		# *package* loaders (text/uifontfileloaderwin32.cpp + steamextra/common/uifontfile.cpp,
+		# which need protobuf-generated sources this tree does not have).
+		'text/texttexturecache.cpp',
+		'text/textlayoutdrawcache.cpp',
+		'text/uitextlayoutwin32.cpp',
+		'text/uitextserviceswin32.cpp',
+		'seport/se_dwrite_cpu_text.cpp',
 	]
 
 	includes = [
@@ -168,6 +173,13 @@ def build(bld):
 		'PANORAMA_DISABLE_VIDEO',
 		# SE-era adaptions: SE tier0/platform.h already provides these helpers
 		'SE_PLATFORM_HAS_CONSTRUCT_HELPERS',
+		# The text backend: DirectWrite layout + CPU rasterisation of glyph masks.  Switches
+		# CUITextLayoutWin32::BDraw() to seport/se_dwrite_cpu_text.cpp and compiles the font-package
+		# / Direct2D code paths out (see the Batch 6 note above).
+		'PANORAMA_SE_CPU_TEXT',
+		# Panorama is drawn through the material system (panorama_vs30/ps30 shaders) rather than the
+		# raw D3D9 "PanDx" path CS:GO used; see the note on PANDX_DRAW in source2/renderer/source2surface.h.
+		'PANORAMA_SE_MATERIALSYSTEM_DRAW',
 	]
 
 	bld.stlib(

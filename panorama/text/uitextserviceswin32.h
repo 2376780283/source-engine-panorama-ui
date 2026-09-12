@@ -7,9 +7,10 @@
 #define UITEXTSERVICESWIN32_H
 
 #include "uitextlayoutwin32.h"
-// SE port: CThreadSafeClassMemoryPool lives in gcsdk/steamextra/tier1/tsmempool.h.
-// CS:GO's build picked it up through its text precompiled header; we include it explicitly.
-#include "tier1/tsmempool.h"
+// SE port: CS:GO pooled the text layouts with gcsdk's CThreadSafeClassMemoryPool
+// (gcsdk/steamextra/tier1/tsmempool.h).  Its implementation (tsmempool.cpp) does not compile against
+// Source Engine's tier0 headers, and layouts are short-lived objects created and freed on the render
+// thread, so they are allocated directly instead - see the SE port notes in uitextserviceswin32.cpp.
 
 namespace panorama
 {
@@ -38,9 +39,6 @@ public:
 
 	virtual IUITextLayoutDrawCache *CreateTextLayoutDrawCache( IUITextTextureStorage *pStorage ) OVERRIDE;
 	virtual void FreeTextLayoutDrawCache( IUITextLayoutDrawCache *pCache ) OVERRIDE;
-
-protected:
-	CThreadSafeClassMemoryPool< CUITextLayoutWin32 > m_poolTextLayout;
 };
 
 } // namespace panorama

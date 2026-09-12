@@ -180,6 +180,8 @@ void V_RenderVGuiOnly( void )
 #ifdef PANORAMA_ENABLE
 	if ( PanoramaEngineHandler().IsPanoramaEnabled() )
 	{
+		// Draw the panorama windows themselves (BeginFrame/EndFrame only reset the render state).
+		PanoramaEngineHandler().PanoramaRenderFrame( k_EPanoramaSlotFrontEnd );
 		PanoramaEngineHandler().PanoramaRenderFrame( k_EPanoramaSlotEndFrame );
 	}
 #endif

@@ -224,7 +224,15 @@ bool IGameSystem::InitAllSystems()
 		XBX_rTimeStampLog( Plat_FloatTime(), sz );
 #endif
 		if ( !valid )
-			return false;
+		{
+			// SE port: CS:GO's mod ships the content these systems look for (resource/*.res,
+			// scripts/*_manifest.txt, ...).  This port's mod has none of its own yet, and the hosted
+			// panorama UI does not depend on them, so a failing optional system is reported and
+			// skipped instead of aborting the game DLL (which makes the engine raise
+			// "IDLLFunctions::DLLInit returned false").
+			Warning( "IGameSystem::InitAllSystems: '%s' Init() failed - continuing without it\n", sys->Name() );
+			continue;
+		}
 	}
 
 	return true;

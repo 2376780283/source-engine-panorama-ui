@@ -4,43 +4,82 @@
 
 #if defined( DX_TO_GL_ABSTRACTION )
 #include "togl/rendermechanism.h"
+// SE port (temporary bring-up probe): the process exits silently while the UI engine is being set up,
+// and Warning() output is lost with it, so these probes append straight to a file.
 #endif
 
 #include "stdafx.h"
+// SE port (temporary bring-up probe): the process exits silently while the UI engine is being set up,
+// and Warning() output is lost with it, so these probes append straight to a file.
 
 #include "resourcesystem/iresourcesystem.h"
+// SE port (temporary bring-up probe): the process exits silently while the UI engine is being set up,
+// and Warning() output is lost with it, so these probes append straight to a file.
 
 // SE port: g_pIMEManager / g_pPanoramaUIEngine / panorama::g_IUITextServices and
 // SOUNDEMITTERSYSTEM_INTERFACE_VERSION are declared in interfaces/interfaces.h under PANORAMA_ENABLE
 // (CS:GO reached it through its own include chain).
 #include "interfaces/interfaces.h"
+// SE port (temporary bring-up probe): the process exits silently while the UI engine is being set up,
+// and Warning() output is lost with it, so these probes append straight to a file.
 
 #include "panorama/source2/ipanoramaui.h"
+// SE port (temporary bring-up probe): the process exits silently while the UI engine is being set up,
+// and Warning() output is lost with it, so these probes append straight to a file.
 #include "panoramauiengine.h"
+// SE port (temporary bring-up probe): the process exits silently while the UI engine is being set up,
+// and Warning() output is lost with it, so these probes append straight to a file.
 #include "inputsystem/InputEnums.h"
+// SE port (temporary bring-up probe): the process exits silently while the UI engine is being set up,
+// and Warning() output is lost with it, so these probes append straight to a file.
 #include "igameevents.h"
+// SE port (temporary bring-up probe): the process exits silently while the UI engine is being set up,
+// and Warning() output is lost with it, so these probes append straight to a file.
 
 #include "panorama/panorama.h"
+// SE port (temporary bring-up probe): the process exits silently while the UI engine is being set up,
+// and Warning() output is lost with it, so these probes append straight to a file.
 #include "panorama/iuiengine.h"
+// SE port (temporary bring-up probe): the process exits silently while the UI engine is being set up,
+// and Warning() output is lost with it, so these probes append straight to a file.
 #include "panorama/uijsregistration.h"
+// SE port (temporary bring-up probe): the process exits silently while the UI engine is being set up,
+// and Warning() output is lost with it, so these probes append straight to a file.
 #if defined( SOURCE2_PANORAMA )
 #include "uitoplevelwindowsource2.h"
+// SE port (temporary bring-up probe): the process exits silently while the UI engine is being set up,
+// and Warning() output is lost with it, so these probes append straight to a file.
+#endif
+#if defined( PANORAMA_SE_CPU_TEXT )
+#include "seport/se_dwrite_cpu_text.h"
+// SE port (temporary bring-up probe): the process exits silently while the UI engine is being set up,
+// and Warning() output is lost with it, so these probes append straight to a file.
 #endif
 #if defined( PANORAMA_USE_S1WRAPPER )
 #include "engine/IEngineSound.h"
+// SE port (temporary bring-up probe): the process exits silently while the UI engine is being set up,
+// and Warning() output is lost with it, so these probes append straight to a file.
 // There is a complete clustermess about how S1 engine can be accessed from panorama.dll
 // adding a few #defines to prevent including headers that cause compile errors, this is a total hack
 #define RESOURCESTREAM_H
 #define RESOURCEFILE_H
 #define RESOURCETYPE_H
 #include "cdll_int.h"
+// SE port (temporary bring-up probe): the process exits silently while the UI engine is being set up,
+// and Warning() output is lost with it, so these probes append straight to a file.
 #endif
 
 #include "iimemanager.h"
+// SE port (temporary bring-up probe): the process exits silently while the UI engine is being set up,
+// and Warning() output is lost with it, so these probes append straight to a file.
 #include "resourcesystem/iresourcesystem.h"
+// SE port (temporary bring-up probe): the process exits silently while the UI engine is being set up,
+// and Warning() output is lost with it, so these probes append straight to a file.
 
 // NOTE: This must be the last file included!!!
 #include "tier0/memdbgon.h"
+// SE port (temporary bring-up probe): the process exits silently while the UI engine is being set up,
+// and Warning() output is lost with it, so these probes append straight to a file.
 
 #if defined( DX_TO_GL_ABSTRACTION )
 // Placed here so inlines placed in dxabstract.h can access gGL
@@ -131,6 +170,20 @@ bool CPanoramaUIEngine::Connect( CreateInterfaceFn factory )
 
 	g_IUITextServices = ( panorama::IUITextServices * ) factory( PANORAMA_TEXT_SERVICES_INTERFACE_VERSION, NULL );
 
+#if defined( PANORAMA_SE_CPU_TEXT )
+	// SE port: CS:GO takes the text backend from the separate panorama_text_pango module (the
+	// first entry of s_pDependencies above), which its app system group loads through the
+	// dependency list.  Source Engine 2013's app system group has no such list and no module in
+	// this tree exposes PANORAMA_TEXT_SERVICES_INTERFACE_VERSION, so the framework's own
+	// DirectWrite/CPU backend is instantiated here.  The factory lookup above stays first, so a
+	// real provider still wins.
+	if ( !g_IUITextServices )
+	{
+		Warning( "panorama: no PanoramaTextServices001 provider - using the built-in DirectWrite text services\n" );
+		g_IUITextServices = new panorama::CSEPanoramaTextServicesWin32();
+	}
+#endif
+
 	// Initialize the console variables.
 	ConVar_Register();
 
@@ -203,6 +256,8 @@ static bool PanoramaResourceFileIntegrityCheck( CUtlBuffer &bufFileData, void *&
 #else
 	const byte CertificateData[] = {
 #include PANORAMA_PACK_PUBLIC_KEY_HEADER
+// SE port (temporary bring-up probe): the process exits silently while the UI engine is being set up,
+// and Warning() output is lost with it, so these probes append straight to a file.
 	};
 	return launcher_keypair_verifymsg( ( const byte * ) pvResourceData, numResourceBytes + 1, CertificateData, sizeof( CertificateData ), ( const byte * )( ( ( char * ) bufFileData.Base() ) + 4 ), numSignatureDigestBytes );
 #endif
@@ -406,6 +461,8 @@ void CPanoramaUIEngine::Shutdown( void )
 //////////////////////////////////////////////////////////////////////////
 
 #include "tier0/memdbgoff.h"
+// SE port (temporary bring-up probe): the process exits silently while the UI engine is being set up,
+// and Warning() output is lost with it, so these probes append straight to a file.
 
 #ifdef Verify
 #undef Verify
@@ -418,7 +475,11 @@ void CPanoramaUIEngine::Shutdown( void )
 // SE port: Crypto++ (cryptlib.h/rsa.h) is not vendored in this tree and this build does not sign
 // panorama packs, so the verifier below is compiled as a rejecting stub.
 #include "cryptlib.h"
+// SE port (temporary bring-up probe): the process exits silently while the UI engine is being set up,
+// and Warning() output is lost with it, so these probes append straight to a file.
 #include "rsa.h"
+// SE port (temporary bring-up probe): the process exits silently while the UI engine is being set up,
+// and Warning() output is lost with it, so these probes append straight to a file.
 #endif
 
 // Special usage here in the launcher without linking in tier0 tslist implementation

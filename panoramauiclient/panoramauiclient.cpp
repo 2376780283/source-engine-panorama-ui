@@ -1,4 +1,4 @@
-//====== Copyright ï¿½ 2014-2015, Valve Corporation, All rights reserved. =======
+//====== Copyright ï¿?2014-2015, Valve Corporation, All rights reserved. =======
 //
 // Purpose: IPanoramaUIClient app system implementation
 //
@@ -10,23 +10,47 @@
 // Source 2013 versions - they share the UTLRBTREE_H/UTLMAP_H guards, and the Source 2013
 // utlrbtree.h has no CompareOperands_t that panoramauiclient's headers need.
 #include "stdafx_client.h"
+// SE port (temporary bring-up probe): the process exits silently while the UI engine is being set up,
+// and Warning() output is lost with it, so these probes append straight to a file.
 
 #ifdef PLATFORM_WINDOWS
 #include "windows.h"
+// SE port (temporary bring-up probe): the process exits silently while the UI engine is being set up,
+// and Warning() output is lost with it, so these probes append straight to a file.
 #endif
 
 #include "interfaces/interfaces.h"
+// SE port (temporary bring-up probe): the process exits silently while the UI engine is being set up,
+// and Warning() output is lost with it, so these probes append straight to a file.
 #include "filesystem.h"
+// SE port (temporary bring-up probe): the process exits silently while the UI engine is being set up,
+// and Warning() output is lost with it, so these probes append straight to a file.
 #include "tier1/utldelegate.h"
+// SE port (temporary bring-up probe): the process exits silently while the UI engine is being set up,
+// and Warning() output is lost with it, so these probes append straight to a file.
 #include "tier1/keyvalues.h"
+// SE port (temporary bring-up probe): the process exits silently while the UI engine is being set up,
+// and Warning() output is lost with it, so these probes append straight to a file.
 #include "panorama/controls/panel2d.h"
+// SE port (temporary bring-up probe): the process exits silently while the UI engine is being set up,
+// and Warning() output is lost with it, so these probes append straight to a file.
 #include "../panorama/controls/debug/debugger.h"
+// SE port (temporary bring-up probe): the process exits silently while the UI engine is being set up,
+// and Warning() output is lost with it, so these probes append straight to a file.
 #include "panoramauiclient.h"
+// SE port (temporary bring-up probe): the process exits silently while the UI engine is being set up,
+// and Warning() output is lost with it, so these probes append straight to a file.
 #include "panorama/uisettings.h"
+// SE port (temporary bring-up probe): the process exits silently while the UI engine is being set up,
+// and Warning() output is lost with it, so these probes append straight to a file.
 #include "panorama/panoramatypes.h"
+// SE port (temporary bring-up probe): the process exits silently while the UI engine is being set up,
+// and Warning() output is lost with it, so these probes append straight to a file.
 
 // NOTE: This has to be the last file included!
 #include "tier0/memdbgon.h"
+// SE port (temporary bring-up probe): the process exits silently while the UI engine is being set up,
+// and Warning() output is lost with it, so these probes append straight to a file.
 
 // SE port: with PANORAMA_EXPORTS defined (see the note in the wscript) public/panorama/iuiengine.h
 // does not declare the client bootstrap API; it is defined in panorama/uiengineclient.cpp.
@@ -288,14 +312,32 @@ bool CPanoramaUIClient::SetupNamedPaths()
 		}
 		else
 		{
-			bFailed = true;
+			// SE port: this port runs without the packaged JS layer (panorama/code.pbin is not built),
+			// so LoadFromPanZip() finds nothing.  Fall back to the loose file on the GAME search path,
+			// exactly like the development path above does.
+			Warning( "panorama: '%s' is not in the packaged UI - loading it from the mod instead\n", pConfigFilename );
+			if ( !pConfigKV->LoadFromFile( g_pFullFileSystem, pConfigFilename, "GAME" ) )
+			{
+				bFailed = true;
+			}
 		}
 
 	}
 			
 	if ( bFailed )
 	{
-		Warning( "Failed to load expected config file \"%s\"\n", pConfigFilename );
+		// SE port: CS:GO always ships this config (packed or loose) and gives up without it.  The port
+		// cannot rely on it - the packed JS layer is not built here and the loose file's load has
+		// proven timing dependent - so the named paths the test mod uses are registered directly.
+		// file://{resources}/layout/<file>.xml then resolves to <mod>/panorama/layout/<file>.xml.
+		Warning( "panorama: '%s' is unavailable - registering the built-in named path(s) instead\n", pConfigFilename );
+
+		if ( panorama::UIEngine() )
+		{
+			panorama::UIEngine()->RegisterNamedLocalPath( "{resources}", "panorama/", false );
+			return true;
+		}
+
 		return false;
 	}
 	

@@ -2978,14 +2978,15 @@ void *CMaterialSystem::GetOSPixelShader( const char *pszName, int nIndex )
 }
 
 // SE port (CS:GO addition): called from panoramaenginehandler.cpp (CPanoramaEngineHandler::
-// PanoramaRenderFrame) and the engine's frame hooks so that the S1 render state is reset before
-// panorama issues its own draws.  CS:GO's body calls ResetRenderState( false, true ) - Source Engine
-// 2013's IShaderAPI only takes the first argument.
+// PanoramaRenderFrame) and the engine's frame hooks so that the S1 render state does not leak into
+// panorama's own draws.  CS:GO's body calls ResetRenderState( false, true ), which in CS:GO is a
+// *partial* reset.  The Source Engine 2013 IShaderAPI::ResetRenderState() in this tree ignores the
+// "full reset" flag and always tears everything down - it clears m_nCurrentSnapshot and the bound
+// render mesh - so calling it at every frame boundary made the next S1 draw read stale/out-of-range
+// state (the crashes traced through CTransitionTable::UseSnapshot and CShaderAPIDx8::DrawMesh).
+// Until a real partial reset exists here, panorama keeps the S1 render state it is handed.
 void CMaterialSystem::ResetPanoramaRenderState()
 {
-#ifndef DX_TO_GL_ABSTRACTION
-	g_pShaderAPI->ResetRenderState( false );
-#endif
 }
 
 void CMaterialSystem::AddTextureAlias( const char *pAlias, const char *pRealName )

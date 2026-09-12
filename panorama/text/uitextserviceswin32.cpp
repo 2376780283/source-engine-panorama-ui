@@ -15,8 +15,7 @@ using namespace panorama;
 //-----------------------------------------------------------------------------
 // Purpose: Constructor
 //-----------------------------------------------------------------------------
-CUITextServicesWin32::CUITextServicesWin32() :
-	m_poolTextLayout( 256 )
+CUITextServicesWin32::CUITextServicesWin32()
 {
 }
 
@@ -26,6 +25,11 @@ CUITextServicesWin32::CUITextServicesWin32() :
 //-----------------------------------------------------------------------------
 void CUITextServicesWin32::InitializeServices()
 {
+	// SE port: CS:GO created the DirectWrite globals when a D2D surface came up
+	// (CD3D10D2DSurface::BInitialize / CUIEngineWin32::BInitialize).  The s1wrapper surface this
+	// port renders with has no D2D renderer, so the backend is initialised here -
+	// CreatePanoramaUIEngineInternal() calls this right after the UI engine object is created.
+	CUITextLayoutWin32::BInitGlobals();
 }
 
 
@@ -91,14 +95,14 @@ IUITextLayout *CUITextServicesWin32::CreateTextLayout( const void *pRawText, int
 	if( pParams->m_flMaxWidth < 0.0f || pParams->m_flMaxHeight < 0.0f || pParams->m_flSize < 0.0f )
 		return NULL;
 
-	CUITextLayoutWin32 *pTextLayout = m_poolTextLayout.Alloc(); 
+	CUITextLayoutWin32 *pTextLayout = new CUITextLayoutWin32();
 	if ( pTextLayout->BInitialize( pRawText, cbRawText, cTextChars, eTextEncoding, pParams, pLayoutMetrics ) )
 	{
 		return pTextLayout;
 	}
 	else
 	{
-		m_poolTextLayout.Free( pTextLayout );
+		delete pTextLayout;
 		return NULL;
 	}
 }
@@ -109,7 +113,7 @@ IUITextLayout *CUITextServicesWin32::CreateTextLayout( const void *pRawText, int
 //-----------------------------------------------------------------------------
 void CUITextServicesWin32::FreeTextLayout( IUITextLayout *pLayout )
 {
-	m_poolTextLayout.Free( (CUITextLayoutWin32*)pLayout );
+	delete (CUITextLayoutWin32*)pLayout;
 }
 
 

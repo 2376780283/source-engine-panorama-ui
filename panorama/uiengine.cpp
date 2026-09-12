@@ -462,6 +462,8 @@ ConVar panorama_dump_events_backlog( "panorama_dump_events_backlog", "0", FCVAR_
 
 using namespace panorama;
 
+// SE port (temporary bring-up probe): the process exits silently while the UI engine is being set up,
+// and Warning() output is lost with it, so these probes append straight to a file.
 // TODO: Change this to be address of global context
 const uint64 GLOBAL_CONTEXT_SEC_TOKEN = 0xFEEDBEEFFEEDBEEF;
 
@@ -6494,6 +6496,16 @@ void CUIEngine::MarkLayerToRepaintThreadSafe( uint64 ulCompositionLayerID )
 //-----------------------------------------------------------------------------
 void CUIEngine::LayoutAndPaintWindows()
 {
+	// SE port (bring-up aid): is the paint pass reached at all?
+	{
+		static int s_nSELayoutAndPaintWindows = 0;
+		if ( s_nSELayoutAndPaintWindows < 4 )
+		{
+			Warning( "SE_PORT_PAINT: CUIEngine::LayoutAndPaintWindows (windows=%d)\n", m_vecWindows.Count() );
+			s_nSELayoutAndPaintWindows++;
+		}
+	}
+
 	VPROF_BUDGET( "CUIEngine::PaintWindows", VPROF_BUDGETGROUP_TENFOOT );
 	
 	{

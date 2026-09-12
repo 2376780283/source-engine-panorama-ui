@@ -6,6 +6,9 @@
 
 #include "tier0/fasttimer.h"
 
+// SE port (temporary bring-up probe): the process exits silently during startup and Warning() output is
+// lost with it, so each Host_Init step records itself in a file.
+
 #ifdef _WIN32
 #ifdef PANORAMA_ENABLE
 #include "interfaces/interfaces.h"   // g_pPanoramaUIClient / g_pPanoramaUIEngine
@@ -4219,7 +4222,9 @@ void Host_Init( bool bDedicated )
 		}
 		else
 		{
-			Msg( "panorama: UI client module not available, engine hosted UI disabled\n" );
+			// Warning() (not Msg) so this shows up in engine.log - it is the first thing to check when the
+			// hosted UI does not come up.
+			Warning( "panorama: UI client module not available, engine hosted UI disabled\n" );
 		}
 #endif
 

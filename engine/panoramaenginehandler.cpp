@@ -29,7 +29,6 @@
 #include <windows.h>
 #endif
 
-
 #include "panoramaenginehandler.h"
 #include "interfaces/interfaces.h"
 #include "filesystem.h"
@@ -311,6 +310,67 @@ InitReturnVal_t CPanoramaEngineHandler::Init()
 	}
 #endif
 
+	// SE port: smoke-test view.  CS:GO's engine never creates views itself - its game DLL does that
+	// through IGameUIFuncs::AddPanoramaView - so until the game side is ported this creates one from a
+	// hand-written layout (mods/panorama_test/panorama/layout/test.xml, i.e.
+	// file://{resources}/layout/test.xml inside the mounted mod).  Enabled with -panoramatest.
+	if ( CommandLine()->CheckParm( "-panoramatest" ) )
+	{
+		int nTestWidth = 0;
+		int nTestHeight = 0;
+		materials->GetBackBufferDimensions( nTestWidth, nTestHeight );
+		if ( nTestWidth && nTestHeight )
+		{
+			panorama::IUIWindow *pTestWindow = m_pUIEngine->CreateNewUILayerWindow( 0, 0, nTestWidth, nTestHeight, false, false, false, true, "PanoramaTest", INPUT_CONTEXT_HANDLE_INVALID );
+			panorama::IUIPanelClient *pTestPanel = pTestWindow ? AddPanoramaView( "PanoramaTest", pTestWindow ) : NULL;
+			if ( pTestPanel )
+			{
+				const char *pTestLayout = "file://{resources}/layout/test.xml";
+				if ( !pTestPanel->UIPanel()->BLoadLayout( pTestLayout ) )
+				{
+					Warning( "panorama: -panoramatest could not load %s\n", pTestLayout );
+				}
+				else
+				{
+					Warning( "panorama: -panoramatest loaded %s\n", pTestLayout );
+				}
+
+				// SE port (bring-up aid): dump the panel tree so we can see whether the layout actually
+				// built panel children (an empty tree means the paint pass has nothing to draw).
+				{
+					struct SEDumpPanelTree
+					{
+						static void Dump( panorama::IUIPanel *pPanel, int nDepth )
+						{
+							if ( !pPanel || nDepth > 3 )
+								return;
+
+							Warning( "SE_PORT_TREE: %*s%s visible=%d children=%d w=%.1f h=%.1f\n",
+								nDepth * 2, "", pPanel->GetID(),
+								(int)pPanel->BIsVisible(), pPanel->GetChildCount(),
+								pPanel->GetActualLayoutWidth(), pPanel->GetActualLayoutHeight() );
+
+							for ( int i = 0; i < pPanel->GetChildCount(); ++i )
+							{
+								Dump( pPanel->GetChild( i ), nDepth + 1 );
+							}
+						}
+					};
+
+					SEDumpPanelTree::Dump( pTestPanel->UIPanel(), 0 );
+				}
+			}
+			else
+			{
+				Warning( "panorama: -panoramatest could not create the test view\n" );
+			}
+		}
+		else
+		{
+			Warning( "panorama: no back buffer size yet, -panoramatest view not created\n" );
+		}
+	}
+
 #if ( PLATFORM_WINDOWS && DEVELOPMENT_ONLY ) && !defined (DX_TO_GL_ABSTRACTION)
 	m_pUIEngine->RegisterForUnhandledEvent(m_pUIEngine->MakeSymbol("ToggleDebugger"), UtlMakeDelegate(this, &CPanoramaEngineHandler::ToggleDebugger).GetAbstractDelegate());
 	m_pUIEngine->RegisterForUnhandledEvent( m_pUIEngine->MakeSymbol( "BeginDebuggerInspect" ), UtlMakeDelegate( this, &CPanoramaEngineHandler::OnBeginDebuggerInspect ).GetAbstractDelegate() );
@@ -477,11 +537,20 @@ void CPanoramaEngineHandler::RunFrame()
 	// Panorama taking over cursor control if EnableMouseCursor set
 	// cl_mouseenable 0 stops the game from handling mouse input
 	ConVarRef cl_mouseenable( "cl_mouseenable" );
-	cl_mouseenable.SetValue( ( m_eGameInputFlags & k_EGameInputUIEnableMouseCursor ) != k_EGameInputUIEnableMouseCursor );
+	if ( cl_mouseenable.IsValid() )
+	{
+		cl_mouseenable.SetValue( ( m_eGameInputFlags & k_EGameInputUIEnableMouseCursor ) != k_EGameInputUIEnableMouseCursor );
+	}
 
 	// If we are only denying mouse movement to the game, re-enable button events to be handled by the game
+	// SE port: cl_mouseenable_buttons is a CS:GO client ConVar that this tree does not have out of the box
+	// (it is declared in game/client/in_mouse.cpp now).  The IsValid() test keeps a per-frame ConVarRef
+	// from spamming the console when a mod does not provide it.
 	ConVarRef cl_mouseenable_buttons( "cl_mouseenable_buttons" );
-	cl_mouseenable_buttons.SetValue( ( m_eGameInputFlags & ( k_EGameInputUIEnableMouseCursor | k_EGameInputDenyGameMouseClicks ) ) == k_EGameInputUIEnableMouseCursor );
+	if ( cl_mouseenable_buttons.IsValid() )
+	{
+		cl_mouseenable_buttons.SetValue( ( m_eGameInputFlags & ( k_EGameInputUIEnableMouseCursor | k_EGameInputDenyGameMouseClicks ) ) == k_EGameInputUIEnableMouseCursor );
+	}
 }
 
 //-----------------------------------------------------------------------------

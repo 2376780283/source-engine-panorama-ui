@@ -1631,6 +1631,14 @@ bool CSource2Surface::BUpdateWindowSizeIfNeeded( uint32 nWidth, uint32 nHeight )
 //-----------------------------------------------------------------------------
 void CSource2Surface::BeginFrame( const BeginFrameRenderCommand_t &renderCommand )
 {
+	// SE port (bring-up aid): the surface is being driven by the render thread.
+	static int s_nSEBeginFrameLogged = 0;
+	if ( s_nSEBeginFrameLogged < 4 )
+	{
+		Warning( "SE_PORT_SURFACE: BeginFrame (%ux%u)\n", m_unSurfaceWidth, m_unSurfaceHeight );
+		s_nSEBeginFrameLogged++;
+	}
+
 
 	m_flCurrentRenderFrameTime = Plat_FloatTime();
 
@@ -2679,6 +2687,14 @@ CSource2CompositionLayer *CSource2Surface::GetImageShadowLayer( const ImageShado
 //-----------------------------------------------------------------------------
 void CSource2Surface::DrawTexturedRect( const RenderTexturedRectRenderCommand_t &renderCommand )
 {
+	// SE port (bring-up aid): a textured rect reached the surface.
+	static int s_nSEDrawTexRectLogged = 0;
+	if ( s_nSEDrawTexRectLogged < 6 )
+	{
+		Warning( "SE_PORT_SURFACE: DrawTexturedRect\n" );
+		s_nSEDrawTexRectLogged++;
+	}
+
 	VPROF( "CSource2Surface::DrawTexturedRect");
 	//VPROF_BUDGET( "Panorama DrawTexturedRect", VPROF_BUDGETGROUP_GAME );
 
@@ -3104,6 +3120,14 @@ void CSource2Surface::SetFancyQuadFillBrush( FancyQuadBrush_t &FancyBrush, const
 //-----------------------------------------------------------------------------
 void CSource2Surface::DrawFilledRect( const RenderFilledRectRenderCommand_t &renderCommand )
 {
+	// SE port (bring-up aid): a filled rect reached the surface (what the test layout uses).
+	static int s_nSEDrawRectLogged = 0;
+	if ( s_nSEDrawRectLogged < 6 )
+	{
+		Warning( "SE_PORT_SURFACE: DrawFilledRect\n" );
+		s_nSEDrawRectLogged++;
+	}
+
 	VPROF( "CSource2Surface::DrawFilledRect");
 	//VPROF_BUDGET( "Panorama DrawFilledRect", VPROF_BUDGETGROUP_GAME );
 
@@ -7480,6 +7504,18 @@ panorama::BasicQuad_t *PanDxGetBasicQuadPtr()
 
 void PanDxInit()
 {
+#if defined( PANORAMA_SE_MATERIALSYSTEM_DRAW )
+	// SE port: PanDx draws panorama with the raw D3D9 device handed out by IShaderDevice
+	// (CPanoramaUIEngine::GetD3Device()), which this port has no equivalent of.  Everything below
+	// would dereference that NULL device.  Keeping g_bPanDx false makes the wrapper's PanDx calls
+	// no-ops (they are all runtime-guarded by g_bPanDx) and routes panorama drawing through the
+	// material system with the panorama_vs30/ps30 shaders instead.
+	Warning( "PanDxInit: skipped for this port, using the material system path\\n" );
+	g_bPanDx = false;
+	s_convarPanDx.SetValue( 0 );
+	return;
+#endif
+
 	if ( g_pdxInit ) return;
 
 #if defined( ALLOW_TEXT_MODE )

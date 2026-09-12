@@ -28,6 +28,12 @@ def configure(conf):
 
 
 def build(bld):
+	# 32-bit only: see the note in panorama/wscript (no x64 prebuilt V8 for Windows in this tree).
+	if bld.env.DEST_CPU in ('x86_64', 'amd64'):
+		from waflib import Logs
+		Logs.warn('panoramauiclient: skipped in 64-bit builds (no x64 prebuilt V8)')
+		return
+
 	source = [
 		'panoramauiclient.cpp',
 		'../panorama_s1wrapper/utlstringbuilder.cpp',

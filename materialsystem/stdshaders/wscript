@@ -127,6 +127,11 @@ def build(bld):
 		'writez_dx9.cpp',
 		'writestencil_dx9.cpp',
 		'eyeball.cpp',
+		# SE port (M4): panorama's own shaders, created by
+		# panorama_s1wrapper/rendersystem/irendercontext.h for the hosted UI.  Ported from CS:GO's
+		# materialsystem/stdshaders/panorama{,fancy}_cshader.cpp.
+		'panorama_dx9.cpp',
+		'panoramafancy_dx9.cpp',
 		'../../public/tier0/memoverride.cpp'
 #		$Folder	'stdshader_dbg Files', [$X360]
 #		{

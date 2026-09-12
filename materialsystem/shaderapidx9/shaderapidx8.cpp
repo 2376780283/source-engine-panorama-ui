@@ -9911,6 +9911,11 @@ void CShaderAPIDx8::RenderPass( int nPass, int nPassCount )
 	if ( IsDeactivated() )
 		return;
 
+	// SE port: ResetRenderState() clears m_nCurrentSnapshot, so a pass can arrive before the next
+	// BeginPass() re-establishes a snapshot.  There is nothing valid to render in that case.
+	if ( m_nCurrentSnapshot < 0 )
+		return;
+
 	Assert( m_nCurrentSnapshot != -1 );
 //	Assert( m_pRenderMesh );  MESHFIXME
 
@@ -12820,7 +12825,18 @@ void CShaderAPIDx8::GetDX9LightState( LightState_t *state ) const
 #endif	
 	
 	state->m_nNumLights = m_DynamicState.m_NumLights;
-	state->m_bStaticLightVertex = m_pRenderMesh->HasColorMesh();
+
+	// SE port: the light state can be queried from the shader's dynamic draw path before a render
+	// mesh is bound.  Release builds compiled the Assert() away and dereferenced NULL here.
+	if ( m_pRenderMesh )
+	{
+		state->m_bStaticLightVertex = m_pRenderMesh->HasColorMesh();
+	}
+	else
+	{
+		state->m_bStaticLightVertex = false;
+	}
+
 	state->m_bStaticLightTexel = false; // For now
 }
 
