@@ -2102,6 +2102,23 @@ void CSource2Surface::DrawFancyQuad( const FancyQuadDraw_t *pFancyQuadDraw )
 	}
 	pQuad->m_vColorStop = *(Vector4D*)pFancyQuadBrush->m_flColor[ 1 ];
 
+	// SE port (bring-up aid): the PS multiplies its white texture result by i.vColor0 (this quad colour).
+	// If the panel context's multiplier is zero the quad renders as transparent black - i.e. invisible
+	// under the premultiplied-alpha blend the fancy material uses.
+	{
+		static int s_nSEQuadColorProbe = 0;
+		if ( s_nSEQuadColorProbe < 8 )
+		{
+			s_nSEQuadColorProbe++;
+			Warning( "SE_PORT_QUADCOLOR: brush=(%.2f,%.2f,%.2f,%.2f) ctx=%d mult=(%.2f,%.2f,%.2f,%.2f) color=(%.2f,%.2f,%.2f,%.2f)\n",
+				pFancyQuadBrush->m_flColor[0][0], pFancyQuadBrush->m_flColor[0][1], pFancyQuadBrush->m_flColor[0][2], pFancyQuadBrush->m_flColor[0][3],
+				(pPanelContext != NULL),
+				pPanelContext ? pPanelContext->m_multColor.x : 0.0f, pPanelContext ? pPanelContext->m_multColor.y : 0.0f,
+				pPanelContext ? pPanelContext->m_multColor.z : 0.0f, pPanelContext ? pPanelContext->m_multColor.w : 0.0f,
+				pQuad->m_vColor.x, pQuad->m_vColor.y, pQuad->m_vColor.z, pQuad->m_vColor.w );
+		}
+	}
+
 	// the gradient math needs the original positions
 	float flOriginalPosition[ 4 ][ 2 ];
 	flOriginalPosition[ 0 ][ 0 ] = pFancyQuadParameters->m_flVertexMin[ 0 ];

@@ -341,8 +341,28 @@ void CRenderContext::CtxDraw( RenderPrimitiveType_t type, int nFirstVertex, int 
 
 	m_pMatRenderContext->Bind( m_pMaterial, NULL );
 
+	// SE port (bring-up aid): the material system's scissor rect is global state, and the panorama pass
+	// runs right after the VGUI/HUD pass - anything still enabled there would clip our quad away.
+	// The panorama surface does its own clipping, so drop the scissor for this draw.
+	m_pMatRenderContext->SetScissorRect( 0, 0, 0, 0, false );
+
 	// Finalise mesh building
-	IMesh* pMesh = m_pMatRenderContext->GetDynamicMesh( true );
+	// SE port: the material has to be handed to GetDynamicMesh() as pAutoBind - that is what makes the
+	// dynamic mesh adopt *this* material's vertex format (position + 5 texcoords for fancy quads).
+	// Without it the mesh keeps whatever format the previous draw left behind, and CMeshBuilder's writes
+	// end up in the wrong fields, so the quads are built from garbage and never rasterize.
+	IMesh* pMesh = m_pMatRenderContext->GetDynamicMesh( true, NULL, NULL, m_pMaterial );
+
+	// SE port (bring-up aid): show the format the mesh actually uses.
+	{
+		static int s_nSEMeshProbe = 0;
+		if ( s_nSEMeshProbe < 4 )
+		{
+			s_nSEMeshProbe++;
+			Warning( "SE_PORT_MESH: panMaterial=%d verts=%d vertexFormat=0x%llx\n",
+				m_nPanMaterial, m_nVertCount, (unsigned long long)pMesh->GetVertexFormat() );
+		}
+	}
 	UpdateMesh( pMesh );
 
 	pMesh->Draw();

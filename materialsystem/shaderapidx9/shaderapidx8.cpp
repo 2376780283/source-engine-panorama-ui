@@ -3915,6 +3915,19 @@ void CShaderAPIDx8::DrawMesh( CMeshBase *pMesh )
 
 	m_pRenderMesh = pMesh;
 	VertexFormat_t vertexFormat = m_pRenderMesh->GetVertexFormat();
+
+	// SE port (bring-up aid): does the panorama material's mesh draw reach the shader API at all?
+	if ( m_pMaterial && Q_stristr( m_pMaterial->GetName(), "panorama" ) )
+	{
+		static int s_nSEDrawMeshProbe = 0;
+		if ( s_nSEDrawMeshProbe < 6 )
+		{
+			s_nSEDrawMeshProbe++;
+			Warning( "SE_PORT_DRAWMESH: '%s' fmt=0x%llx suppressRendering=%d\n", m_pMaterial->GetName(),
+				(unsigned long long)vertexFormat, (int)ShaderUtil()->GetConfig().m_bSuppressRendering );
+		}
+	}
+
 	SetVertexDecl( vertexFormat, m_pRenderMesh->HasColorMesh(), m_pRenderMesh->HasFlexMesh(), m_pMaterial->IsUsingVertexID() );
 	CommitStateChanges();
 	Assert( m_pRenderMesh && m_pMaterial );
