@@ -620,7 +620,16 @@ bool CSource2UIFileSystem::LoadFileIntoBuffer( const char *pchFile, CUtlBuffer &
 			g_pResourceSystem->DestroyResourceManifest( hResourceManifest );
 		}
 
-		Warning( "Panorama resource '%s' failed to load\n", filenameString.Get() );
+		if ( !bSuccess )
+		{
+			// SE port: this port ships *source* panorama content (panorama/layout/*.xml) instead of the
+			// compiled resources CS:GO's content pipeline produces (panorama/*.vxml), so there is usually
+			// no compiled form to find here.  The caller then reads the source file directly, which works
+			// fine - so this is a normal fallback, not a failure.  (The warning used to be printed
+			// unconditionally, which made every layout load look like an error in the console.)
+			Msg( "panorama: '%s' has no compiled resource - reading the source file instead\n", filenameString.Get() );
+		}
+
 		return bSuccess;
 	}
 	else
