@@ -2707,6 +2707,25 @@ void CPanelStyle::GetContrastData( ContrastWithTransition_t &data, CRenderComman
 void CPanelStyle::GetGaussianBlur( BlurType_t &blurType, float &passes, float &stddevhor, float &stddevver )
 {
 	CStylePropertyBlur *pValue = (CStylePropertyBlur*)FindProperty( CStylePropertyBlur::symbol );
+
+	// SE port (bring-up aid): is the CSS "blur:" property actually in the panel's style?  The CS:GO main
+	// menu's backdrop panels are "blur: fastgaussian( 8, 8, 5 )" (mainmenu.css) and every layer came out
+	// with passes/stddev zero, so either the property never lands on the style or the command built from
+	// it never reaches the layer.
+	{
+		static int s_nSEBlurGetProbe = 0;
+		if ( s_nSEBlurGetProbe < 20 )
+		{
+			s_nSEBlurGetProbe++;
+			Warning( "SE_PORT_BLURGET: found=%d type=%d passes=%.2f stddev=%.2f/%.2f\n",
+					 pValue ? 1 : 0,
+					 pValue ? (int)pValue->blurType : -1,
+					 pValue ? pValue->passes : -1.0f,
+					 pValue ? pValue->stddevhor : -1.0f,
+					 pValue ? pValue->stddevver : -1.0f );
+		}
+	}
+
 	if( pValue )
 	{
 		passes = pValue->passes;
@@ -2729,6 +2748,18 @@ void CPanelStyle::GetGaussianBlur( BlurType_t &blurType, float &passes, float &s
 //-----------------------------------------------------------------------------
 void CPanelStyle::SetGaussianBlur( BlurType_t blurType, float passes, float stddevhor, float stddevver )
 {
+	// SE port (bring-up aid): is the CSS "blur:" property reaching the panel style at all?  The CS:GO menu
+	// backdrop panels are "blur: fastgaussian( 8, 8, 5 )" (mainmenu.css, #MainMenuCore/#MainMenuBackground),
+	// and the layer values the blur pipeline reads were coming out as 0.
+	{
+		static int s_nSEBlurSetProbe = 0;
+		if ( s_nSEBlurSetProbe < 20 )
+		{
+			s_nSEBlurSetProbe++;
+			Warning( "SE_PORT_BLURSET: type=%d passes=%.2f stddev=%.2f/%.2f\n", (int)blurType, passes, stddevhor, stddevver );
+		}
+	}
+
 	CStylePropertyBlur *pValue = CStylePropertyFactory::Create< CStylePropertyBlur >();
 	pValue->passes = passes;
 	pValue->stddevhor = stddevhor;
@@ -2743,6 +2774,18 @@ void CPanelStyle::SetGaussianBlur( BlurType_t blurType, float passes, float stdd
 //-----------------------------------------------------------------------------
 void CPanelStyle::GetGaussianBlurData( GaussianBlurWithTransition_t &data, CRenderCommandList &commandList )
 {
+	// SE port (bring-up aid): the renderer builds one command per style property the panel has; the layer
+	// only ever gets blur values from that command (source2surface.cpp SetBlurValues).  If this never logs,
+	// the blur property is not on the panel style at all.
+	{
+		static int s_nSEBlurDataProbe = 0;
+		if ( s_nSEBlurDataProbe < 10 )
+		{
+			s_nSEBlurDataProbe++;
+			Warning( "SE_PORT_BLURDATA: building gaussian blur data\n" );
+		}
+	}
+
 	FillRenderData< CStylePropertyBlur >( data, commandList );
 }
 

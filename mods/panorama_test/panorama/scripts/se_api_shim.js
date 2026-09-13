@@ -17,7 +17,10 @@
 				// Behave like an empty collection: panorama converts .length results straight into numbers, and a
 				// stub object there made V8ParamToPanoramaType throw (and the throw took the game down).
 				if (prop === "length" || prop === "size" || prop === "count") { return 0; }
-				if (prop === "toString" || prop === "valueOf") { return function () { return name; }; }
+				if (prop === "toString") { return function () { return name; }; }
+				// a numeric sink (elSlider.value = Api.GetSomething()) coerces through valueOf, so hand
+				// back a number rather than the placeholder's name
+				if (prop === "valueOf") { return function () { return 0; }; }
 				if (prop === "then") { return undefined; } // do not look like a promise
 				return makeStub(name + "." + String(prop));
 			},

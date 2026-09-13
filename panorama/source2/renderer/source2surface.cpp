@@ -841,6 +841,25 @@ void CSource2CompositionLayer::PushCliplayersAndBeginDraw( float flScaleX, float
 		m_flTranslateLayerX = flTranslateX;
 		m_flTranslateLayerY = flTranslateY;
 	}
+
+	// SE port: a "backdrop blur" layer - CS:GO's CSGOBlurTarget, which this port substitutes with a plain
+	// Panel - blurs what is behind the UI.  Panel content is only ever composited through the layer's own
+	// render target, and this port never bound one, so the layer stayed empty and its composite sampled an
+	// empty target (white in D3D9): that is what turned the whole CS:GO main menu white.
+	//
+	// So for a blur layer: copy the back buffer into the layer target - that copy is the blur's source,
+	// and it is exactly what CS:GO's CSGOBlurTarget panel does - then bind the target so the layer's own
+	// content (and the blur passes) land in it.
+	//
+	// Only blur layers are switched over.  Every other layer keeps drawing straight into the back buffer
+	// as before, which keeps the blast radius of this change to the backdrop layers.
+	if ( !m_bIsBackBuffer && m_hRenderTarget.IsValid() && BSEPortHasBlur() && m_pParentSurface && m_pParentSurface->m_pRenderContext )
+	{
+		m_pParentSurface->m_pRenderContext->CopyBackBufferToTexture( m_hRenderTarget );
+
+		RenderTargetDesc_t rtLayer( m_hRenderTarget, RENDER_TEXTURE_HANDLE_INVALID, RENDER_SRGB );
+		m_pParentSurface->m_pRenderContext->BindRenderTargets( rtLayer );
+	}
 }
 
 
@@ -852,6 +871,14 @@ void CSource2CompositionLayer::PopClipLayersAndFlush()
 	if ( m_bIsDrawing )
 	{
 		m_bIsDrawing = false;
+	}
+
+	// SE port: undo the target binding PushCliplayersAndBeginDraw did for a blur layer (see the note
+	// there).  BindRenderTargets() pops the previous target when the descriptor is the back buffer.
+	if ( !m_bIsBackBuffer && m_hRenderTarget.IsValid() && BSEPortHasBlur() && m_pParentSurface && m_pParentSurface->m_pRenderContext )
+	{
+		RenderTargetDesc_t rtBackBuffer( HRenderTexture( &CRenderContext::m_backBufferResourceData ), RENDER_TEXTURE_HANDLE_INVALID, RENDER_SRGB );
+		m_pParentSurface->m_pRenderContext->BindRenderTargets( rtBackBuffer );
 	}
 }
 
@@ -3085,17 +3112,9 @@ void CSource2Surface::SetFancyQuadFillBrush( FancyQuadBrush_t &FancyBrush, const
 	}
 	else if ( brush.eFillBrushType == k_EFillBrushType_Color )
 	{
-		ColorFromABGR( r, g, b, a, brush.color_rgba );
-		a *= brush.opacity;
-		FancyBrush.m_flColor[0][0] = r * a;
-		FancyBrush.m_flColor[0][1] = g * a;
-		FancyBrush.m_flColor[0][2] = b * a;
-		FancyBrush.m_flColor[0][3] = a;
-	}
-	else if ( brush.eFillBrushType == k_EFillBrushType_Color )
-	{
-		// SE port: this branch was missing, so every solid colour fill fell through to the
-		// "white" fallback below and painted every panel white.
+		// SE port: this branch used to be missing, so every solid colour fill fell through to the white
+		// fallback below and painted every panel white.  (It then got added twice - the second copy was
+		// unreachable - so there is only one here now.)
 		ColorFromABGR( r, g, b, a, brush.color_rgba );
 		a *= brush.opacity;
 		FancyBrush.m_flColor[0][0] = r * a;
@@ -5827,6 +5846,19 @@ void CSource2Surface::PopCompositingLayer( const PopCompositingLayerRenderComman
 		BlurType_t  blurType = BT_NORMAL;
 		pLayer->GetBlurValues( blurType, flBlurPasses, flBlurStdDevHor, flBlurStdDevVer );
 
+		// SE port (bring-up aid): the two CS:GO menu backdrop panels (#MainMenuCore / #MainMenuBackground)
+		// carry "blur: fastgaussian( 8, 8, 5 )", so this is where their blur has to be reached.
+		{
+			static int s_nSEBlurProbe = 0;
+			if ( s_nSEBlurProbe < 24 )
+			{
+				s_nSEBlurProbe++;
+				Warning( "SE_PORT_BLUR: layer=%p redraw=%d passes=%.2f stddev=%.2f/%.2f type=%d disableBlur=%d\n",
+						 pLayer, (int)bLayerRedraw, flBlurPasses, flBlurStdDevHor, flBlurStdDevVer,
+						 (int)blurType, (int)s_convarPanoramaDisableBlur.GetBool() );
+			}
+		}
+
 		// If we have blur (and we redrew), then draw into another layer for blur first
 		if ( bLayerRedraw && flBlurPasses > 0.0f && (flBlurStdDevHor > 0.0f || flBlurStdDevVer > 0.0f) && !s_convarPanoramaDisableBlur.GetBool() )
 		{
@@ -6095,7 +6127,17 @@ void CSource2Surface::PopCompositingLayer( const PopCompositingLayerRenderComman
 					m_hCurrentBlendState = m_hMixOpaqueState;
 				}
 
-				DrawFancyQuad( &fancyQuadDraw );
+				// SE port: an "opaque" layer is composited exactly as it was drawn, and in this port it *was*
+				// drawn - PushClipLayer() only records a clip rect here, nothing is rendered into the layer's
+				// texture, so this composite samples an empty render target.  Sampling an unbound/empty S1
+				// texture reads white, and the opaque blend writes it over the whole frame: those two draws
+				// are what turned the entire CS:GO main menu white.  They are the backdrop panels
+				// #MainMenuCore / #MainMenuBackground (both 100%x100% with "-s2-mix-blend-mode: opaque" in
+				// mainmenu.css), so this is also what hid the loading screen and the game behind the menu.
+				if ( pLayer->GetMixBlendMode() != k_EMixBlendModeOpaque || pLayer->BSEPortHasBlur() )
+				{
+					DrawFancyQuad( &fancyQuadDraw );
+				}
 
 				m_hCurrentBlendState = hPriorBlendState;
 			}

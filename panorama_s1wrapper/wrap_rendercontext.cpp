@@ -114,6 +114,26 @@ void CRenderContext::PopDebuggerRenderTarget()
 	return;
 }
 
+//-----------------------------------------------------------------------------
+// SE port: see IRenderContext::CopyBackBufferToTexture.  Called before a backdrop-blur layer binds its
+// own target, while the back buffer is still the current render target.
+//-----------------------------------------------------------------------------
+void CRenderContext::CopyBackBufferToTexture( HRenderTexture hDest )
+{
+	if ( !hDest.IsValid() )
+		return;
+
+	S1Wrapper_Texture_t *pTexture = (S1Wrapper_Texture_t *)hDest.GetResourceHandle()->m_handle;
+	if ( !pTexture )
+		return;
+
+	ITexture *pS1Texture = pTexture->GetS1Texture();
+	if ( !pS1Texture )
+		return;
+
+	m_pMatRenderContext->CopyRenderTargetToTexture( pS1Texture );
+}
+
 bool CRenderContext::BindRenderTargets( const RenderTargetDesc_t &renderTargetDesc )
 {
 	// at least one valid color rt
@@ -248,6 +268,11 @@ void CRenderContext::UpdateMesh( IMesh* pMesh )
 
 IMaterial* CRenderContext::m_apPanMaterial[] = { 0, };
 IMaterial* CRenderContext::m_apFancyMaterial[] = { 0, };
+
+// SE port: the attributes the shader reads back through $renderattr live here rather than in the render
+// context, because the material (which holds the var) outlives the context.  See irendercontext.h.
+CRenderAttributes CRenderContext::m_apSEAttrStore[ SE_ATTR_STORE_COUNT ];
+bool CRenderContext::m_abSEAttrStoreValid[ SE_ATTR_STORE_COUNT ] = { false, false };
 int				CRenderContext::m_nScissorRects = 0;
 ResourceData_t	CRenderContext::m_backBufferResourceData = { 0, RESOURCE_TYPE_BACKBUFFER };
 HRenderTexture	CRenderContext::m_hCurrentRT = &CRenderContext::m_backBufferResourceData;

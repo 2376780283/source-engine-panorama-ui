@@ -742,6 +742,20 @@ bool CStyleFileSet::ApplyMatchedStylesToPanelStyle( CPanelStyle *pPanelStyle, co
 	for( int i=0; i < V_ARRAYSIZE( rgStyleProperties ); ++i )
 	{
 		panorama::CStyleProperty *pStyleProp = rgStyleProperties[ i ];
+
+		// SE port (bring-up aid): which properties actually make it from the CSS cascade onto a panel
+		// style?  "blur" is written by the CS:GO menu's backdrop rules (mainmenu.css) but never reaches the
+		// layer, so this shows whether it is in the applied set at all.
+		if ( pStyleProp )
+		{
+			static int s_nSEStylePropAppliedLogged = 0;
+			if ( s_nSEStylePropAppliedLogged < 80 )
+			{
+				s_nSEStylePropAppliedLogged++;
+				Warning( "SE_PORT_STYLEAPPLY: %s\n", pStyleProp->GetPropertySymbol().String() );
+			}
+		}
+
 		if ( pStyleProp && CALL_POINTER_MEMBER_FUNCTION( pPanelStyle, pSetPropertyFromStyleFn )( pStyleProp ) )
 		{
 			if ( pStyleProp->BAffectsCompositionOnly() && eRepaint != k_EStyleRepaintFull )

@@ -189,13 +189,21 @@ BEGIN_VS_SHADER( panorama_dx9, "Help for panorama" )
 			Vector4D sample1, sample2, sample3, sample4, sample5, sample6, sample7, sample8;
 
 			ITexture *pTexture = NULL;
-			// SE port: the textures stored in panorama's render attributes can already be destroyed by the
-			// time the shader runs - they are not pooled across frames in this port, and an image whose load
-			// failed is torn down.  Binding one of those jumped through a freed vtable inside
-			// CShaderSystem::BindTexture (access at 0xC3F8F497) which killed the game.  The fancy variant
-			// draws untextured for the same reason; do the same here until the CS:GO image resources exist.
-			// (pTexture is deliberately not bound below.)
-			( void )pTexture;
+			// SE port: the blur/particle pass samples the layer the panorama render attributes point at.
+			// Nothing used to be bound here, so the sampler read white (D3D9 returns white for an unbound
+			// sampler).  Use CBaseShader's ITexture* overload, not the material-var one.
+			pAttr->GetValue( &pTexture, ATTR_Texture0 );
+			if ( pTexture )
+			{
+				// SE port: only bind a pointer that can be a live ITexture* - see the note in
+				// panoramafancy_dx9.cpp (a draw with a texture this port failed to load crashed inside
+				// CShaderSystem::BindTexture).
+				uintp pTexBits = (uintp)pTexture;
+				if ( pTexBits >= 0x10000 && pTexBits < 0x7FFF0000 && ( pTexBits & 3 ) == 0 )
+				{
+					BindTexture( SHADER_SAMPLER0, pTexture );
+				}
+			}
 
 			pAttr->GetValue( &centerWeight, ATTR_centerWeight );
 			pAttr->GetValue( &sample1, ATTR_sample1 );

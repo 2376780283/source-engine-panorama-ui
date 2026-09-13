@@ -219,22 +219,30 @@ BEGIN_VS_SHADER( panoramafancy_dx9, "Help for panorama" )
 				}
 				else
 				{
+					// SE port: bind the texture.  D3D9's samplers read white while nothing is bound, and not
+					// binding is exactly what turned the whole CS:GO menu into a white screen once the image
+					// resources were unpacked into the mod.
+					//
+					// The pointer still has to be checked: an image this port cannot decode (the .vsvg icons,
+					// see the note further down) leaves an attribute that no longer points at a live texture,
+					// and binding one of those crashed inside CShaderSystem::BindTexture with access at a
+					// value that was a float bit pattern (0x8B000000).  Only bind what can be a real object.
+					uintp pTexBits = (uintp)pTexture;
+					if ( pTexBits >= 0x10000 && pTexBits < 0x7FFF0000 && ( pTexBits & 3 ) == 0 )
+					{
+						BindTexture( SHADER_SAMPLER0, pTexture );
+					}
+
 					if ( texType == 4 )
 					{
-						if ( pTexture->GetFlags() & TEXTUREFLAGS_YCOCG )
-						{
-							// YCoCg
-						}
-						else
-						{
-							// texture flagged as having alpha bits, then reset type to RGBA (1)
-							texType = 1;
-						}
+						// SE port: this used to read pTexture->GetFlags() to decide whether a type-4 texture is
+						// really YCoCg.  pTexture comes out of the render attributes and can already be a
+						// destroyed texture object in this port (the attributes are not pooled across frames
+						// here), so the call went through a freed vtable and crashed with access at address
+						// 0x6D as soon as the menu painted with real images installed.  Nothing is bound below
+						// (see the note above), and texType is also an input to the pixel shader combo index
+						// (PanDxSetShadersFancy), so it is left exactly as the layout asked for it.
 					}
-					// SE port: the actual BindTexture() call is intentionally gone - the texture object stored in the
-					// render attributes may already be destroyed (see the note above), and binding it crashed inside
-					// CShaderSystem::BindTexture.  The pixel shader still runs with its correct combo, it just samples
-					// a default (unbound) texture.  Restore the binding once the CS:GO image resources are in place.
 				}
 			}
 

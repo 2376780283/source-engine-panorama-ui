@@ -131,19 +131,49 @@ float4_color_return_type main( PS_INPUT i ) : COLOR
 	}
 	#elif ( D_TEX2DBLUR )
 	{
-		// SE port: this branch blurs with a dynamic per-side Gaussian *loop*, and d3dx9's ps_3_0 profile
-		// rejects texld inside loop/rep blocks:
+		// SE port: CS:GO writes this blur as a loop over g_flNumBlurPixelsPerSide, but d3dx9's ps_3_0
+		// profile rejects texld inside a loop:
 		//   panorama_ps30.fxc(150,120): error X6077: texld/texldb/texldp/dsx/dsy instructions with r# as
 		//   source cannot be used inside dynamic conditional 'if' blocks, dynamic conditional subroutine
 		//   calls, or loop/rep with break*.
-		// Every gaussian() blur combo therefore failed to compile at run time, and the shader manager
-		// treats that as fatal - the CS:GO main menu took the game down as soon as it tried to draw.
-		// TODO(SE port): unroll the loop into a fixed number of taps (zeroing the weights past
-		// g_flNumBlurPixelsPerSide with step()) to restore the real blur.  In the meantime the centre
-		// sample is returned, which keeps the geometry and colours correct but without the blur.
-		// Note that fastgaussian() - what the CS:GO menu mostly uses - goes through the D_TEX2DFASTBLUR
-		// branch above, which is already unrolled and compiles fine.
-		o.vColor = Tex2D( g_tTexture0, i.vTex.xy );
+		// Every gaussian() blur combo failed to compile at run time and the shader manager treats that as
+		// fatal, so the CS:GO main menu took the game down as soon as it drew a blurred panel.
+		//
+		// The loop bound is a compile-time constant (g_flNumBlurPixelsPerSide = 4.0), so the four
+		// iterations are simply written out and each tap is masked with step() - the arithmetic, and
+		// therefore the image, is the same as CS:GO's incremental Gaussian.  (fastgaussian(), which the
+		// menu mostly uses, is the D_TEX2DFASTBLUR branch above and was already unrolled.)
+		float3 incrementalGaussian;
+		incrementalGaussian.x = 1.0 / ( sqrt( 2.0 * g_flPI ) * g_flBlurSigma );
+		incrementalGaussian.y = exp( -0.5 / ( g_flBlurSigma * g_flBlurSigma ) );
+		incrementalGaussian.z = incrementalGaussian.y * incrementalGaussian.y;
+
+		float4 avgValue = float4( 0.0, 0.0, 0.0, 0.0 );
+		float coefficientSum = 0.0;
+
+		// Take the central sample first...
+		avgValue += Tex2D( g_tTexture0, i.vTex.xy ) * incrementalGaussian.x;
+		coefficientSum += incrementalGaussian.x;
+		incrementalGaussian.xy *= incrementalGaussian.yz;
+
+		// ...then the samples either side of it, one unrolled pair per tap (CS:GO: 4 per side)
+		#define SE_PORT_BLUR_TAP( tap ) \
+			{ \
+				float flTapWeight = step( float( tap ), g_flNumBlurPixelsPerSide ); \
+				avgValue += Tex2D( g_tTexture0, min( i.vTex.xy - float( tap ) * g_vBlurMultiplyVec, g_UVClamp.xy ) ) * incrementalGaussian.x * flTapWeight; \
+				avgValue += Tex2D( g_tTexture0, min( i.vTex.xy + float( tap ) * g_vBlurMultiplyVec, g_UVClamp.xy ) ) * incrementalGaussian.x * flTapWeight; \
+				coefficientSum += 2.0 * incrementalGaussian.x * flTapWeight; \
+				incrementalGaussian.xy *= incrementalGaussian.yz; \
+			}
+
+		SE_PORT_BLUR_TAP( 1 )
+		SE_PORT_BLUR_TAP( 2 )
+		SE_PORT_BLUR_TAP( 3 )
+		SE_PORT_BLUR_TAP( 4 )
+
+		#undef SE_PORT_BLUR_TAP
+
+		o.vColor = avgValue / coefficientSum;
 	}
 	#elif ( D_TEX2DPARTICLE )
 	{

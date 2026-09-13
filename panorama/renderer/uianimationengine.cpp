@@ -3416,6 +3416,20 @@ CUIAnimationEngine::EAnimatingFlags CUIAnimationEngine::PushGaussianBlur( CAnima
 	float flPasses = data.base->passes;
 	BlurType_t blurType = data.base->blurType;
 
+	// SE port (bring-up aid): the blur property *is* on the panel styles (SE_PORT_BLURDATA fires) and both
+	// ends of the optional-property pipe exist, yet every layer ends up with passes/stddev 0.  This shows
+	// whether the numbers are real when they arrive here, which separates "the CSS value never got parsed
+	// into the property" from "the value is lost on the way to the layer".
+	{
+		static int s_nSEBlurPushProbe = 0;
+		if ( s_nSEBlurPushProbe < 12 )
+		{
+			s_nSEBlurPushProbe++;
+			Warning( "SE_PORT_BLURPUSH: type=%d passes=%.2f stddev=%.2f/%.2f\n",
+					 (int)blurType, flPasses, flStdDevHor, flStdDevVer );
+		}
+	}
+
 	EAnimatingFlags eAnimating = k_EAnimatingFlag_NotAnimating;
 	if ( data.pTransitionData && data.pTransitionData->timing_func != k_EAnimationNone )
 	{

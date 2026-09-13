@@ -2027,10 +2027,24 @@ public:
 	// Parses string and sets value
 	virtual bool BSetFromString( CStyleSymbol symParsedName, const char *pchString )
 	{
-		if( !CSSHelpers::BParseGaussianBlur( blurType, passes, stddevhor, stddevver, pchString, &pchString ) )
-			return false;
+		const char *pchInput = pchString;
+		bool bParsed = CSSHelpers::BParseGaussianBlur( blurType, passes, stddevhor, stddevver, pchString, &pchString );
 
-		return true;
+		// SE port (bring-up aid): the CS:GO menu writes "blur: fastgaussian( 8, 8, 5 )" (mainmenu.css) but
+		// every layer came out with passes/stddev 0 - this shows exactly which strings the parser is handed
+		// and what they produce.
+		{
+			static int s_nSEBlurStrProbe = 0;
+			if ( s_nSEBlurStrProbe < 20 )
+			{
+				s_nSEBlurStrProbe++;
+				Warning( "SE_PORT_BLURSTR: ok=%d in='%s' -> type=%d passes=%.2f stddev=%.2f/%.2f\n",
+						 bParsed ? 1 : 0, pchInput ? pchInput : "(null)",
+						 (int)blurType, passes, stddevhor, stddevver );
+			}
+		}
+
+		return bParsed;
 	}
 
 	// Gets string representation of property

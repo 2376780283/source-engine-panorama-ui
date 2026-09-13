@@ -896,6 +896,11 @@ public:
 		blurType = m_blurType;
 	}
 
+	// SE port: true when this layer carries a Gaussian blur, i.e. when this port renders it into its own
+	// render target and seeds that target with a copy of the back buffer (see
+	// CSource2CompositionLayer::PushCliplayersAndBeginDraw).
+	bool BSEPortHasBlur() { return m_flBlurPasses > 0.0f; }
+
 	// Set gaussian blur std deviation
 	void SetBlurValues( BlurType_t blurType, float flPasses, float flStdDevHor, float flStdDevVer )
 	{

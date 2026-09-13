@@ -955,6 +955,12 @@ public:
 
 	virtual void SetViewports( int nCount, const RenderViewport_t* pViewports ) = 0;
 	virtual void GetViewport( RenderViewport_t *pViewport, int nViewport ) = 0;
+
+	// SE port: copy the current back buffer into a render texture.  A "backdrop blur" layer - CS:GO's
+	// CSGOBlurTarget, which this port substitutes with a plain Panel - blurs what is *behind* the UI, so
+	// its render target has to start life as a copy of the back buffer; there is nothing else for the
+	// Gaussian blur to read.  See CSource2CompositionLayer::PushCliplayersAndBeginDraw().
+	virtual void CopyBackBufferToTexture( HRenderTexture hDest ) = 0;
 	//
 	//	// Restriction: This can only be called as the first call after a context is created, or the
 	//	// first call after a Submit.
@@ -1041,6 +1047,9 @@ public:
 
 	virtual void SetViewports( int nCount, const RenderViewport_t* pViewports );
 	virtual void GetViewport( RenderViewport_t *pViewport, int nViewport );
+
+	// SE port: see IRenderContext::CopyBackBufferToTexture
+	virtual void CopyBackBufferToTexture( HRenderTexture hDest );
 	//
 	//	// Restriction: This can only be called as the first call after a context is created, or the
 	//	// first call after a Submit.
@@ -1077,12 +1086,24 @@ public:
 	bool UpdateMaterial();
 
 	// SE port: CS:GO keeps its render attributes in a pool that stays alive for the whole frame, and the
-	// panorama shader reads them from the material's $renderattr var when it draws.  In this port the
-	// attributes handed to ComputeRenderablePassesForContext can already be gone by then, so the context
-	// holds its own copy and points $renderattr at that instead (the shader used to dereference freed
-	// memory, which crashed the game with access at address 0 as soon as the CS:GO menu started painting).
-	CRenderAttributes m_SEAttrCopy;
-	bool m_bSEAttrCopyValid;
+	// panorama shader reads them from the material's $renderattr var when it draws.  Two different
+	// lifetimes are involved here and they have to be reconciled:
+	//
+	//   * the *material* (and therefore the var) lives for the whole session - there is one material per
+	//     blend state, shared by every render context;
+	//   * the *render context* is created and destroyed by panorama around its passes.
+	//
+	// Keeping the copy inside the context (which is what this port did first) leaves the material pointing
+	// into freed memory as soon as that context goes away, and whichever draw happens to reach the shader
+	// next reads garbage - that is what produced both the all-white menu and, once the textures were bound,
+	// a crash inside CShaderSystem::BindTexture with access at a float bit pattern (0x8B000000).
+	//
+	// The store below is static, keyed by material kind (panorama / panoramafancy), so what $renderattr
+	// points at is always a live object.  Draws are sequential and a pass writes its own material's slot
+	// right before it draws, so each draw sees its own attributes.
+	enum { SE_ATTR_STORE_PANORAMA = 0, SE_ATTR_STORE_FANCYQUAD = 1, SE_ATTR_STORE_COUNT = 2 };
+	static CRenderAttributes m_apSEAttrStore[ SE_ATTR_STORE_COUNT ];
+	static bool m_abSEAttrStoreValid[ SE_ATTR_STORE_COUNT ];
 
 	CRenderAttributes* m_pAttr;
 	CMatRenderContextPtr m_pMatRenderContext;
