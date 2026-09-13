@@ -9924,6 +9924,18 @@ void CShaderAPIDx8::RenderPass( int nPass, int nPassCount )
 	if ( IsDeactivated() )
 		return;
 
+	// SE port (bring-up aid): is the pass reaching D3D, or is it being dropped here?
+	{
+		static int s_nSEPassProbe = 0;
+		if ( s_nSEPassProbe < 8 )
+		{
+			s_nSEPassProbe++;
+			Warning( "SE_PORT_PASS: pass=%d count=%d snapshot=%d renderMesh=%p material='%s'\n",
+				nPass, nPassCount, (int)m_nCurrentSnapshot, (void *)m_pRenderMesh,
+				( m_pMaterial && m_pMaterial->GetName() ) ? m_pMaterial->GetName() : "<null>" );
+		}
+	}
+
 	// SE port: ResetRenderState() clears m_nCurrentSnapshot, so a pass can arrive before the next
 	// BeginPass() re-establishes a snapshot.  There is nothing valid to render in that case.
 	if ( m_nCurrentSnapshot < 0 )

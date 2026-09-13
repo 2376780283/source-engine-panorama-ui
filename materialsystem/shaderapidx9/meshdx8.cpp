@@ -5918,6 +5918,18 @@ void CMeshMgr::RenderPassWithVertexAndIndexBuffers( void )
 
 				Assert( m_nFirstIndex >= 0 );
 
+				// SE port (bring-up aid): the mesh render pass is the last gate before D3D sees the draw.
+				{
+					static int s_nSEMeshPassProbe = 0;
+					if ( s_nSEMeshPassProbe < 8 )
+					{
+						s_nSEMeshPassProbe++;
+						Warning( "SE_PORT_MESHPASS: primType=%d firstIndex=%d numIndices=%d firstVertex=%d vertexCount=%d\n",
+							(int)m_PrimitiveType, m_nFirstIndex, m_nNumIndices,
+							m_pFirstVertex[0], m_pVertexCount[0] );
+					}
+				}
+
 #ifdef CHECK_INDICES
 				// g_pLastVertex - this is the current vertex buffer
 				// g_pLastColorMesh - this is the curent color mesh, if there is one.
