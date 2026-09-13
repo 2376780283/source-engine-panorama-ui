@@ -946,12 +946,46 @@ static bool SE_V8TryToNumber( const v8::Handle<v8::Value> &pValueIn, v8::Local<v
 	return true;
 }
 
+template <typename T>
+static bool SE_PortBCoerceToNumberHelper( const v8::Handle<v8::Value> &pValueIn, T *pOut )
+{
+	static bool s_bReported = false;
+	if ( !s_bReported )
+	{
+		s_bReported = true;
+		v8::String::Utf8Value str( pValueIn->ToString() );
+		Msg( "panorama: coercing a non-number value to a number (%s) - a script is reading a game API this port does not implement\n", *str );
+	}
+
+	double flNumber = 0.0;
+	if ( !SE_V8TryToNumber( pValueIn, GetV8Isolate()->GetCurrentContext(), &flNumber ) || flNumber != flNumber )
+		flNumber = 0.0;
+
+	*pOut = (T)flNumber;
+	return true;
+}
+
+// SE port: JavaScript's own ToNumber() coerces any value that has a usable valueOf()/toString(), and CS:GO's
+// scripts depend on that: they read a game API this port stands in for with a placeholder object and hand
+// the result straight to a numeric panel property (mainmenu_stream.js:77 does it with
+// EmbeddedStreamAPI.GetAudioVolume()).  Throwing a JS exception there aborts the whole script, so when the
+// value is not a number, coerce it the way the language would instead.
+static bool SE_PortBCoerceToNumber( const v8::Handle<v8::Value> &pValueIn, float *pOut ) { return SE_PortBCoerceToNumberHelper( pValueIn, pOut ); }
+static bool SE_PortBCoerceToNumber( const v8::Handle<v8::Value> &pValueIn, double *pOut ) { return SE_PortBCoerceToNumberHelper( pValueIn, pOut ); }
+static bool SE_PortBCoerceToNumber( const v8::Handle<v8::Value> &pValueIn, int *pOut ) { return SE_PortBCoerceToNumberHelper( pValueIn, pOut ); }
+static bool SE_PortBCoerceToNumber( const v8::Handle<v8::Value> &pValueIn, uint32 *pOut ) { return SE_PortBCoerceToNumberHelper( pValueIn, pOut ); }
+static bool SE_PortBCoerceToNumber( const v8::Handle<v8::Value> &pValueIn, uint64 *pOut ) { return SE_PortBCoerceToNumberHelper( pValueIn, pOut ); }
+
 template <> void V8ParamToPanoramaType< float >( const v8::Handle<v8::Value> &pValueIn, float *out )
 {
 	if( pValueIn->IsNumber() )
 	{
 		double flNumber = 0.0;
 		*out = SE_V8TryToNumber( pValueIn, GetV8Isolate()->GetCurrentContext(), &flNumber ) ? (float)flNumber : 0.0f;
+	}
+	else if ( SE_PortBCoerceToNumber( pValueIn, out ) )
+	{
+		// SE port: the value was coerced rather than rejected - see SE_PortBCoerceToNumber
 	}
 	else
 	{
@@ -969,6 +1003,10 @@ template <> void V8ParamToPanoramaType< double >( const v8::Handle<v8::Value> &p
 		double flNumber = 0.0;
 		*out = SE_V8TryToNumber( pValueIn, GetV8Isolate()->GetCurrentContext(), &flNumber ) ? flNumber : 0.0;
 	}
+	else if ( SE_PortBCoerceToNumber( pValueIn, out ) )
+	{
+		// SE port: the value was coerced rather than rejected - see SE_PortBCoerceToNumber
+	}
 	else
 	{
 		*out = 0;
@@ -985,6 +1023,10 @@ template <> void V8ParamToPanoramaType< int >( const v8::Handle<v8::Value> &pVal
 		double flNumber = 0.0;
 		*out = SE_V8TryToNumber( pValueIn, GetV8Isolate()->GetCurrentContext(), &flNumber ) ? (int)flNumber : 0;
 	}
+	else if ( SE_PortBCoerceToNumber( pValueIn, out ) )
+	{
+		// SE port: the value was coerced rather than rejected - see SE_PortBCoerceToNumber
+	}
 	else
 	{
 		*out = 0;
@@ -1000,6 +1042,10 @@ template <> void V8ParamToPanoramaType< uint32 >( const v8::Handle<v8::Value> &p
 	{
 		double flNumber = 0.0;
 		*out = SE_V8TryToNumber( pValueIn, GetV8Isolate()->GetCurrentContext(), &flNumber ) ? (uint32)flNumber : 0u;
+	}
+	else if ( SE_PortBCoerceToNumber( pValueIn, out ) )
+	{
+		// SE port: the value was coerced rather than rejected - see SE_PortBCoerceToNumber
 	}
 	else
 	{
@@ -1023,6 +1069,10 @@ template <> void V8ParamToPanoramaType< uint64 >( const v8::Handle<v8::Value> &p
 		v8::String::Utf8Value str( pValueIn->ToString() );
 		uint64 res = V_atoui64( *str );
 		*out = res;
+	}
+	else if ( SE_PortBCoerceToNumber( pValueIn, out ) )
+	{
+		// SE port: the value was coerced rather than rejected - see SE_PortBCoerceToNumber
 	}
 	else
 	{

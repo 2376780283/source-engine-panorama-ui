@@ -174,6 +174,7 @@ public:
 	// IVideoPlayer
 	virtual bool BLoad( const char *pchURL ) OVERRIDE;
 	virtual bool BLoad( const byte *pubData, uint cubData ) OVERRIDE;
+#if !defined( PANORAMA_DISABLE_VIDEO )
 	virtual void Play() OVERRIDE { m_pVideoPlayer->Play(); }
 	virtual void Stop() OVERRIDE;
 	virtual void Pause() OVERRIDE { m_pVideoPlayer->Pause(); }
@@ -195,6 +196,31 @@ public:
 	virtual void ForceVideoRepresentation( int iRep ) OVERRIDE { return m_pVideoPlayer->ForceVideoRepresentation( iRep ); }
 	virtual void GetVideoSegmentInfo( int *pnCurrent, int *pnTotal ) OVERRIDE { m_pVideoPlayer->GetVideoSegmentInfo( pnCurrent, pnTotal );  }
 	virtual bool BHasAudioTrack() OVERRIDE { return m_pVideoPlayer->BHasAudioTrack(); }
+#else
+	// SE port: this build has video disabled, so m_pVideoPlayer is always NULL.  The pass-throughs above
+	// used to dereference it - a panel that named a movie took the process down.
+	virtual void Stop() OVERRIDE;
+	virtual void Play() OVERRIDE {}
+	virtual void Pause() OVERRIDE {}
+	virtual void SetPlaybackSpeed( float ) OVERRIDE {}
+	virtual void Seek( uint ) OVERRIDE {}
+	virtual void SetRepeat( bool ) OVERRIDE {}
+	virtual void SuggestMaxVeritcalResolution( int ) OVERRIDE {}
+	virtual EVideoPlayerPlaybackState GetPlaybackState() OVERRIDE { return (EVideoPlayerPlaybackState)0; }
+	virtual bool IsStoppedForBuffering() OVERRIDE { return false; }
+	virtual float GetPlaybackSpeed() OVERRIDE { return 0.0f; }
+	virtual uint32 GetDuration() OVERRIDE { return 0; }
+	virtual uint32 GetCurrentPlaybackTime() OVERRIDE { return 0; }
+	virtual EVideoPlayerPlaybackError GetPlaybackError() OVERRIDE { return (EVideoPlayerPlaybackError)0; }
+	virtual void GetVideoResolution( int *pnWidth, int *pnHeight ) OVERRIDE { if ( pnWidth ) *pnWidth = 0; if ( pnHeight ) *pnHeight = 0; }
+	virtual int GetVideoDownloadRate() OVERRIDE { return 0; }
+	virtual int GetVideoRepresentationCount() OVERRIDE { return 0; }
+	virtual bool BGetVideoRepresentationInfo( int, int *, int * ) OVERRIDE { return false; }
+	virtual int GetCurrentVideoRepresentation() OVERRIDE { return 0; }
+	virtual void ForceVideoRepresentation( int ) OVERRIDE {}
+	virtual void GetVideoSegmentInfo( int *pnCurrent, int *pnTotal ) OVERRIDE { if ( pnCurrent ) *pnCurrent = 0; if ( pnTotal ) *pnTotal = 0; }
+	virtual bool BHasAudioTrack() OVERRIDE { return false; }
+#endif
 
 #ifdef DBGFLAG_VALIDATE
 	void Validate( CValidator &validator, const char *pchName );

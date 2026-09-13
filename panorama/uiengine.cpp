@@ -2793,7 +2793,9 @@ void JSPanelStyleSet( v8::Local<v8::String> property, v8::Local<v8::Value> value
 	if ( !CSSHelpers::BReadCSSToken( buffer, rgchStyleBuf, V_ARRAYSIZE( rgchStyleBuf ), k_rgchCSSValueTermOrEndOfString, V_ARRAYSIZE( k_rgchCSSValueTermOrEndOfString ) ) || rgchStyleBuf[0] == '\0' )
 	{
 		CStylePropertyFactory::FreeStyleProperty( pNewProp );
-		info.GetIsolate()->ThrowException( v8::String::NewFromUtf8( info.GetIsolate(), CFmtStr1024( "Failed to parse style value for %s", pchPropJS ).String() ) );
+
+		// SE port: see the note below - an unusable value must not abort the script that set it
+		Warning( "panorama: ignoring unparseable style value for %s\n", pchPropJS );
 		return;
 	}
 
@@ -2803,7 +2805,13 @@ void JSPanelStyleSet( v8::Local<v8::String> property, v8::Local<v8::Value> value
 	if( !pNewProp->BSetFromString( symParsedName, rgchStyleBuf ) )
 	{
 		CStylePropertyFactory::FreeStyleProperty( pNewProp );
-		info.GetIsolate()->ThrowException( v8::String::NewFromUtf8( info.GetIsolate(), CFmtStr1024( "Failed to set property value (property=%s)(value=%s)", symParsedName.String(), rgchStyleBuf ).String() ) );
+
+		// SE port: a bad value is a warning here, not a thrown JS exception.  Throwing aborts the whole
+		// script that set the property, and CS:GO's scripts compute values from game APIs this port stands
+		// in for with placeholders - avatar.js died on 'rgb(' + <placeholder> + ')' at its line 90, which
+		// threw away the rest of the file and left the avatar panel half set up.  Skipping the property is
+		// what the style-file parser does with a bad value too (see stylefile.cpp).
+		Warning( "panorama: ignoring invalid style value (property=%s)(value=%s)\n", symParsedName.String(), rgchStyleBuf );
 		return;
 	}
 

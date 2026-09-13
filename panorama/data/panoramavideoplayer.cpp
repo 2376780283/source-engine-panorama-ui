@@ -689,6 +689,11 @@ void CVideoPlayerEventDispatcher::Validate( CValidator &validator, const char *p
 //-----------------------------------------------------------------------------
 CPanoramaVideoPlayer::CPanoramaVideoPlayer( IUIPanel *pPanel ) : m_videoCallback( pPanel->UIRenderDevice() ), m_eventCallback( this )
 {
+	// SE port: with PANORAMA_DISABLE_VIDEO this member was left uninitialized, so it held a garbage pointer.
+	// A layout that names a movie (a panel using the .webm this port ships with) then crashed the process
+	// in BLoad() and in the destructor via CBackgroundImageLayer::ReloadImage -> CSmartPtr::operator=.
+	m_pVideoPlayer = NULL;
+
 #if !defined( PANORAMA_DISABLE_VIDEO )
 	m_pVideoPlayer = ::CreateVideoPlayer( &m_eventCallback, &m_videoCallback, &m_audioCallback );
 #endif
@@ -700,6 +705,8 @@ CPanoramaVideoPlayer::CPanoramaVideoPlayer( IUIPanel *pPanel ) : m_videoCallback
 //-----------------------------------------------------------------------------
 CPanoramaVideoPlayer::CPanoramaVideoPlayer( IUIRenderDevice *pDevice ) : m_videoCallback( pDevice ), m_eventCallback( this )
 {
+	m_pVideoPlayer = NULL; // SE port: see the other constructor
+
 #if !defined( PANORAMA_DISABLE_VIDEO )
 	m_pVideoPlayer = ::CreateVideoPlayer( &m_eventCallback, &m_videoCallback, &m_audioCallback );
 #endif
