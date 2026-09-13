@@ -56,6 +56,14 @@ BEGIN_VS_SHADER( panorama_dx9, "Help for panorama" )
 
 			pShaderShadow->EnableSRGBWrite( true );
 
+			// SE port: panorama hands the material system vertices that are already in clip space, and that
+			// transform flips Y (D3D clip space has +Y up, panorama's coordinates grow downwards), which
+			// reverses the triangle winding.  The material system's default state is culling enabled with
+			// D3DCULL_CCW, so every panorama quad was being discarded by the rasteriser: the draw was
+			// submitted with the right geometry and colour and simply never produced a pixel.  CS:GO's own
+			// D3D path draws panorama with culling off, so match that here.
+			pShaderShadow->EnableCulling( false );
+
 			pShaderShadow->EnableTexture( SHADER_SAMPLER0, true );
 
 			pShaderShadow->EnableAlphaToCoverage( false );
