@@ -1174,7 +1174,6 @@ void CUIRenderEngine::CUIAnimationThread::RunSingleFrame()
 			s_nSEAnimLogged++;
 			if ( ( s_nSEAnimLogged % 60 ) == 0 )
 			{
-				Warning( "SE_PORT_ANIM: animation list #%d (queue=%d)\n", s_nSEAnimLogged, m_pRenderEngine->m_paintListsQueue.Count() );
 			}
 
 			RenderCommandList_t *pAnimList = m_pRenderEngine->m_pCurrentAnimationList;
@@ -1570,7 +1569,6 @@ void CUIRenderEngine::CUIRenderThread::RunSingleFrame()
 			s_nSERenderLogged++;
 			if ( ( s_nSERenderLogged % 60 ) == 0 )
 			{
-				Warning( "SE_PORT_RENDERTHREAD: render list #%d\n", s_nSERenderLogged );
 			}
 
 			VPROF_BUDGET_THREAD( "Render Msg Loop", VPROF_BUDGETGROUP_TENFOOT );

@@ -3362,6 +3362,24 @@ void CShaderManager::SetVertexShader( VertexShader_t shader )
 //		vshLookup.m_nStaticIndex, m_nVertexShaderIndex );
 
 #ifdef DYNAMIC_SHADER_COMPILE
+	// SE port: same guard as the pixel shader path below - panorama supplies its own dynamic combo index and
+	// it can exceed what this tree compiled.
+	{
+		ShaderStaticCombos_t &combos = m_VertexShaderDict[shader].m_ShaderStaticCombos;
+		if ( !combos.m_pHardwareShaders || vshIndex >= combos.m_nCount )
+		{
+			static bool s_bWarnedPanoramaVertexCombo = false;
+			if ( !s_bWarnedPanoramaVertexCombo )
+			{
+				s_bWarnedPanoramaVertexCombo = true;
+				Warning( "panorama: vertex shader '%s' asked for dynamic combo %d but this tree only compiled %d"
+						 " - falling back to combo 0\n",
+					m_ShaderSymbolTable.String( vshLookup.m_Name ), vshIndex, combos.m_nCount );
+			}
+			vshIndex = 0;
+		}
+	}
+
 	HardwareShader_t &dxshader = m_VertexShaderDict[shader].m_ShaderStaticCombos.m_pHardwareShaders[vshIndex];
 	if ( dxshader == INVALID_HARDWARE_SHADER )
 	{
@@ -3465,6 +3483,28 @@ void CShaderManager::SetPixelShader( PixelShader_t shader )
 //		pshLookup.m_nStaticIndex, m_nPixelShaderIndex );
 
 #ifdef DYNAMIC_SHADER_COMPILE
+	// SE port: panorama hands this engine its own dynamic combo index (IShaderAPI::GetOSPixelShader +
+	// SetPixelShaderIndex) and CS:GO's tables always have that combo.  In this tree the index can point past
+	// the end of the allocation, and the array access below then produced a wild shader pointer that the
+	// engine went on to use for the world - that is what crashed in SetPixelShader (access at 0xEA4AB0FC)
+	// about ten seconds after the CS:GO menu started drawing.  Clamp instead and say so once: a wrong shader
+	// is survivable, a wild pointer is not.
+	{
+		ShaderStaticCombos_t &combos = m_PixelShaderDict[shader].m_ShaderStaticCombos;
+		if ( pshIndex < 0 || !combos.m_pHardwareShaders || pshIndex >= combos.m_nCount )
+		{
+			static bool s_bWarnedPanoramaPixelCombo = false;
+			if ( !s_bWarnedPanoramaPixelCombo )
+			{
+				s_bWarnedPanoramaPixelCombo = true;
+				Warning( "panorama: pixel shader '%s' asked for dynamic combo %d but this tree only compiled %d"
+						 " - falling back to combo 0\n",
+					m_ShaderSymbolTable.String( pshLookup.m_Name ), pshIndex, combos.m_nCount );
+			}
+			pshIndex = 0;
+		}
+	}
+
 	HardwareShader_t &dxshader = m_PixelShaderDict[shader].m_ShaderStaticCombos.m_pHardwareShaders[pshIndex];
 	if ( dxshader == INVALID_HARDWARE_SHADER )
 	{

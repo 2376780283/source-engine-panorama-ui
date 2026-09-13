@@ -710,19 +710,6 @@ CSource2CompositionLayer::~CSource2CompositionLayer()
 // to a freshly-constructed layer.  Used to reset layers pulled
 // from the reuse cache.
 //-----------------------------------------------------------------------------
-// SE port (bring-up probe): a breadcrumb on disk.  The game log is not always complete when the process
-// dies (and the Windows subsystem drops stderr), so the last line of this file tells us which panorama
-// entry point the crash happened in.  REMOVE before committing - see the notes in the repo memory.
-static void SE_PortBreadcrumb( const char *pWhere )
-{
-	FILE *fp = fopen( "d:\\cstrike\\se_breadcrumb.txt", "a" );
-	if ( !fp )
-		return;
-
-	fprintf( fp, "%s\n", pWhere );
-	fclose( fp );
-}
-
 void CSource2CompositionLayer::ResetToDefault()
 {
 	m_bShouldCache = true; // by default we cache composition layers to avoid redoing rendering work
@@ -776,7 +763,6 @@ bool CSource2CompositionLayer::GetRenderTargetHandleAndDesc( HRenderTexture &hRT
 
 void CSource2CompositionLayer::InternalActivateRenderTarget( bool bClearRenderTarget )
 {
-	SE_PortBreadcrumb( "InternalActivateRenderTarget" );
 	VPROF( "CSource2CompositionLayer::ActivateRenderTarget ");
 
 	if ( !m_hRenderTarget.IsValid() && !m_bIsBackBuffer )
@@ -882,7 +868,6 @@ uint32 CSource2CompositionLayer::GetClipLayerCount()
 //-----------------------------------------------------------------------------
 void CSource2CompositionLayer::CheckAndClearClipLayers()
 {
-	SE_PortBreadcrumb( "CheckAndClearClipLayers" );
     m_vecClipLayers.RemoveAll();
 }
 
@@ -1245,7 +1230,6 @@ void CSource2CompositionLayer::PopPanelContextInLayer( const PopPanelContextInLa
 //-----------------------------------------------------------------------------
 void CSource2CompositionLayer::PushClipLayer( const PushClipLayerRenderCommand_t &renderCommand )
 {
-	SE_PortBreadcrumb( "PushClipLayer" );
 	RectBounds_t &bounds = m_vecClipLayers[ m_vecClipLayers.AddToTail() ];
 	bounds.left = renderCommand.top_left.x;
 	bounds.top = renderCommand.top_left.y;
@@ -1278,7 +1262,6 @@ void CSource2CompositionLayer::PushClipLayer( const PushClipLayerRenderCommand_t
 //-----------------------------------------------------------------------------
 void CSource2CompositionLayer::PopClipLayer()
 {
-	SE_PortBreadcrumb( "PopClipLayer" );
 	if ( m_vecClipLayers.Count() > 0 )
 	{		
 		m_vecClipLayers.Remove( m_vecClipLayers.Count() - 1 );
@@ -1648,14 +1631,12 @@ bool CSource2Surface::BUpdateWindowSizeIfNeeded( uint32 nWidth, uint32 nHeight )
 //-----------------------------------------------------------------------------
 void CSource2Surface::BeginFrame( const BeginFrameRenderCommand_t &renderCommand )
 {
-	SE_PortBreadcrumb( "CSource2Surface::BeginFrame" );
 	// SE port (bring-up aid): rate-limited frame counter for the surface render thread.
 	{
 		static int s_nSEBeginFrame = 0;
 		s_nSEBeginFrame++;
 		if ( ( s_nSEBeginFrame % 60 ) == 0 )
 		{
-			Warning( "SE_PORT_SURFACE: BeginFrame #%d (%ux%u)\n", s_nSEBeginFrame, m_unSurfaceWidth, m_unSurfaceHeight );
 		}
 	}
 
@@ -2012,7 +1993,6 @@ static CTSPool<CRenderAttributes> s_FancyQuadAttributesPool;
 
 void CSource2Surface::DrawFancyQuad( const FancyQuadDraw_t *pFancyQuadDraw )
 {
-	SE_PortBreadcrumb( "CSource2Surface::DrawFancyQuad" );
 	VPROF( "CSource2Surface::DrawFancyQuad" );
 	//VPROF_BUDGET( "Panorama DrawFancyQuad", VPROF_BUDGETGROUP_GAME );
 
@@ -2129,12 +2109,6 @@ void CSource2Surface::DrawFancyQuad( const FancyQuadDraw_t *pFancyQuadDraw )
 		if ( s_nSEQuadColorProbe < 8 )
 		{
 			s_nSEQuadColorProbe++;
-			Warning( "SE_PORT_QUADCOLOR: brush=(%.2f,%.2f,%.2f,%.2f) ctx=%d mult=(%.2f,%.2f,%.2f,%.2f) color=(%.2f,%.2f,%.2f,%.2f)\n",
-				pFancyQuadBrush->m_flColor[0][0], pFancyQuadBrush->m_flColor[0][1], pFancyQuadBrush->m_flColor[0][2], pFancyQuadBrush->m_flColor[0][3],
-				(pPanelContext != NULL),
-				pPanelContext ? pPanelContext->m_multColor.x : 0.0f, pPanelContext ? pPanelContext->m_multColor.y : 0.0f,
-				pPanelContext ? pPanelContext->m_multColor.z : 0.0f, pPanelContext ? pPanelContext->m_multColor.w : 0.0f,
-				pQuad->m_vColor.x, pQuad->m_vColor.y, pQuad->m_vColor.z, pQuad->m_vColor.w );
 		}
 	}
 
@@ -2729,7 +2703,6 @@ void CSource2Surface::DrawTexturedRect( const RenderTexturedRectRenderCommand_t 
 	static int s_nSEDrawTexRectLogged = 0;
 	if ( s_nSEDrawTexRectLogged < 6 )
 	{
-		Warning( "SE_PORT_SURFACE: DrawTexturedRect\n" );
 		s_nSEDrawTexRectLogged++;
 	}
 
@@ -3169,7 +3142,6 @@ void CSource2Surface::SetFancyQuadFillBrush( FancyQuadBrush_t &FancyBrush, const
 //-----------------------------------------------------------------------------
 void CSource2Surface::DrawFilledRect( const RenderFilledRectRenderCommand_t &renderCommand )
 {
-	SE_PortBreadcrumb( "CSource2Surface::DrawFilledRect" );
 	// SE port (bring-up aid): a filled rect reached the surface (what the test layout uses).
 	static int s_nSEDrawRectLogged = 0;
 	s_nSEDrawRectLogged++;
@@ -3184,15 +3156,9 @@ void CSource2Surface::DrawFilledRect( const RenderFilledRectRenderCommand_t &ren
 
 		if ( pProbeBrush )
 		{
-			Warning( "SE_PORT_SURFACE: DrawFilledRect (%.0f,%.0f)-(%.0f,%.0f) type=%d opacity=%.2f color=%02x%02x%02x%02x\n",
-				renderCommand.top_left.x, renderCommand.top_left.y, renderCommand.bottom_right.x, renderCommand.bottom_right.y,
-				(int)pProbeBrush->eFillBrushType, pProbeBrush->opacity,
-				(pProbeBrush->color_rgba >> 16) & 0xff, (pProbeBrush->color_rgba >> 8) & 0xff, pProbeBrush->color_rgba & 0xff, (pProbeBrush->color_rgba >> 24) & 0xff );
 		}
 		else
 		{
-			Warning( "SE_PORT_SURFACE: DrawFilledRect (%.0f,%.0f)-(%.0f,%.0f) no brushes\n",
-				renderCommand.top_left.x, renderCommand.top_left.y, renderCommand.bottom_right.x, renderCommand.bottom_right.y );
 		}
 	}
 
@@ -3548,10 +3514,6 @@ void CSource2Surface::DrawTextRegionRange( CSource2CompositionLayer *pLayer, flo
 		if ( s_nSETextRangeProbe < 4 )
 		{
 			s_nSETextRangeProbe++;
-			Warning( "SE_PORT_TEXTRANGE: quad=(%.1f,%.1f,%.1f,%.1f) mask=(%.0f,%.0f,%.0f,%.0f) texSize=%.0fx%.0f tex=%p valid=%d alpha=%d\n",
-				x0, y0, x1, y1, maskRange.m_x0, maskRange.m_y0, maskRange.m_x1, maskRange.m_y1,
-				maskRange.m_flTextureWidth, maskRange.m_flTextureHeight, (void *)maskRange.m_hTexture,
-				hTexture.IsValid() ? 1 : 0, fancyQuadDraw.m_bIsAlphaTexture ? 1 : 0 );
 		}
 	}
 	fancyQuadDraw.m_flTexture0TexCoordScale[1] = flTextureOriginalHeightScale;

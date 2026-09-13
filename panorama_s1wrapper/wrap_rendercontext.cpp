@@ -326,12 +326,6 @@ void CRenderContext::CtxDraw( RenderPrimitiveType_t type, int nFirstVertex, int 
 			m_pMatRenderContext->GetViewport( nProbeVX, nProbeVY, nProbeVW, nProbeVH );
 
 			Vector4D *pV = (Vector4D*)m_pBaseVB;
-			Warning( "SE_PORT_DRAW: CtxDraw #%d verts=%d panMaterial=%d blend=%d rt=%s viewport=%d,%d %dx%d vb=%p v0=(%.2f,%.2f,%.2f,%.2f) v1=(%.2f,%.2f,%.2f,%.2f)\n",
-				s_nSECtxDrawLogged, m_nVertCount, m_nPanMaterial, (int)m_blendState,
-				pProbeRT ? pProbeRT->GetName() : "BACKBUFFER", nProbeVX, nProbeVY, nProbeVW, nProbeVH,
-				m_pBaseVB,
-				pV ? pV[0].x : 0.0f, pV ? pV[0].y : 0.0f, pV ? pV[0].z : 0.0f, pV ? pV[0].w : 0.0f,
-				pV ? pV[1].x : 0.0f, pV ? pV[1].y : 0.0f, pV ? pV[1].z : 0.0f, pV ? pV[1].w : 0.0f );
 		}
 	}
 
@@ -359,8 +353,6 @@ void CRenderContext::CtxDraw( RenderPrimitiveType_t type, int nFirstVertex, int 
 		if ( s_nSEMeshProbe < 4 )
 		{
 			s_nSEMeshProbe++;
-			Warning( "SE_PORT_MESH: panMaterial=%d verts=%d vertexFormat=0x%llx\n",
-				m_nPanMaterial, m_nVertCount, (unsigned long long)pMesh->GetVertexFormat() );
 		}
 	}
 	UpdateMesh( pMesh );
@@ -388,8 +380,6 @@ void CRenderContext::CtxDraw( RenderPrimitiveType_t type, int nFirstVertex, int 
 			unsigned char rgba[4] = { 0, 0, 0, 0 };
 			m_pMatRenderContext->ReadPixels( nPixelX, nPixelY, 1, 1, rgba, IMAGE_FORMAT_RGBA8888 );
 
-			Warning( "SE_PORT_READBACK: pixel(%d,%d) right after the draw = %02x%02x%02x%02x (quad corner at clip %.2f,%.2f)\n",
-				nPixelX, nPixelY, rgba[0], rgba[1], rgba[2], rgba[3], pVerts[0].x, pVerts[0].y );
 		}
 	}
 }

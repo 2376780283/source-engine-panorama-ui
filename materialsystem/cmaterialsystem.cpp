@@ -3153,9 +3153,6 @@ public:
 				}
 			}
 
-				Warning( "SE_PORT_REGEN: vtfFormat=%d vtfSize=%ux%u rowSize=%d shadow=%dx%d nonZero=%d\n",
-					(int)pVTFTexture->Format(), pVTFTexture->Width(), pVTFTexture->Height(),
-					pVTFTexture->RowSizeInBytes( 0 ), m_nWidth, m_nHeight, nNonZero );
 			}
 		}
 
@@ -3209,8 +3206,6 @@ static void SEProbePanoramaAlphaD3D( ITexture *pTexture, const char *pchWhere )
 	ITextureInternal *pInternal = (ITextureInternal *)pTexture;
 	ShaderAPITextureHandle_t hTexture = pInternal->GetTextureHandle( 0 );
 	void *pD3D = g_pShaderAPI ? g_pShaderAPI->GetD3DTexturePtr( hTexture ) : NULL;
-	Warning( "SE_PORT_ALPHAD3D: %s handle=%d d3d=%p (null means the texture was never created on the device)\n",
-		pchWhere, (int)hTexture, pD3D );
 }
 
 // Upload the whole atlas through IShaderAPI::TexImage2D: no texture lock (the atlas lives in

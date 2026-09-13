@@ -1970,8 +1970,6 @@ bool CUIPanel::BSetProperty( CPanoramaSymbol symName, const char *pchValue )
 					if ( s_nSEStyleProbe < 12 )
 					{
 						s_nSEStyleProbe++;
-						Warning( "SE_PORT_STYLE: '%s' parse=%d props=%d raw=[%s]\n",
-							m_strID.String(), (int)bSEStyleParsed, styleProperties.Count(), pchValue );
 					}
 				}
 
@@ -1984,7 +1982,6 @@ bool CUIPanel::BSetProperty( CPanoramaSymbol symName, const char *pchValue )
 				if ( s_nSEStyleFailProbe < 12 )
 				{
 					s_nSEStyleFailProbe++;
-					Warning( "SE_PORT_STYLE: '%s' BParseStyleTag FAILED for [%s]\n", m_strID.String(), pchValue );
 				}
 			}
 		}
@@ -6116,11 +6113,6 @@ void CUIPanel::DesiredLayoutSizeTraverse( float *pflDesiredWidth, float *pflDesi
 		AccessStyle()->GetInterpolatedWidth( probeW, bFinalDimensions );
 		AccessStyle()->GetInterpolatedHeight( probeH, bFinalDimensions );
 
-		Warning( "SE_PORT_SIZE: in '%s' type=%s max=%.1f,%.1f styleW(set=%d val=%.2f pct=%d fit=%d fill=%d) styleH(set=%d val=%.2f pct=%d) inlineProps=%d layoutFile=%d\n",
-			m_strID.String(), GetPanelType().String(), flMaxWidth, flMaxHeight,
-			(int)probeW.IsSet(), probeW.GetValue(), (int)probeW.IsPercent(), (int)probeW.IsFitChildren(), (int)probeW.IsFillParentFlow(),
-			(int)probeH.IsSet(), probeH.GetValue(), (int)probeH.IsPercent(),
-			AccessStyle()->PropertiesSetFromElement().Count(), (int)( m_pLayoutFile.Get() != NULL ) );
 	}
 
 	// if nothing is dirty, can early out
@@ -6276,8 +6268,6 @@ void CUIPanel::DesiredLayoutSizeTraverse( float *pflDesiredWidth, float *pflDesi
 	// SE port (bring-up aid)
 	if ( bSELayoutSizeProbe )
 	{
-		Warning( "SE_PORT_SIZE:   out '%s' inner=%.1f,%.1f desired=%.1f,%.1f content=%.1f,%.1f\n",
-			m_strID.String(), flInnerWidth, flInnerHeight, flDesiredLayoutWidth, flDesiredLayoutHeight, flContentWidth, flContentHeight );
 	}
 
 	// only set our member variables if not calculating final dimensions
@@ -6457,10 +6447,6 @@ void CUIPanel::LayoutTraverse( float xFromParent, float yFromParent, float flFin
 			if ( s_nSELayoutTraverseEarly < 8 )
 			{
 				s_nSELayoutTraverseEarly++;
-				Warning( "SE_PORT_SIZET: earlyout '%s' from=%.1f,%.1f desired=%.1f,%.1f actual=%.1f,%.1f lastFrom=%.1f,%.1f\n",
-					m_strID.String(), flFinalWidth, flFinalHeight,
-					m_flDesiredLayoutWidth, m_flDesiredLayoutHeight, m_flActualLayoutWidth, m_flActualLayoutHeight,
-					m_flLastLayoutWidthFromParent, m_flLastLayoutHeightFromParent );
 			}
 		}
 
@@ -6584,9 +6570,6 @@ void CUIPanel::LayoutTraverse( float xFromParent, float yFromParent, float flFin
 		if ( s_nSELayoutTraverseProbe < 24 )
 		{
 			s_nSELayoutTraverseProbe++;
-			Warning( "SE_PORT_SIZET: '%s' xy=%.1f,%.1f from=%.1f,%.1f desired=%.1f,%.1f actual=%.1f,%.1f\n",
-				m_strID.String(), x, y, flFinalWidth, flFinalHeight,
-				m_flDesiredLayoutWidth, m_flDesiredLayoutHeight, m_flActualLayoutWidth, m_flActualLayoutHeight );
 		}
 	}
 

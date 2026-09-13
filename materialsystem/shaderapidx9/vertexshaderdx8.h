@@ -70,9 +70,15 @@ abstract_class IShaderManager
 {
 protected:
 
-	// The current vertex and pixel shader index
-	int m_nVertexShaderIndex;
-	int m_nPixelShaderIndex;
+	// The current vertex and pixel shader index.
+	// SE port: these two were left uninitialised, yet they are used directly as indices into the hardware
+	// shader arrays (SetVertexShader / SetPixelShader index m_ShaderStaticCombos.m_pHardwareShaders[index]).
+	// CS:GO's engine always assigns them before the first draw; with the CS:GO menu loaded the first draw
+	// happened first, so the index was garbage (-2109740384 in the field), the lookup went past the end of
+	// the combo table and produced a wild shader pointer that the engine then used while drawing the world -
+	// that is what crashed in CShaderManager::SetPixelShader.
+	int m_nVertexShaderIndex = 0;
+	int m_nPixelShaderIndex = 0;
 
 public:
 	// Initialize, shutdown

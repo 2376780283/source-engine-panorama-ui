@@ -1333,9 +1333,6 @@ void S1Wrapper_UpdateAlphaTexture( HRenderTexture hTexture, int32 xOffset, int32
 				if ( b < nMin ) nMin = b;
 				if ( b > nMax ) nMax = b;
 			}
-			Warning( "SE_PORT_ALPHAUPD: rect=(%d,%d %dx%d) tex=%s bytes=%d min=%d max=%d zero=%d full=%d\n",
-				xOffset, yOffset, iWidth, iHeight, pTexture->m_pTexture ? pTexture->m_pTexture->GetName() : "-",
-				nBytes, nMin, nMax, nZero, nFull );
 		}
 	}
 

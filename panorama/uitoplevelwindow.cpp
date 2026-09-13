@@ -260,7 +260,6 @@ void CTopLevelWindow::PaintEmptyFrameAndForceLaterRepaint()
 		static int s_nSEEmptyPaints = 0;
 		if ( s_nSEEmptyPaints < 4 )
 		{
-			Warning( "SE_PORT_PAINT: PaintEmptyFrameAndForceLaterRepaint (visiblePanels=%d)\n", m_listVisiblePanels.Count() );
 			s_nSEEmptyPaints++;
 		}
 	}
@@ -311,8 +310,6 @@ void CTopLevelWindow::LayoutAndPaintIfNeeded()
 		s_nSELayoutPaints++;
 		if ( ( s_nSELayoutPaints % 60 ) == 0 )
 		{
-			Warning( "SE_PORT_PAINT: paint pass #%d (visiblePanels=%d forceCaches=%d)\n",
-				s_nSELayoutPaints, m_listVisiblePanels.Count(), (int)UIEngine()->BShouldUseForceBuiltPaintCmdCaches() );
 		}
 	}
 	{
@@ -363,14 +360,10 @@ void CTopLevelWindow::LayoutAndPaintIfNeeded()
 			FOR_EACH_LL( m_listVisiblePanels, i )
 			{
 				CUIPanel *pPanel = m_listVisiblePanels[ i ];
-				Warning( "SE_PORT_LAYOUT: %s w=%.1f h=%.1f children=%d\n", pPanel->GetID(),
-					pPanel->GetActualLayoutWidth(), pPanel->GetActualLayoutHeight(), pPanel->GetChildCount() );
 
 				for ( int c = 0; c < pPanel->GetChildCount() && c < 4; ++c )
 				{
 					IUIPanel *pChild = pPanel->GetChild( c );
-					Warning( "SE_PORT_LAYOUT:   child %d %s w=%.1f h=%.1f children=%d\n", c, pChild->GetID(),
-						pChild->GetActualLayoutWidth(), pChild->GetActualLayoutHeight(), pChild->GetChildCount() );
 				}
 			}
 			s_nSELayoutDump++;
@@ -650,9 +643,6 @@ void CTopLevelWindow::PerformLayout()
 		if ( s_nSEPerformLayoutProbe < 4 )
 		{
 			s_nSEPerformLayoutProbe++;
-			Warning( "SE_PORT_PERFLAYOUT: surface=%ux%u window=%ux%u visiblePanels=%d scale=%.3f\n",
-				GetSurfaceWidth(), GetSurfaceHeight(), GetWindowWidth(), GetWindowHeight(),
-				m_listVisiblePanels.Count(), GetWindowScaleFactor() );
 		}
 	}
 

@@ -3923,8 +3923,6 @@ void CShaderAPIDx8::DrawMesh( CMeshBase *pMesh )
 		if ( s_nSEDrawMeshProbe < 6 )
 		{
 			s_nSEDrawMeshProbe++;
-			Warning( "SE_PORT_DRAWMESH: '%s' fmt=0x%llx suppressRendering=%d\n", m_pMaterial->GetName(),
-				(unsigned long long)vertexFormat, (int)ShaderUtil()->GetConfig().m_bSuppressRendering );
 		}
 	}
 
@@ -8176,11 +8174,6 @@ bool CShaderAPIDx8::TexLock( int level, int cubeFaceID, int xOffset, int yOffset
 
 			ShaderAPITextureHandle_t hProbe = GetModifyTextureHandle();
 			bool bValid = m_Textures.IsValidIndex( hProbe );
-			Warning( "SE_PORT_TEXLOCK: handle=%d valid=%d textures=%d numLevels=%d modifyTex=%p level=%d rect=(%d,%d %dx%d) mipmap=%d\n",
-				(int)hProbe, bValid ? 1 : 0, m_Textures.Count(),
-				bValid ? GetTexture( hProbe ).m_NumLevels : -1,
-				bValid ? (void *)GetModifyTexture() : NULL,
-				level, xOffset, yOffset, width, height, g_pHardwareConfig->SupportsMipmapping() ? 1 : 0 );
 		}
 	}
 
@@ -9948,9 +9941,6 @@ void CShaderAPIDx8::RenderPass( int nPass, int nPassCount )
 		if ( s_nSEPassProbe < 8 )
 		{
 			s_nSEPassProbe++;
-			Warning( "SE_PORT_PASS: pass=%d count=%d snapshot=%d renderMesh=%p material='%s'\n",
-				nPass, nPassCount, (int)m_nCurrentSnapshot, (void *)m_pRenderMesh,
-				( m_pMaterial && m_pMaterial->GetName() ) ? m_pMaterial->GetName() : "<null>" );
 		}
 	}
 

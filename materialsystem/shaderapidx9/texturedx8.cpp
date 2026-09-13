@@ -458,7 +458,6 @@ bool LockTexture( ShaderAPITextureHandle_t bindId, int copy, IDirect3DBaseTextur
 		// SE port (bring-up aid): the panorama text atlas needs this lock to work.
 		static int s_nSELockFailGetSurf = 0;
 		if ( s_nSELockFailGetSurf++ < 4 )
-			Warning( "SE_PORT_LOCK: GetSurfaceFromTexture failed hr=0x%08x level=%d face=%d\n", hr, level, cubeFaceID );
 		return false;
 	}
 
@@ -471,9 +470,6 @@ bool LockTexture( ShaderAPITextureHandle_t bindId, int copy, IDirect3DBaseTextur
 			D3DSURFACE_DESC desc;
 			if ( SUCCEEDED( pSurf->GetDesc( &desc ) ) )
 			{
-				Warning( "SE_PORT_LOCK: fmt=%d pool=%d usage=0x%x size=%ux%u rect=(%d,%d %dx%d) seFmt=%d\n",
-					(int)desc.Format, (int)desc.Pool, (unsigned)desc.Usage, desc.Width, desc.Height,
-					xOffset, yOffset, width, height, (int)GetImageFormat( pTexture ) );
 			}
 		}
 	}
@@ -503,8 +499,6 @@ bool LockTexture( ShaderAPITextureHandle_t bindId, int copy, IDirect3DBaseTextur
 		// SE port (bring-up aid): the panorama text atlas needs this lock to work.
 		static int s_nSELockRectFail = 0;
 		if ( s_nSELockRectFail++ < 4 )
-			Warning( "SE_PORT_LOCK: LockRect failed hr=0x%08x rect=(%d,%d %dx%d) flags=0x%x\n",
-				hr, xOffset, yOffset, width, height, flags );
 		return false;
 	}
 

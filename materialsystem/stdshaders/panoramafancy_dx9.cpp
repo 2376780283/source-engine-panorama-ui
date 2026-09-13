@@ -190,15 +190,15 @@ BEGIN_VS_SHADER( panoramafancy_dx9, "Help for panorama" )
 					ITexture *pProbeTex0 = NULL;
 					pAttr->GetValue( &pProbeTex0, ATTR_Texture0 );
 
-					Warning( "SE_PORT_FANCY: draw blend=%d texType=%d tex0=%p fmt=%d name='%s' topLeft=(%.1f,%.1f,%.1f,%.1f)\n",
-						params[ BLENDSTATE ]->GetIntValue(), texType, pProbeTex0,
-						pProbeTex0 ? (int)pProbeTex0->GetImageFormat() : -1,
-						pProbeTex0 ? pProbeTex0->GetName() : "-",
-						pAttr->GetValue( ATTR_TopLeftWdHt ).x, pAttr->GetValue( ATTR_TopLeftWdHt ).y,
-						pAttr->GetValue( ATTR_TopLeftWdHt ).z, pAttr->GetValue( ATTR_TopLeftWdHt ).w );
 				}
 			}
 
+			// SE port: panorama's render attributes can still reference a texture that has already been
+			// destroyed in this port - they are not pooled across frames here, and an image whose load failed
+			// is torn down.  Binding one of those jumped through a freed vtable inside
+			// CShaderSystem::BindTexture (access at address 0), which killed the game as soon as the CS:GO
+			// menu painted.  The textures are simply not bound below, so the sampler reads the D3D default;
+			// the colours come from the pixel shader's own combo state.
 			if ( texType )
 			{
 				pAttr->GetValue( &pTexture, ATTR_Texture0 );
@@ -213,7 +213,9 @@ BEGIN_VS_SHADER( panoramafancy_dx9, "Help for panorama" )
 						s_bWarnedMissingTexture = true;
 						Warning( "panorama: fancy draw with a missing texture - drawing it untextured\n" );
 					}
-					texType = 0;
+					// NOTE: texType is deliberately NOT cleared here.  It is one of the inputs to the pixel
+					// shader combo index (see PanDxSetShadersFancy), so overriding it made the combo disagree
+					// with the shader's own D_TEXTURETYPE and every panel rendered white.
 				}
 				else
 				{
@@ -229,20 +231,16 @@ BEGIN_VS_SHADER( panoramafancy_dx9, "Help for panorama" )
 							texType = 1;
 						}
 					}
-					BindTexture( SHADER_SAMPLER0, pTexture, 0 );
-
-					pAttr->GetValue( &pTexture, ATTR_Texture1 );
-					if ( pTexture ) { BindTexture( SHADER_SAMPLER1, pTexture, 0 ); }
-
-					pAttr->GetValue( &pTexture, ATTR_Texture2 );
-					if ( pTexture ) { BindTexture( SHADER_SAMPLER2, pTexture, 0 ); }
+					// SE port: the actual BindTexture() call is intentionally gone - the texture object stored in the
+					// render attributes may already be destroyed (see the note above), and binding it crashed inside
+					// CShaderSystem::BindTexture.  The pixel shader still runs with its correct combo, it just samples
+					// a default (unbound) texture.  Restore the binding once the CS:GO image resources are in place.
 				}
 			}
 
 			if ( pAttr->GetValue( ATTR_D_GRADIENT_COMPLEX ) )
 			{
-				pAttr->GetValue( &pTexture, ATTR_Texture3 );
-				if ( pTexture ) { BindTexture( SHADER_SAMPLER3, pTexture, 0 ); }
+				// SE port: see the note above - the extra texture slots are not bound here.
 			}
 
 			Vector4D vTopCornerRad, vBtmCornerRad;

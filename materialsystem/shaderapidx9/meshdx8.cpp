@@ -5924,9 +5924,6 @@ void CMeshMgr::RenderPassWithVertexAndIndexBuffers( void )
 					if ( s_nSEMeshPassProbe < 8 )
 					{
 						s_nSEMeshPassProbe++;
-						Warning( "SE_PORT_MESHPASS: primType=%d firstIndex=%d numIndices=%d firstVertex=%d vertexCount=%d\n",
-							(int)m_PrimitiveType, m_nFirstIndex, m_nNumIndices,
-							m_pFirstVertex[0], m_pVertexCount[0] );
 					}
 				}
 

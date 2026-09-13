@@ -6538,7 +6538,6 @@ void CUIEngine::LayoutAndPaintWindows()
 		static int s_nSELayoutAndPaintWindows = 0;
 		if ( s_nSELayoutAndPaintWindows < 4 )
 		{
-			Warning( "SE_PORT_PAINT: CUIEngine::LayoutAndPaintWindows (windows=%d)\n", m_vecWindows.Count() );
 			s_nSELayoutAndPaintWindows++;
 		}
 	}

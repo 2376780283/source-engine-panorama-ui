@@ -178,8 +178,6 @@ BEGIN_VS_SHADER( panorama_dx9, "Help for panorama" )
 				static int s_nSEPanoShaderLogged = 0;
 				if ( s_nSEPanoShaderLogged < 8 )
 				{
-					Warning( "SE_PORT_SHADER: panorama_dx9 draw blend=%d attr=%p\n",
-						params[ BLENDSTATE ]->GetIntValue(), (void*)pAttr );
 					s_nSEPanoShaderLogged++;
 				}
 			}
@@ -191,8 +189,13 @@ BEGIN_VS_SHADER( panorama_dx9, "Help for panorama" )
 			Vector4D sample1, sample2, sample3, sample4, sample5, sample6, sample7, sample8;
 
 			ITexture *pTexture = NULL;
-			pAttr->GetValue( &pTexture, ATTR_Texture0 );
-			BindTexture( SHADER_SAMPLER0, pTexture, 0 );
+			// SE port: the textures stored in panorama's render attributes can already be destroyed by the
+			// time the shader runs - they are not pooled across frames in this port, and an image whose load
+			// failed is torn down.  Binding one of those jumped through a freed vtable inside
+			// CShaderSystem::BindTexture (access at 0xC3F8F497) which killed the game.  The fancy variant
+			// draws untextured for the same reason; do the same here until the CS:GO image resources exist.
+			// (pTexture is deliberately not bound below.)
+			( void )pTexture;
 
 			pAttr->GetValue( &centerWeight, ATTR_centerWeight );
 			pAttr->GetValue( &sample1, ATTR_sample1 );

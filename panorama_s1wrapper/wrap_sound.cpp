@@ -80,6 +80,12 @@ SoundEventGuid_t CSoundOpSystem::StartSoundEvent( const char *pSoundEventName, v
 	sound_voice_layer_t nLayer, SOSRANDSEED nSeed,
 	const void *pPackedFieldData, int nPackedFieldDataBytes, const Vector2D* pSoundPos )
 {
+	// SE port: this port has no sound emitter system - CS:GO looks panorama sound events up in its sound
+	// script database, and reaching it here dereferenced NULL (crash at address 0) as soon as the CS:GO
+	// menu tried to play a UI sound.
+	if ( !g_pSoundEmitterSystemBase )
+		return 0;
+
 	// Prefix sound event name with "UIPanorama" if the sound event name does not have a prefix
 
 	char szPrefixedSoundEventName[MAX_PATH];
