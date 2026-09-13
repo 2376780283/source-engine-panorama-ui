@@ -52,6 +52,17 @@ public:
 
 	panorama::IUIEngine *UIEngine() { return m_pUIEngine; }
 
+	// SE port: hosted-UI smoke test view.  CS:GO's engine never creates views itself - its game DLL does
+	// that through IGameUIFuncs::AddPanoramaView - so until the game side is ported this creates one from
+	// mods/panorama_test/panorama/layout/test.xml (file://{resources}/layout/test.xml in the mounted mod).
+	// Reached through -panoramatest on the command line, or the "panorama_test" console command at runtime.
+	bool CreatePanoramaTestView();
+	void DestroyPanoramaTestView();
+	bool HasPanoramaTestView() const { return m_pTestWindow != NULL; }
+
+	// Dumps what the hosted UI is currently doing ("panorama_status").
+	void PrintPanoramaStatus();
+
 #if ( PLATFORM_WINDOWS && DEVELOPMENT_ONLY ) 
 	bool IsDebuggerShown() { return m_bShowDebugger; };
 	void SetDebuggerShown( bool bShow ) { m_bShowDebugger = bShow; }
@@ -142,6 +153,9 @@ private:
 	CUtlVector<CUtlString> m_vecViewsToRemove;
 	CUtlVector<panorama::IUIWindow *> m_vecWindowInputOrder;
 	CUtlVector<panorama::IUIWindow*> m_pWindows;
+
+	// The -panoramatest / "panorama_test" view, NULL when it hasn't been created.
+	panorama::IUIWindow *m_pTestWindow;
 
 	int m_nMainWindowWidth;
 	int m_nMainWindowHeight;
