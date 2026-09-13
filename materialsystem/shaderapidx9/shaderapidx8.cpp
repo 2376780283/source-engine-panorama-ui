@@ -8166,6 +8166,24 @@ bool CShaderAPIDx8::TexLock( int level, int cubeFaceID, int xOffset, int yOffset
 
 	Assert( m_ModifyTextureLockedLevel < 0 );
 
+	// SE port (bring-up aid): TexLock returned false without ever reaching LockTexture for the
+	// panorama text atlas - see which of the early-outs below is responsible.
+	{
+		static int s_nSETexLockProbe = 0;
+		if ( s_nSETexLockProbe < 6 )
+		{
+			s_nSETexLockProbe++;
+
+			ShaderAPITextureHandle_t hProbe = GetModifyTextureHandle();
+			bool bValid = m_Textures.IsValidIndex( hProbe );
+			Warning( "SE_PORT_TEXLOCK: handle=%d valid=%d textures=%d numLevels=%d modifyTex=%p level=%d rect=(%d,%d %dx%d) mipmap=%d\n",
+				(int)hProbe, bValid ? 1 : 0, m_Textures.Count(),
+				bValid ? GetTexture( hProbe ).m_NumLevels : -1,
+				bValid ? (void *)GetModifyTexture() : NULL,
+				level, xOffset, yOffset, width, height, g_pHardwareConfig->SupportsMipmapping() ? 1 : 0 );
+		}
+	}
+
 	ShaderAPITextureHandle_t hTexture = GetModifyTextureHandle();
 	if ( !m_Textures.IsValidIndex( hTexture ) )
 		return false;

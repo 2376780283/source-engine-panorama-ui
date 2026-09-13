@@ -11,6 +11,11 @@
 #endif
 
 #define PANORAMA_ZIPFILE_VERSION 1
+// SE port: the retail CS:GO 2023 code.pbin is version 2 (it is the pack the port targets now that the
+// actual CS:GO UI is being brought up).  The container layout is identical for 1 and 2 - checked
+// against the retail file: 4-byte 'P','A','N',<version> header, 512-byte signature digest, a plain
+// zip payload, then a trailing copy of the version byte - so both are accepted.
+#define PANORAMA_ZIPFILE_VERSION_MAX 2
 #define PANORAMA_ZIPFILE_NAME "panorama/code.pbin"
 
 // panzip tool is using minimal compile and cannot include all the V8 headers, support just the zip file version #define

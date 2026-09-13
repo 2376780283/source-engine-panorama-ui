@@ -102,6 +102,25 @@ using websocketpp::lib::bind;
 // memdbgon must be the last include file in a .cpp file!!!
 #include <tier0/memdbgon.h>
 
+//-----------------------------------------------------------------------------
+// SE port: V8 7.x removed the non-Maybe overloads of the script and function entry points.  The
+// deprecated forms this file used to call (script->Run(), fn->Call(recv, argc, argv)) are implemented in
+// v8.h in terms of ToLocalChecked(), which is *fatal* as soon as a script raises an exception that a
+// TryCatch catches - exactly what CS:GO's scripts do when they touch a part of the panorama JS API this
+// port has not implemented yet.  Observed while loading the CS:GO main menu:
+//   # Fatal error in v8::ToLocalChecked / Empty MaybeLocal.
+// These helpers run with an explicit context and report failure instead of terminating the process.
+//-----------------------------------------------------------------------------
+static bool SE_TryRunScript( v8::Isolate *pIsolate, v8::Local<v8::Script> script, v8::Local<v8::Value> *pOutRetVal )
+{
+	return script->Run( pIsolate->GetCurrentContext() ).ToLocal( pOutRetVal );
+}
+
+static bool SE_TryCallFunction( v8::Isolate *pIsolate, v8::Local<v8::Function> fn, v8::Local<v8::Value> recv, int argc, v8::Local<v8::Value> *argv, v8::Local<v8::Value> *pOutRetVal )
+{
+	return fn->Call( pIsolate->GetCurrentContext(), recv, argc, argv ).ToLocal( pOutRetVal );
+}
+
 #if V8_DEBUGGING_ENABLED
 
 void OnPanoramaRemoteDebug( IConVar *var, const char *pOldValue, float flOldValue );
@@ -4202,7 +4221,8 @@ void CJSAsyncWebRequest::OnHTTPRequestCompleted( HTTPRequestCompleted_t *pParam,
 					VPROF_BUDGET( "$.AsyncWebRequest - success callback", VPROF_BUDGETGROUP_TENFOOT );
 
 					UIEngineInternal()->PushContextPanel( m_pPanelPtr.Get() );
-					fnLocal->Call( obj, 3, arguments );
+					v8::Local<v8::Value> ignoredRetVal;
+					SE_TryCallFunction( UIEngineInternal()->GetV8Isolate(), fnLocal, obj, 3, arguments, &ignoredRetVal );
 					UIEngineInternal()->PopContextPanel();
 				}
 			}
@@ -4229,7 +4249,8 @@ void CJSAsyncWebRequest::OnHTTPRequestCompleted( HTTPRequestCompleted_t *pParam,
 					VPROF_BUDGET( "$.AsyncWebRequest - failure callback", VPROF_BUDGETGROUP_TENFOOT );
 
 					UIEngineInternal()->PushContextPanel( m_pPanelPtr.Get() );
-					fnLocal->Call( obj, 3, arguments );
+					v8::Local<v8::Value> ignoredRetVal;
+					SE_TryCallFunction( UIEngineInternal()->GetV8Isolate(), fnLocal, obj, 3, arguments, &ignoredRetVal );
 					UIEngineInternal()->PopContextPanel();
 				}
 			}
@@ -4256,7 +4277,8 @@ void CJSAsyncWebRequest::OnHTTPRequestCompleted( HTTPRequestCompleted_t *pParam,
 				VPROF_BUDGET( "$.AsyncWebRequest - failure callback", VPROF_BUDGETGROUP_TENFOOT );
 
 				UIEngineInternal()->PushContextPanel( m_pPanelPtr.Get() );
-				fnLocal->Call( obj, 3, arguments );
+				v8::Local<v8::Value> ignoredRetVal;
+				SE_TryCallFunction( UIEngineInternal()->GetV8Isolate(), fnLocal, obj, 3, arguments, &ignoredRetVal );
 				UIEngineInternal()->PopContextPanel();
 			}
 		}
@@ -4283,7 +4305,8 @@ void CJSAsyncWebRequest::OnHTTPRequestCompleted( HTTPRequestCompleted_t *pParam,
 			VPROF_BUDGET( "$.AsyncWebRequest - complete callback", VPROF_BUDGETGROUP_TENFOOT );
 			
 			UIEngineInternal()->PushContextPanel( m_pPanelPtr.Get() );
-			fnLocal->Call( obj, 2, arguments );
+			v8::Local<v8::Value> ignoredRetVal;
+			SE_TryCallFunction( UIEngineInternal()->GetV8Isolate(), fnLocal, obj, 2, arguments, &ignoredRetVal );
 			UIEngineInternal()->PopContextPanel();
 		}
 
@@ -4893,7 +4916,14 @@ void CUIEngine::ExposeGlobalObjectToJavaScript( const char *pchJSVarName, void *
 	v8::Persistent<v8::FunctionTemplate> *pTemplate = m_mapV8ClassTemplatesByType[iMap];
 	v8::Handle<v8::FunctionTemplate> classTemplate = v8::Local<v8::FunctionTemplate>::New( m_pV8Isolate, *pTemplate );
 
-	v8::Local<v8::Object> obj = classTemplate->InstanceTemplate()->NewInstance( context ).ToLocalChecked();
+	// SE port: NewInstance() returns an empty MaybeLocal when a script exception is still pending, and
+	// ToLocalChecked() would turn that into a fatal V8 abort (see the note in uievent.cpp).
+	v8::Local<v8::Object> obj;
+	if ( !classTemplate->InstanceTemplate()->NewInstance( context ).ToLocal( &obj ) || obj.IsEmpty() )
+	{
+		Warning( "panorama: could not create a '%s' script object (a script error is pending)\n", pchJsTypeName );
+		return;
+	}
 
 	obj->SetInternalField( 0, v8::External::New( m_pV8Isolate, pInstance ) );
 
@@ -5082,7 +5112,14 @@ void CUIEngine::InitializePanoramaContext( v8::Persistent<v8::Context> *pPersist
 	v8::Context::Scope context_scope( handle_context );
 
 	v8::Handle<v8::Object> objGlobal = handle_context->Global();
-	v8::Local< v8::Value > objPanoramaVal = objGlobal->Get( handle_context, v8::String::NewFromUtf8( m_pV8Isolate, "panorama" ) ).ToLocalChecked();
+	// SE port: see the note in uievent.cpp - Get() returns an empty MaybeLocal while a script exception is
+	// pending, and ToLocalChecked() would abort the process instead of reporting the script error.
+	v8::Local< v8::Value > objPanoramaVal;
+	if ( !objGlobal->Get( handle_context, v8::String::NewFromUtf8( m_pV8Isolate, "panorama" ) ).ToLocal( &objPanoramaVal ) || objPanoramaVal.IsEmpty() )
+	{
+		Warning( "panorama: could not look up the 'panorama' script object (a script error is pending)\n" );
+		return;
+	}
 	v8::Local< v8::Object > objPanorama = v8::Local< v8::Object >::Cast( objPanoramaVal );
 
 	objGlobal->Set( v8::String::NewFromUtf8( m_pV8Isolate, "$" ), objPanorama );
@@ -5575,7 +5612,7 @@ void CUIEngine::RunScript( IUIPanel *pPanelContext, const char *pchScriptString,
 v8::Local<v8::Value> CUIEngine::RunJSFunctionInternal( IUIPanel *pPanelContext, v8::Local< v8::Context> context, v8::Local<v8::Value> recv, 
 	v8::Local<v8::Function> jsfn, int argc, v8::Local<v8::Value> argv[], bool bPrintRetValue )
 {
-	v8::Local<v8::Value> retVal;
+	v8::Local<v8::Value> retVal = v8::Undefined( m_pV8Isolate );
 
 #if ( V8_CTX_DBG_SPEW_ENABLED )
 	v8::Local< v8::Value> fnNameVal = jsfn->GetName();
@@ -5589,7 +5626,7 @@ v8::Local<v8::Value> CUIEngine::RunJSFunctionInternal( IUIPanel *pPanelContext, 
 	if ( IsWebSocketServerConnected() )
 	{
 		PushContextPanel( pPanelContext );
-		retVal = jsfn->Call( recv, argc, argv );
+		SE_TryCallFunction( m_pV8Isolate, jsfn, recv, argc, argv, &retVal );
 		PopContextPanel();
 	}
 	else
@@ -5603,7 +5640,7 @@ v8::Local<v8::Value> CUIEngine::RunJSFunctionInternal( IUIPanel *pPanelContext, 
 	#endif
 
 		PushContextPanel( pPanelContext );
-		retVal = jsfn->Call( recv, argc, argv );
+		SE_TryCallFunction( m_pV8Isolate, jsfn, recv, argc, argv, &retVal );
 		PopContextPanel();
 	
 	#if V8_ENABLE_EXCEPTIONS
@@ -5640,14 +5677,14 @@ v8::Local<v8::Value> CUIEngine::RunJSFunctionInternal( IUIPanel *pPanelContext, 
 
 v8::Local<v8::Value> CUIEngine::RunJSScriptInternal( IUIPanel *pPanelContext, v8::Local<v8::Script> script, bool bPrintRetValue, bool bIsReload )
 {
-	v8::Local<v8::Value> retVal;
+	v8::Local<v8::Value> retVal = v8::Undefined( m_pV8Isolate );
 
 #if V8_DEBUGGING_ENABLED
 
 	if ( IsWebSocketServerConnected() )
 	{
 		PushContextPanel( pPanelContext );
-		retVal = script->Run();
+		SE_TryRunScript( m_pV8Isolate, script, &retVal );
 		PopContextPanel();
 	}
 	else
@@ -5664,7 +5701,7 @@ v8::Local<v8::Value> CUIEngine::RunJSScriptInternal( IUIPanel *pPanelContext, v8
 		PushContextPanel( pPanelContext );
 		m_bIsReloadingScript = bIsReload;
 
-		retVal = script->Run();
+		SE_TryRunScript( m_pV8Isolate, script, &retVal );
 		
 		m_bIsReloadingScript = false;
 		PopContextPanel();

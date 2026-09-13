@@ -915,6 +915,17 @@ public:
 	// implemented by CMaterialSystem (which forwards to IShaderAPI::ResetRenderState).
 	virtual void				ResetPanoramaRenderState() {}
 
+	// SE port (CS:GO additions): panorama's text atlas (the A8 texture the DirectWrite/pango text
+	// backends upload their glyph masks into).  CS:GO had both on IMaterialSystem and its s1wrapper
+	// wrote the masks with IShaderAPI::TexLock/TexUnlock ("font special case" in
+	// panorama_s1wrapper/wrap_texture.h).  This port originally dropped them, which left the atlas
+	// uninitialised - text came out as solid blocks of the text colour.  Re-routing the upload through
+	// ITexture::SetTextureRegenerator()+Download() instead also works, but the partial download
+	// corrupts the heap for A8 textures (0xc0000374 in ntdll), so the direct lock path is used.
+	// Default bodies keep the other IMaterialSystem implementers (mat_stub, shaderapiempty) compiling.
+	virtual ITexture *		CreatePanoramaAlphaTexture( const char *pDebugName, int nWidth, int nHeight ) { return NULL; }
+	virtual bool			UpdatePanoramaAlphaTexture( ITexture *pTexture, int xOffset, int yOffset, int nWidth, int nHeight, void *pImageData ) { return false; }
+
 	// Creates a procedural texture
 	virtual ITexture *			CreateProceduralTexture( const char	*pTextureName, 
 		const char *pTextureGroupName, 

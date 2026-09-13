@@ -710,6 +710,19 @@ CSource2CompositionLayer::~CSource2CompositionLayer()
 // to a freshly-constructed layer.  Used to reset layers pulled
 // from the reuse cache.
 //-----------------------------------------------------------------------------
+// SE port (bring-up probe): a breadcrumb on disk.  The game log is not always complete when the process
+// dies (and the Windows subsystem drops stderr), so the last line of this file tells us which panorama
+// entry point the crash happened in.  REMOVE before committing - see the notes in the repo memory.
+static void SE_PortBreadcrumb( const char *pWhere )
+{
+	FILE *fp = fopen( "d:\\cstrike\\se_breadcrumb.txt", "a" );
+	if ( !fp )
+		return;
+
+	fprintf( fp, "%s\n", pWhere );
+	fclose( fp );
+}
+
 void CSource2CompositionLayer::ResetToDefault()
 {
 	m_bShouldCache = true; // by default we cache composition layers to avoid redoing rendering work
@@ -763,6 +776,7 @@ bool CSource2CompositionLayer::GetRenderTargetHandleAndDesc( HRenderTexture &hRT
 
 void CSource2CompositionLayer::InternalActivateRenderTarget( bool bClearRenderTarget )
 {
+	SE_PortBreadcrumb( "InternalActivateRenderTarget" );
 	VPROF( "CSource2CompositionLayer::ActivateRenderTarget ");
 
 	if ( !m_hRenderTarget.IsValid() && !m_bIsBackBuffer )
@@ -868,6 +882,7 @@ uint32 CSource2CompositionLayer::GetClipLayerCount()
 //-----------------------------------------------------------------------------
 void CSource2CompositionLayer::CheckAndClearClipLayers()
 {
+	SE_PortBreadcrumb( "CheckAndClearClipLayers" );
     m_vecClipLayers.RemoveAll();
 }
 
@@ -1230,6 +1245,7 @@ void CSource2CompositionLayer::PopPanelContextInLayer( const PopPanelContextInLa
 //-----------------------------------------------------------------------------
 void CSource2CompositionLayer::PushClipLayer( const PushClipLayerRenderCommand_t &renderCommand )
 {
+	SE_PortBreadcrumb( "PushClipLayer" );
 	RectBounds_t &bounds = m_vecClipLayers[ m_vecClipLayers.AddToTail() ];
 	bounds.left = renderCommand.top_left.x;
 	bounds.top = renderCommand.top_left.y;
@@ -1262,6 +1278,7 @@ void CSource2CompositionLayer::PushClipLayer( const PushClipLayerRenderCommand_t
 //-----------------------------------------------------------------------------
 void CSource2CompositionLayer::PopClipLayer()
 {
+	SE_PortBreadcrumb( "PopClipLayer" );
 	if ( m_vecClipLayers.Count() > 0 )
 	{		
 		m_vecClipLayers.Remove( m_vecClipLayers.Count() - 1 );
@@ -1631,6 +1648,7 @@ bool CSource2Surface::BUpdateWindowSizeIfNeeded( uint32 nWidth, uint32 nHeight )
 //-----------------------------------------------------------------------------
 void CSource2Surface::BeginFrame( const BeginFrameRenderCommand_t &renderCommand )
 {
+	SE_PortBreadcrumb( "CSource2Surface::BeginFrame" );
 	// SE port (bring-up aid): rate-limited frame counter for the surface render thread.
 	{
 		static int s_nSEBeginFrame = 0;
@@ -1994,6 +2012,7 @@ static CTSPool<CRenderAttributes> s_FancyQuadAttributesPool;
 
 void CSource2Surface::DrawFancyQuad( const FancyQuadDraw_t *pFancyQuadDraw )
 {
+	SE_PortBreadcrumb( "CSource2Surface::DrawFancyQuad" );
 	VPROF( "CSource2Surface::DrawFancyQuad" );
 	//VPROF_BUDGET( "Panorama DrawFancyQuad", VPROF_BUDGETGROUP_GAME );
 
@@ -3150,6 +3169,7 @@ void CSource2Surface::SetFancyQuadFillBrush( FancyQuadBrush_t &FancyBrush, const
 //-----------------------------------------------------------------------------
 void CSource2Surface::DrawFilledRect( const RenderFilledRectRenderCommand_t &renderCommand )
 {
+	SE_PortBreadcrumb( "CSource2Surface::DrawFilledRect" );
 	// SE port (bring-up aid): a filled rect reached the surface (what the test layout uses).
 	static int s_nSEDrawRectLogged = 0;
 	s_nSEDrawRectLogged++;
@@ -3520,6 +3540,20 @@ void CSource2Surface::DrawTextRegionRange( CSource2CompositionLayer *pLayer, flo
 	FancyQuadDraw_t fancyQuadDraw;
 	fancyQuadDraw.m_hTexture0 = hTexture;
 	fancyQuadDraw.m_flTexture0TexCoordScale[0] = flTextureOriginalWidthScale;
+
+	// SE port (bring-up aid): text mask quads are the only ones with m_bIsAlphaTexture, so this tells
+	// whether a mis-rendered label is a text draw at all, and with which mask dimensions.
+	{
+		static int s_nSETextRangeProbe = 0;
+		if ( s_nSETextRangeProbe < 4 )
+		{
+			s_nSETextRangeProbe++;
+			Warning( "SE_PORT_TEXTRANGE: quad=(%.1f,%.1f,%.1f,%.1f) mask=(%.0f,%.0f,%.0f,%.0f) texSize=%.0fx%.0f tex=%p valid=%d alpha=%d\n",
+				x0, y0, x1, y1, maskRange.m_x0, maskRange.m_y0, maskRange.m_x1, maskRange.m_y1,
+				maskRange.m_flTextureWidth, maskRange.m_flTextureHeight, (void *)maskRange.m_hTexture,
+				hTexture.IsValid() ? 1 : 0, fancyQuadDraw.m_bIsAlphaTexture ? 1 : 0 );
+		}
+	}
 	fancyQuadDraw.m_flTexture0TexCoordScale[1] = flTextureOriginalHeightScale;
 	fancyQuadDraw.m_nWide = -1;
 	fancyQuadDraw.m_nTall = -1;
@@ -3527,7 +3561,9 @@ void CSource2Surface::DrawTextRegionRange( CSource2CompositionLayer *pLayer, flo
 	fancyQuadDraw.m_pQuadBrush = &FancyBrush;
 	fancyQuadDraw.m_flTextureWidth = maskRange.m_flTextureWidth;
 	fancyQuadDraw.m_flTextureHeight = maskRange.m_flTextureHeight;
-	fancyQuadDraw.m_bIsAlphaTexture = true;
+	// SE port (diagnostic): route the text mask through the fancy shader's RGBA texture variant instead
+	// of the alpha-texture one.
+	fancyQuadDraw.m_bIsAlphaTexture = false;
 	fancyQuadDraw.m_bRawCoords = true;
 	fancyQuadDraw.m_bClipToLayer = true;
 	fancyQuadDraw.m_pVMatrix = pLayer->AccessPushedMatrix();

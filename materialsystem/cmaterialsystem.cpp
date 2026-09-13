@@ -2989,6 +2989,313 @@ void CMaterialSystem::ResetPanoramaRenderState()
 {
 }
 
+// SE port (CS:GO additions): panorama's text atlas - see the note in imaterialsystem.h.
+//
+// The atlas is a procedural A8 texture, so on this tree it ends up in D3DPOOL_DEFAULT (managed
+// textures are only used when mat_dxlevel < 90 or mat_managedtextures is set - see
+// CTexture::CreateTexture), and D3D9 refuses to lock a default-pool texture: IShaderAPI::TexLock
+// returns D3DERR_INVALIDCALL for it.  CS:GO wrote its glyph masks with TexLock, which cannot work
+// here, so the masks are kept in a CPU copy owned by a regenerator and the whole atlas is
+// re-uploaded through ITexture::Download() (the same path every other procedural texture uses when
+// it wants its bits on the device).
+// SE port: the atlas format.  IMAGE_FORMAT_A8 looked right (it is what CS:GO used) but this tree
+// uploads procedural textures through a scratch VTF that comes out 32-bit, which forces a format
+// conversion on every update and hits a pile of A8 special cases (D3DFMT_A8 is not filterable, is
+// not lockable in D3DPOOL_DEFAULT, ...).  A 32-bit atlas with the coverage in the alpha channel is
+// what the panorama text shader samples anyway (it reads .a), and it needs no conversion at all.
+static const ImageFormat kPanoramaAlphaFormat = IMAGE_FORMAT_RGBA8888;
+
+class CPanoramaAlphaRegen : public ITextureRegenerator
+{
+public:
+	CPanoramaAlphaRegen( int nWidth, int nHeight ) :
+		m_nWidth( nWidth ), m_nHeight( nHeight )
+	{
+		m_pBits = (unsigned char *)malloc( (size_t)m_nWidth * (size_t)m_nHeight * ImageLoader::SizeInBytes( kPanoramaAlphaFormat ) );
+		if ( m_pBits )
+		{
+			// Start fully transparent (rgb is irrelevant where alpha is 0).
+			FillAlpha( 0 );
+		}
+	}
+
+	~CPanoramaAlphaRegen()
+	{
+		free( m_pBits );
+		m_pBits = NULL;
+	}
+
+	bool IsValid() const { return m_pBits != NULL; }
+
+	unsigned char *Bits() const { return m_pBits; }
+	int Width() const { return m_nWidth; }
+	int Height() const { return m_nHeight; }
+
+	void FillAlpha( int nAlpha )
+	{
+		if ( !m_pBits )
+			return;
+
+		CPixelWriter pixelWriter;
+		pixelWriter.SetPixelMemory( kPanoramaAlphaFormat, m_pBits, m_nWidth * ImageLoader::SizeInBytes( kPanoramaAlphaFormat ) );
+		for ( int y = 0; y < m_nHeight; ++y )
+		{
+			for ( int x = 0; x < m_nWidth; ++x )
+			{
+				pixelWriter.Seek( x, y );
+				pixelWriter.WritePixel( 255, 255, 255, nAlpha );
+			}
+		}
+	}
+
+	// SE port (diagnostic): solid RGBA fill.
+	void FillRGBA( int r, int g, int b, int a )
+	{
+		if ( !m_pBits )
+			return;
+
+		CPixelWriter pixelWriter;
+		pixelWriter.SetPixelMemory( kPanoramaAlphaFormat, m_pBits, m_nWidth * ImageLoader::SizeInBytes( kPanoramaAlphaFormat ) );
+		for ( int y = 0; y < m_nHeight; ++y )
+		{
+			for ( int x = 0; x < m_nWidth; ++x )
+			{
+				pixelWriter.Seek( x, y );
+				pixelWriter.WritePixel( r, g, b, a );
+			}
+		}
+	}
+
+	// SE port (diagnostic): horizontal alpha ramp across the whole atlas.
+	void FillAlphaRamp()
+	{
+		if ( !m_pBits )
+			return;
+
+		CPixelWriter pixelWriter;
+		pixelWriter.SetPixelMemory( kPanoramaAlphaFormat, m_pBits, m_nWidth * ImageLoader::SizeInBytes( kPanoramaAlphaFormat ) );
+		for ( int y = 0; y < m_nHeight; ++y )
+		{
+			for ( int x = 0; x < m_nWidth; ++x )
+			{
+				pixelWriter.Seek( x, y );
+				pixelWriter.WritePixel( 0, 0, 0, ( x * 255 ) / MAX( 1, m_nWidth - 1 ) );
+			}
+		}
+	}
+
+	// Copy an 8-bit coverage rect into the CPU copy of the atlas (stored as kPanoramaAlphaFormat with
+	// rgb = 0 and the coverage in alpha).
+	void WriteRect( int xOffset, int yOffset, int nWidth, int nHeight, const void *pImageData )
+	{
+		if ( !m_pBits || !pImageData )
+			return;
+
+		const int nBytesPerPixel = ImageLoader::SizeInBytes( kPanoramaAlphaFormat );
+		const unsigned char *pSrc = (const unsigned char *)pImageData;
+
+		// The pixel writer knows the byte layout of the format, so use it instead of assuming an order.
+		CPixelWriter pixelWriter;
+		pixelWriter.SetPixelMemory( kPanoramaAlphaFormat, m_pBits, m_nWidth * nBytesPerPixel );
+
+		for ( int y = 0; y < nHeight; ++y )
+		{
+			int nDstY = yOffset + y;
+			if ( nDstY < 0 || nDstY >= m_nHeight )
+				continue;
+
+			for ( int x = 0; x < nWidth; ++x )
+			{
+				int nDstX = xOffset + x;
+				if ( nDstX < 0 || nDstX >= m_nWidth )
+					continue;
+
+				pixelWriter.Seek( nDstX, nDstY );
+				// Premultiplied coverage in all four channels: the text shader does vTexCol *= vertexColour
+				// and the draw uses the premultiplied-alpha blend state, so rgb must already carry coverage.
+				byte nCoverage = pSrc[ y * nWidth + x ];
+				pixelWriter.WritePixel( nCoverage, nCoverage, nCoverage, nCoverage );
+			}
+		}
+	}
+
+	virtual void RegenerateTextureBits( ITexture * /*pTexture*/, IVTFTexture *pVTFTexture, Rect_t * /*pSubRect*/ )
+	{
+		if ( !m_pBits || !pVTFTexture )
+			return;
+
+		// The panorama text shader samples the *alpha* channel of the atlas (see the ALPHA branch of
+		// panoramafancy_ps30.fxc), so the coverage has to be written as alpha - which also means this
+		// works whether the scratch VTF came out as A8 or as A8R8G8B8.
+		int nCopyWidth = MIN( m_nWidth, (int)pVTFTexture->Width() );
+		int nCopyHeight = MIN( m_nHeight, (int)pVTFTexture->Height() );
+		unsigned char *pDst = (unsigned char *)pVTFTexture->ImageData( 0, 0, 0, 0, 0, 0 );
+		if ( !pDst )
+			return;
+
+		{
+			static int s_nSERegenProbe = 0;
+			if ( s_nSERegenProbe < 3 )
+			{
+				s_nSERegenProbe++;
+
+			int nNonZero = 0;
+			{
+				CPixelWriter readBack;
+				readBack.SetPixelMemory( kPanoramaAlphaFormat, m_pBits, m_nWidth * ImageLoader::SizeInBytes( kPanoramaAlphaFormat ) );
+				for ( int i = 0; i < m_nWidth * m_nHeight; ++i )
+				{
+					readBack.Seek( i % m_nWidth, i / m_nWidth );
+					int r, g, b, a;
+					readBack.ReadPixelNoAdvance( r, g, b, a );
+					if ( a )
+						nNonZero++;
+				}
+			}
+
+				Warning( "SE_PORT_REGEN: vtfFormat=%d vtfSize=%ux%u rowSize=%d shadow=%dx%d nonZero=%d\n",
+					(int)pVTFTexture->Format(), pVTFTexture->Width(), pVTFTexture->Height(),
+					pVTFTexture->RowSizeInBytes( 0 ), m_nWidth, m_nHeight, nNonZero );
+			}
+		}
+
+		if ( pVTFTexture->Format() == kPanoramaAlphaFormat )
+		{
+			// Straight 32-bit copy: the CPU copy already holds (0,0,0,coverage) in this layout.
+			int nRowSize = pVTFTexture->RowSizeInBytes( 0 );
+			int nBytesPerPixel = ImageLoader::SizeInBytes( kPanoramaAlphaFormat );
+			for ( int y = 0; y < nCopyHeight; ++y )
+			{
+				V_memcpy( pDst + y * nRowSize, m_pBits + y * m_nWidth * nBytesPerPixel, nCopyWidth * nBytesPerPixel );
+			}
+			return;
+		}
+
+		// Anything else: write the coverage through the pixel writer as alpha only.
+		CPixelWriter pixelWriter;
+		pixelWriter.SetPixelMemory( pVTFTexture->Format(), pDst, pVTFTexture->RowSizeInBytes( 0 ) );
+
+		for ( int y = 0; y < nCopyHeight; ++y )
+		{
+			for ( int x = 0; x < nCopyWidth; ++x )
+			{
+				pixelWriter.Seek( x, y );
+				pixelWriter.WritePixel( 0, 0, 0, m_pBits[ y * m_nWidth + x ] );
+			}
+		}
+	}
+
+	virtual void Release() { delete this; }
+
+private:
+	unsigned char *m_pBits;
+	int m_nWidth;
+	int m_nHeight;
+};
+
+// The material system is used from the main thread only, so a plain map is enough.  Entries stay for
+// the lifetime of their texture (the regenerator is owned by the texture once installed).
+static CUtlMap< ITexture *, CPanoramaAlphaRegen * > s_MapPanoramaAlphaRegen( DefLessFunc( ITexture * ) );
+
+// SE port (bring-up aid): does the atlas exist on the device?
+static void SEProbePanoramaAlphaD3D( ITexture *pTexture, const char *pchWhere )
+{
+	static int s_nSEAlphaD3DProbe = 0;
+	if ( s_nSEAlphaD3DProbe >= 4 || !pTexture )
+		return;
+
+	s_nSEAlphaD3DProbe++;
+
+	ITextureInternal *pInternal = (ITextureInternal *)pTexture;
+	ShaderAPITextureHandle_t hTexture = pInternal->GetTextureHandle( 0 );
+	void *pD3D = g_pShaderAPI ? g_pShaderAPI->GetD3DTexturePtr( hTexture ) : NULL;
+	Warning( "SE_PORT_ALPHAD3D: %s handle=%d d3d=%p (null means the texture was never created on the device)\n",
+		pchWhere, (int)hTexture, pD3D );
+}
+
+// Upload the whole atlas through IShaderAPI::TexImage2D: no texture lock (the atlas lives in
+// D3DPOOL_DEFAULT, so LockRect fails) and no partial download (which corrupted the heap for this A8
+// texture).
+static bool SEUploadPanoramaAlphaAtlas( ITexture *pTexture, const unsigned char *pBits, int nWidth, int nHeight )
+{
+	if ( !pTexture || !pBits || !g_pShaderAPI )
+		return false;
+
+	ITextureInternal *pInternal = (ITextureInternal *)pTexture;
+	g_pShaderAPI->ModifyTexture( pInternal->GetTextureHandle( 0 ) );
+	g_pShaderAPI->TexImage2D( 0, 0, kPanoramaAlphaFormat, 0, nWidth, nHeight, kPanoramaAlphaFormat, false, (void *)pBits );
+	return true;
+}
+
+ITexture *CMaterialSystem::CreatePanoramaAlphaTexture( const char *pDebugName, int nWidth, int nHeight )
+{
+	if ( !pDebugName || nWidth <= 0 || nHeight <= 0 )
+		return NULL;
+
+	// TEXTUREFLAGS_NOMIP/NOLOD: the atlas is sampled 1:1, and TEXTUREFLAGS_CLAMPS/CLAMPT so a texel at
+	// the edge of one glyph run cannot bleed in from the neighbouring atlas cell.
+	int nFlags = TEXTUREFLAGS_NOMIP | TEXTUREFLAGS_NOLOD | TEXTUREFLAGS_CLAMPS | TEXTUREFLAGS_CLAMPT |
+		TEXTUREFLAGS_SINGLECOPY | TEXTUREFLAGS_NODEBUGOVERRIDE | TEXTUREFLAGS_DYNAMIC;
+
+	ITexture *pTexture = CreateProceduralTexture( pDebugName, TEXTURE_GROUP_OTHER, nWidth, nHeight, kPanoramaAlphaFormat, nFlags );
+	if ( !pTexture )
+		return NULL;
+
+	CPanoramaAlphaRegen *pRegen = new CPanoramaAlphaRegen( nWidth, nHeight );
+	if ( !pRegen->IsValid() )
+	{
+		delete pRegen;
+		return pTexture;
+	}
+
+	s_MapPanoramaAlphaRegen.Insert( pTexture, pRegen );
+
+	// Keep the regenerator installed: this is a procedural texture, so whenever the material system
+	// re-downloads it (device reset, "excluded" texture handled paths, ...) it would otherwise fall
+	// back to the procedural *error* texture, whose alpha is opaque - which showed up as the text
+	// flickering between glyphs and solid blocks.  With the regenerator installed every download
+	// reproduces our CPU copy of the atlas instead.
+	pTexture->SetTextureRegenerator( pRegen );
+
+	// Make the texture exist on the device and upload the (transparent) initial atlas.  Same partial
+	// download as the per-rect updates below - see the note in UpdatePanoramaAlphaTexture.
+	Rect_t wholeRect;
+	wholeRect.x = 0;
+	wholeRect.y = 0;
+	wholeRect.width = nWidth;
+	wholeRect.height = nHeight;
+	pTexture->Download( &wholeRect );
+	SEProbePanoramaAlphaD3D( pTexture, "after create+download" );
+
+	return pTexture;
+}
+
+bool CMaterialSystem::UpdatePanoramaAlphaTexture( ITexture *pTexture, int xOffset, int yOffset, int nWidth, int nHeight, void *pImageData )
+{
+	if ( !pTexture || !pImageData || nWidth <= 0 || nHeight <= 0 )
+		return false;
+
+	unsigned short iRegen = s_MapPanoramaAlphaRegen.Find( pTexture );
+	if ( iRegen == s_MapPanoramaAlphaRegen.InvalidIndex() )
+		return false;
+
+	CPanoramaAlphaRegen *pRegen = s_MapPanoramaAlphaRegen[ iRegen ];
+	pRegen->WriteRect( xOffset, yOffset, nWidth, nHeight, pImageData );
+
+	// Upload exactly like vguimatsurface does for its font atlas (CMatSystemTexture::SetSubTextureRGBAEx):
+	// a *partial* download.  The atlas lives in D3DPOOL_DEFAULT (this tree only uses managed textures
+	// when mat_dxlevel < 90 or mat_managedtextures is set), and for such a texture the full download path
+	// produces nothing, while the partial one blits through a system-memory scratch surface and
+	// UpdateSurface - which is what actually gets the bits onto the device.
+	Rect_t rect;
+	rect.x = xOffset;
+	rect.y = yOffset;
+	rect.width = nWidth;
+	rect.height = nHeight;
+	pTexture->Download( &rect );
+	return true;
+}
+
 void CMaterialSystem::AddTextureAlias( const char *pAlias, const char *pRealName )
 {
 	TextureManager()->AddTextureAlias( pAlias, pRealName );

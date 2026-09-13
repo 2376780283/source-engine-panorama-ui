@@ -454,7 +454,29 @@ bool LockTexture( ShaderAPITextureHandle_t bindId, int copy, IDirect3DBaseTextur
 	IDirect3DSurface* pSurf;
 	HRESULT hr = GetSurfaceFromTexture( pTexture, level, cubeFaceID, &pSurf );
 	if ( FAILED( hr ) )
+	{
+		// SE port (bring-up aid): the panorama text atlas needs this lock to work.
+		static int s_nSELockFailGetSurf = 0;
+		if ( s_nSELockFailGetSurf++ < 4 )
+			Warning( "SE_PORT_LOCK: GetSurfaceFromTexture failed hr=0x%08x level=%d face=%d\n", hr, level, cubeFaceID );
 		return false;
+	}
+
+	// SE port (bring-up aid): what is the surface we are about to lock?
+	{
+		static int s_nSELockDesc = 0;
+		if ( s_nSELockDesc < 4 )
+		{
+			s_nSELockDesc++;
+			D3DSURFACE_DESC desc;
+			if ( SUCCEEDED( pSurf->GetDesc( &desc ) ) )
+			{
+				Warning( "SE_PORT_LOCK: fmt=%d pool=%d usage=0x%x size=%ux%u rect=(%d,%d %dx%d) seFmt=%d\n",
+					(int)desc.Format, (int)desc.Pool, (unsigned)desc.Usage, desc.Width, desc.Height,
+					xOffset, yOffset, width, height, (int)GetImageFormat( pTexture ) );
+			}
+		}
+	}
 
 	s_LockedSrcRect.left = xOffset;
 	s_LockedSrcRect.right = xOffset + width;
@@ -477,7 +499,14 @@ bool LockTexture( ShaderAPITextureHandle_t bindId, int copy, IDirect3DBaseTextur
 	pSurf->Release();
 
 	if ( FAILED( hr ) )
+	{
+		// SE port (bring-up aid): the panorama text atlas needs this lock to work.
+		static int s_nSELockRectFail = 0;
+		if ( s_nSELockRectFail++ < 4 )
+			Warning( "SE_PORT_LOCK: LockRect failed hr=0x%08x rect=(%d,%d %dx%d) flags=0x%x\n",
+				hr, xOffset, yOffset, width, height, flags );
 		return false;
+	}
 
 	writer.SetPixelMemory( GetImageFormat(pTexture), s_LockedRect.pBits, s_LockedRect.Pitch );
 

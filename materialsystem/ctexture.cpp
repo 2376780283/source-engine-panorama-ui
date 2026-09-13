@@ -1931,6 +1931,15 @@ bool CTexture::AllocateShaderAPITextures()
 		}
 	}
 
+	// SE port: TEXTUREFLAGS_DYNAMIC asks for a D3DUSAGE_DYNAMIC texture.  Such a texture is the only
+	// kind a D3DPOOL_DEFAULT texture can be updated/locked on D3D9 (UpdateSurface requires dynamic),
+	// which is what the panorama text atlas needs for its glyph mask uploads.
+	if ( m_nFlags & TEXTUREFLAGS_DYNAMIC )
+	{
+		nCreateFlags &= ~TEXTURE_CREATE_MANAGED;
+		nCreateFlags |= TEXTURE_CREATE_DYNAMIC;
+	}
+
 	if ( m_nFlags & TEXTUREFLAGS_POINTSAMPLE )
 	{
 		nCreateFlags |= TEXTURE_CREATE_UNFILTERABLE_OK;

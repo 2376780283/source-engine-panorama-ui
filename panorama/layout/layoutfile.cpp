@@ -2730,18 +2730,26 @@ protected:
 	{
 		VPROF_BUDGET( "CLayoutFileXMLParser::BAddPanel", VPROF_BUDGETGROUP_STEAMUI );
 		CPanoramaSymbol symType( pchName );
+		const char *pchUnimplementedType = NULL;
 
 		// make sure this is a valid panel type
 		if ( !UIEngine()->BRegisteredPanelType( symType ) )
 		{
-			Assert( symType.IsValid() );
-			if ( symType.IsValid() )
-				Assert( V_strcmp( pchName, symType.String() ) == 0 );
-			
-			int nLine, nCol;
-			GetCurrentParsePosition( &nLine, &nCol );
-			ParseError( "Found unknown panel type: (name=%s) (type=%s) on line: %d, col: %d", pchName, symType.String(), nLine, nCol );
-			return false;
+			// SE port: CS:GO's layouts use about 116 panel classes that live in CS:GO's game client
+			// (CSGOMainMenu, ItemPreviewPanel, CSGOBlurTarget, CSGOChat, ...) and this port does not
+			// implement them.  CS:GO treats an unknown type as a fatal parse error, which discards the
+			// entire layout file; here we substitute a plain Panel, tagged with the requested type name
+			// as an extra CSS class, so the layout still loads and its scripts still run - anything that
+			// has no C++ implementation simply degrades to an empty panel.
+			pchUnimplementedType = pchName;
+			CPanoramaSymbol symMissingType( pchName );
+			symType = CPanoramaSymbol( "Panel" );
+
+			if ( symMissingType.IsValid() && m_mapMissingTypeWarned.Find( symMissingType ) == m_mapMissingTypeWarned.InvalidIndex() )
+			{
+				m_mapMissingTypeWarned.Insert( symMissingType, true );
+				Warning( "panorama: panel type '%s' is not implemented in this port - substituting a plain Panel\n", pchName );
+			}
 		}
 
 		// create entry for new panel
@@ -2763,6 +2771,25 @@ protected:
 			// XML parser should already verify that the attribute is unique
 			CPanoramaSymbol symPropertyName( pchAttrName );
 			pCurrentPanel->m_mapProperties.Insert( symPropertyName, pchAttrValue );
+		}
+
+		if ( pchUnimplementedType )
+		{
+			// keep the requested type name as a class so style rules that were authored against it can still
+			// match where the rule only needs classes to line up (see CLayoutFileXMLParser::BAddPanel note)
+			CPanoramaSymbol symClassProperty( "class" );
+			int iClass = pCurrentPanel->m_mapProperties.Find( symClassProperty );
+			CUtlString strClasses;
+			if ( iClass != pCurrentPanel->m_mapProperties.InvalidIndex() && !pCurrentPanel->m_mapProperties[ iClass ].IsEmpty() )
+			{
+				strClasses.Format( "%s %s", pCurrentPanel->m_mapProperties[ iClass ].Get(), pchUnimplementedType );
+			}
+			else
+			{
+				strClasses = pchUnimplementedType;
+			}
+
+			pCurrentPanel->m_mapProperties.InsertOrReplace( symClassProperty, strClasses );
 		}
 
 		// top panel shouldn't have an id (declared in code)
@@ -2825,6 +2852,10 @@ private:
 	
 	PanelDescription_t *m_pPanelDescription;
 	CUtlVector< PanelDescription_t * > m_vecCurrentPanelStack;
+
+	// SE port: unknown panel types are substituted with a plain Panel (see BAddPanel), and we only want
+	// to report each substituted type once per layout file instead of once per panel instance.
+	CUtlMap< CPanoramaSymbol, bool, short, CDefLess< CPanoramaSymbol > > m_mapMissingTypeWarned;
 };
 }
 

@@ -91,7 +91,22 @@ int CMaterial2::ComputeRenderablePassesForContext( const CRenderAttributes *pAtt
 	((CRenderContext*)pSrc2RenderContext)->m_nPanMaterial = m_nMaterialId;
 	// Plus the attributes
 
-	( (CRenderContext*)pSrc2RenderContext )->m_pAttr = (CRenderAttributes *)pAttributes;
+	// SE port: keep our own copy.  CS:GO's attributes live in a pool that outlives the draw, but here the
+	// object handed in can be gone by the time the shader runs (it reads them back through the material's
+	// $renderattr var), and reading freed memory crashed the game at address 0 once the CS:GO menu started
+	// painting.  The copy is the same lifetime as the context, so the shader always sees valid data.
+	CRenderContext *pContext = (CRenderContext*)pSrc2RenderContext;
+	if ( pAttributes )
+	{
+		pContext->m_SEAttrCopy = *pAttributes;
+		pContext->m_bSEAttrCopyValid = true;
+		pContext->m_pAttr = &pContext->m_SEAttrCopy;
+	}
+	else
+	{
+		pContext->m_bSEAttrCopyValid = false;
+		pContext->m_pAttr = NULL;
+	}
 
 	return 1;
 }

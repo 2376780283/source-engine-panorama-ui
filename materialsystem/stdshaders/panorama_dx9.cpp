@@ -142,11 +142,36 @@ BEGIN_VS_SHADER( panorama_dx9, "Help for panorama" )
 
 		DYNAMIC_STATE
 		{
+			// SE port: see the note in panoramafancy_dx9.cpp - a draw can arrive here with $renderattr unset
+			// because not every draw path runs the s1wrapper's UpdateMaterial().
+			if ( !params[ RENDERATTR ] )
+			{
+				static bool s_bWarnedMissingRenderAttr = false;
+				if ( !s_bWarnedMissingRenderAttr )
+				{
+					s_bWarnedMissingRenderAttr = true;
+					Warning( "panorama: panorama draw without $renderattr - skipping the draw\n" );
+				}
+				return;
+			}
+
 #ifdef PLATFORM_64BITS
 			CRenderAttributes* pAttr = (CRenderAttributes*)( ( uint64( params[ RENDERATTR_HIGH ]->GetIntValue() ) << 32 ) | ( uint64( params[ RENDERATTR ]->GetIntValue() ) & 0xffffffff ) );
 #else
 			CRenderAttributes* pAttr = (CRenderAttributes*)params[ RENDERATTR ]->GetIntValue();
 #endif
+
+			// SE port: see the note in panoramafancy_dx9.cpp - the resolved pointer can be NULL too.
+			if ( !pAttr )
+			{
+				static bool s_bWarnedNullRenderAttr = false;
+				if ( !s_bWarnedNullRenderAttr )
+				{
+					s_bWarnedNullRenderAttr = true;
+					Warning( "panorama: panorama draw with a null $renderattr pointer - skipping the draw\n" );
+				}
+				return;
+			}
 
 			// SE port (bring-up aid): is the material actually reaching this shader at runtime?
 			{

@@ -1271,14 +1271,33 @@ HRenderTexture S1Wrapper_CreateAlphaTexture( int32 iWidth, int32 iHeight )
 
 		int nFlags = TEXTUREFLAGS_NOMIP | TEXTUREFLAGS_NODEBUGOVERRIDE | TEXTUREFLAGS_SINGLECOPY | TEXTUREFLAGS_TRILINEAR | TEXTUREFLAGS_NOLOD;
 				
-		// SE port: SE 2013 has no CreatePanoramaAlphaTexture(); use a plain procedural A8 texture
-			// (panorama alpha textures drive additive / alpha-text effects).
-			// TODO: port the CS:GO implementation if alpha text turns out to need it.
+		// SE port: CS:GO created these through IMaterialSystem::CreatePanoramaAlphaTexture(); the port
+		// dropped that entry point, so this used to be a bare procedural A8 texture that nothing ever
+		// wrote to (text rendered as solid colour blocks).  The entry point now exists again.
+			pTexture->m_pTexture = materials->CreatePanoramaAlphaTexture( textureName, iWidth, iHeight );
+		if ( !pTexture->m_pTexture )
+		{
+			// Fall back to the plain procedural texture so panorama still gets a texture to bind.
 			pTexture->m_pTexture = materials->CreateProceduralTexture( textureName, TEXTURE_GROUP_OTHER, iWidth, iHeight, IMAGE_FORMAT_A8, nFlags );
+		}
 		// SE port: SE 2013's ITexture has no ExcludeTextureFromForceIntoHardware() (see above).
 			// pTexture->m_pTexture->ExcludeTextureFromForceIntoHardware( true );
 		pTexture->m_nUniqueId = nAlphaTextureId;
 		pTexture->FillTextureDesc( iWidth, iHeight, IMAGE_FORMAT_A8, false );
+
+		// Clear the atlas to transparent black so that any texel the text renderer samples before
+		// its glyph run has been uploaded reads as "nothing here".
+		if ( pTexture->m_pTexture )
+		{
+			int nZeroBytes = iWidth * iHeight;
+			byte *pZero = (byte *)malloc( nZeroBytes );
+			if ( pZero )
+			{
+				V_memset( pZero, 0, nZeroBytes );
+				materials->UpdatePanoramaAlphaTexture( pTexture->m_pTexture, 0, 0, iWidth, iHeight, pZero );
+				free( pZero );
+			}
+		}
 
 		hTexture = pTexture;
 	}
@@ -1289,14 +1308,42 @@ HRenderTexture S1Wrapper_CreateAlphaTexture( int32 iWidth, int32 iHeight )
 //-----------------------------------------------------------------------------
 void S1Wrapper_UpdateAlphaTexture( HRenderTexture hTexture, int32 xOffset, int32 yOffset, int32 iWidth, int32 iHeight, void *pImageData )
 {
-	if ( hTexture.IsLoaded() )
-	{
-		S1Wrapper_Texture_t *pTexture = (S1Wrapper_Texture_t *)hTexture.GetResourceHandle()->m_handle;
+	if ( !hTexture.IsLoaded() || !pImageData || iWidth <= 0 || iHeight <= 0 )
+		return;
 
-		// SE port: SE 2013 has no UpdatePanoramaAlphaTexture().  TODO: update the procedural
-			// texture through ITexture::SetTextureData() / the regenerator instead of dropping it.
-			( void )xOffset; ( void )yOffset; ( void )iWidth; ( void )iHeight; ( void )pImageData;
+	S1Wrapper_Texture_t *pTexture = (S1Wrapper_Texture_t *)hTexture.GetResourceHandle()->m_handle;
+
+	// SE port (bring-up aid): confirm the glyph masks really carry coverage data (0..255) rather
+	// than being uniformly opaque.
+	{
+		static int s_nSEAlphaProbe = 0;
+		if ( s_nSEAlphaProbe < 8 )
+		{
+			s_nSEAlphaProbe++;
+
+			const byte *pBytes = (const byte *)pImageData;
+			int nBytes = iWidth * iHeight;
+			int nZero = 0, nFull = 0;
+			byte nMin = 255, nMax = 0;
+			for ( int i = 0; i < nBytes; ++i )
+			{
+				byte b = pBytes[i];
+				if ( b == 0 ) nZero++;
+				else if ( b == 255 ) nFull++;
+				if ( b < nMin ) nMin = b;
+				if ( b > nMax ) nMax = b;
+			}
+			Warning( "SE_PORT_ALPHAUPD: rect=(%d,%d %dx%d) tex=%s bytes=%d min=%d max=%d zero=%d full=%d\n",
+				xOffset, yOffset, iWidth, iHeight, pTexture->m_pTexture ? pTexture->m_pTexture->GetName() : "-",
+				nBytes, nMin, nMax, nZero, nFull );
+		}
 	}
+
+	// SE port: write the mask straight into the atlas with IShaderAPI::TexLock/TexUnlock (CS:GO's
+	// "font special case" - see the note in wrap_texture.h).  Going through
+	// ITexture::SetTextureRegenerator()+Download() instead wrote the mask but corrupted the heap for
+	// this A8 texture (0xc0000374 in ntdll); the direct lock is what CS:GO did.
+	materials->UpdatePanoramaAlphaTexture( pTexture->m_pTexture, xOffset, yOffset, iWidth, iHeight, pImageData );
 }
 
 //-----------------------------------------------------------------------------

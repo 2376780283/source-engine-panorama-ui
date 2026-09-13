@@ -137,11 +137,41 @@ BEGIN_VS_SHADER( panoramafancy_dx9, "Help for panorama" )
 
 		DYNAMIC_STATE
 		{
+			// SE port: not every panorama draw path goes through the s1wrapper's UpdateMaterial(), which is
+			// what installs $renderattr on the material, so this shader can be reached with that var unset.
+			// CS:GO's shader assumes it is always present; dereferencing it NULL crashed the game as soon as
+			// the CS:GO main menu started painting (panoramafancy_dx9.cpp:143, access at address 0).
+			if ( !params[ RENDERATTR ] )
+			{
+				static bool s_bWarnedMissingRenderAttr = false;
+				if ( !s_bWarnedMissingRenderAttr )
+				{
+					s_bWarnedMissingRenderAttr = true;
+					Warning( "panorama: panoramafancy draw without $renderattr - skipping the draw\n" );
+				}
+				return;
+			}
+
 #ifdef PLATFORM_64BITS
 			CRenderAttributes* pAttr = (CRenderAttributes*)( ( uint64( params[ RENDERATTR_HIGH ]->GetIntValue() ) << 32 ) | ( uint64( params[ RENDERATTR ]->GetIntValue() ) & 0xffffffff ) );
 #else
 			CRenderAttributes* pAttr = (CRenderAttributes*)params[ RENDERATTR ]->GetIntValue();
 #endif
+
+			// SE port: the material var can also be present but zero.  panorama materials are shared, and the
+			// s1wrapper only writes a live CRenderAttributes pointer for the draw path that ran through
+			// UpdateMaterial(); any other path leaves the previous (or zero) value behind, and dereferencing
+			// it crashed the game at line 178 with access at address 0.
+			if ( !pAttr )
+			{
+				static bool s_bWarnedNullRenderAttr = false;
+				if ( !s_bWarnedNullRenderAttr )
+				{
+					s_bWarnedNullRenderAttr = true;
+					Warning( "panorama: panoramafancy draw with a null $renderattr pointer - skipping the draw\n" );
+				}
+				return;
+			}
 
 			// Vertex Shader - no longer require VS consts
 
@@ -153,15 +183,17 @@ BEGIN_VS_SHADER( panoramafancy_dx9, "Help for panorama" )
 			// SE port (bring-up aid): what does the fancy shader actually get for a solid colour fill?
 			{
 				static int s_nSEFancyShaderLogged = 0;
-				if ( s_nSEFancyShaderLogged < 6 )
+				if ( s_nSEFancyShaderLogged < 16 )
 				{
 					s_nSEFancyShaderLogged++;
-					Warning( "SE_PORT_FANCY: draw blend=%d texType=%d grad2=%d gradc=%d outer=%d inner=%d corr=%d mask=%d radial=%d topLeft=(%.1f,%.1f,%.1f,%.1f)\n",
-						params[ BLENDSTATE ]->GetIntValue(), texType,
-						pAttr->GetValue( ATTR_D_GRADIENT_TWOSTOP ), pAttr->GetValue( ATTR_D_GRADIENT_COMPLEX ),
-						pAttr->GetValue( ATTR_D_USEOUTERCORNER ), pAttr->GetValue( ATTR_D_USEINNERCORNER ),
-						pAttr->GetValue( ATTR_D_COLORCORRECTION ), pAttr->GetValue( ATTR_D_USEOPACITYMASK ),
-						pAttr->GetValue( ATTR_D_USERADIALCLIP ),
+
+					ITexture *pProbeTex0 = NULL;
+					pAttr->GetValue( &pProbeTex0, ATTR_Texture0 );
+
+					Warning( "SE_PORT_FANCY: draw blend=%d texType=%d tex0=%p fmt=%d name='%s' topLeft=(%.1f,%.1f,%.1f,%.1f)\n",
+						params[ BLENDSTATE ]->GetIntValue(), texType, pProbeTex0,
+						pProbeTex0 ? (int)pProbeTex0->GetImageFormat() : -1,
+						pProbeTex0 ? pProbeTex0->GetName() : "-",
 						pAttr->GetValue( ATTR_TopLeftWdHt ).x, pAttr->GetValue( ATTR_TopLeftWdHt ).y,
 						pAttr->GetValue( ATTR_TopLeftWdHt ).z, pAttr->GetValue( ATTR_TopLeftWdHt ).w );
 				}
@@ -170,31 +202,47 @@ BEGIN_VS_SHADER( panoramafancy_dx9, "Help for panorama" )
 			if ( texType )
 			{
 				pAttr->GetValue( &pTexture, ATTR_Texture0 );
-				if ( texType == 4 )
+				if ( !pTexture )
 				{
-					if ( pTexture->GetFlags() & TEXTUREFLAGS_YCOCG )
+					// SE port: the layout asked for a texture that this port could not load (the CS:GO menu's
+					// images are not unpacked into the mod yet), so fall back to the untextured path instead of
+					// dereferencing NULL - that crashed here (access at address 0).
+					static bool s_bWarnedMissingTexture = false;
+					if ( !s_bWarnedMissingTexture )
 					{
-						// YCoCg
+						s_bWarnedMissingTexture = true;
+						Warning( "panorama: fancy draw with a missing texture - drawing it untextured\n" );
 					}
-					else
-					{
-						// texture flagged as having alpha bits, then reset type to RGBA (1)
-						texType = 1;
-					}
+					texType = 0;
 				}
-				BindTexture( SHADER_SAMPLER0, pTexture, 0 );
+				else
+				{
+					if ( texType == 4 )
+					{
+						if ( pTexture->GetFlags() & TEXTUREFLAGS_YCOCG )
+						{
+							// YCoCg
+						}
+						else
+						{
+							// texture flagged as having alpha bits, then reset type to RGBA (1)
+							texType = 1;
+						}
+					}
+					BindTexture( SHADER_SAMPLER0, pTexture, 0 );
 
-				pAttr->GetValue( &pTexture, ATTR_Texture1 );
-				BindTexture( SHADER_SAMPLER1, pTexture, 0 );
+					pAttr->GetValue( &pTexture, ATTR_Texture1 );
+					if ( pTexture ) { BindTexture( SHADER_SAMPLER1, pTexture, 0 ); }
 
-				pAttr->GetValue( &pTexture, ATTR_Texture2 );
-				BindTexture( SHADER_SAMPLER2, pTexture, 0 );
+					pAttr->GetValue( &pTexture, ATTR_Texture2 );
+					if ( pTexture ) { BindTexture( SHADER_SAMPLER2, pTexture, 0 ); }
+				}
 			}
 
 			if ( pAttr->GetValue( ATTR_D_GRADIENT_COMPLEX ) )
 			{
 				pAttr->GetValue( &pTexture, ATTR_Texture3 );
-				BindTexture( SHADER_SAMPLER3, pTexture, 0 );
+				if ( pTexture ) { BindTexture( SHADER_SAMPLER3, pTexture, 0 ); }
 			}
 
 			Vector4D vTopCornerRad, vBtmCornerRad;

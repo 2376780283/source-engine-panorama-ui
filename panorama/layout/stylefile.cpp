@@ -1819,7 +1819,23 @@ bool CStyleFile::BParseSelector( const char *pchSelector, CUtlBuffer &buffer, St
 
 		if ( pSelector->GetPanelType().IsValid() && !UIEngine()->BRegisteredPanelType( pSelector->GetPanelType() ) )
 		{
-			LogLayoutParsingError( m_symStylePath, CalcBufferLine( buffer ), "Unknown panel type in style selector: %s", pchSelector );
+			// SE port: CS:GO's stylesheets select on game-client panel classes that this port does not
+			// implement (CSGOMainMenu, CSGOEndOfMatch, ...).  The layout parser substitutes those panels
+			// with a plain Panel that carries the requested type name as a CSS class (see
+			// CLayoutFileXMLParser::BAddPanel), so a rule that names such a type has to be rewritten to
+			// match that class - otherwise the rule would be parsed but never apply.
+			CPanoramaSymbol symUnimplementedType = pSelector->GetPanelType();
+
+			CUtlVector< CPanoramaSymbol > vecClasses;
+			const CUtlPtrArray< CPanoramaSymbol > &vecExistingClasses = pSelector->GetClasses();
+			FOR_EACH_PTR_ARRAY( vecExistingClasses, iClass )
+			{
+				vecClasses.AddToTail( vecExistingClasses[ iClass ] );
+			}
+			vecClasses.AddToTail( symUnimplementedType );
+
+			pSelector->SetClasses( vecClasses.Base(), vecClasses.Count() );
+			pSelector->SetPanelType( CPanoramaSymbol() );
 		}
 
 		char chCombinator = '\0';

@@ -1076,6 +1076,14 @@ public:
 	// "panoramafancy" stdshader classes are not ported yet).  Callers must skip the draw then.
 	bool UpdateMaterial();
 
+	// SE port: CS:GO keeps its render attributes in a pool that stays alive for the whole frame, and the
+	// panorama shader reads them from the material's $renderattr var when it draws.  In this port the
+	// attributes handed to ComputeRenderablePassesForContext can already be gone by then, so the context
+	// holds its own copy and points $renderattr at that instead (the shader used to dereference freed
+	// memory, which crashed the game with access at address 0 as soon as the CS:GO menu started painting).
+	CRenderAttributes m_SEAttrCopy;
+	bool m_bSEAttrCopyValid;
+
 	CRenderAttributes* m_pAttr;
 	CMatRenderContextPtr m_pMatRenderContext;
 

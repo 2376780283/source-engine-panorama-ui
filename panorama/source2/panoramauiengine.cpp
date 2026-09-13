@@ -236,10 +236,17 @@ static bool PanoramaResourceFileIntegrityCheck( CUtlBuffer &bufFileData, void *&
 	if ( bufFileData.TellPut() < 64 + numSignatureDigestBytes )
 		return false;
 
-	char chHeader[4] = {'P', 'A', 'N', PANORAMA_ZIPFILE_VERSION };
-	if ( memcmp( bufFileData.Base(), chHeader, 4 ) )
+	// SE port: accept any container version the port knows the layout of (1 = the CS:GO 2019 sources,
+	// 2 = the retail 2023 code.pbin); see the note on PANORAMA_ZIPFILE_VERSION_MAX.
+	const char chMagic[3] = { 'P', 'A', 'N' };
+	if ( memcmp( bufFileData.Base(), chMagic, 3 ) )
 		return false;
-	if ( ( ( char * ) bufFileData.Base() )[ bufFileData.TellPut() - 1 ] != PANORAMA_ZIPFILE_VERSION )
+
+	unsigned char chPackVersion = ( unsigned char )( ( char * ) bufFileData.Base() )[3];
+	if ( chPackVersion < 1 || chPackVersion > PANORAMA_ZIPFILE_VERSION_MAX )
+		return false;
+
+	if ( ( unsigned char )( ( char * ) bufFileData.Base() )[ bufFileData.TellPut() - 1 ] != chPackVersion )
 		return false;
 
 	pvResourceData = ( ( char * ) bufFileData.Base() ) + 4 + numSignatureDigestBytes;
@@ -247,17 +254,27 @@ static bool PanoramaResourceFileIntegrityCheck( CUtlBuffer &bufFileData, void *&
 
 	// SE port: CS:GO verifies the signed panorama resource pack against the public key in
 	// devtools/bin/certificates/panoramapack.public.h, which does not exist in this tree (and this
-	// tree has no package signing infrastructure).  Reject signed packs loudly rather than pretending
-	// to verify them; unsigned packs never reach this function.
+	// tree has no package signing infrastructure).  The retail code.pbin IS a signed pack, so
+	// rejecting signed packs made it impossible to load the actual CS:GO UI at all.
+	//
+	// What is checked here instead is only the container structure (the PAN/version header and the
+	// trailing version byte above, which bounds pvResourceData/numResourceBytes); the RSA digest is
+	// *not* verified.  The pack is read from the user's own game installation, so this is the same
+	// trust level the rest of this port's file loading has.
 #if !defined( PANORAMA_HAVE_SIGNED_PACKS )
-	NOTE_UNUSED( numResourceBytes );
-	AssertMsg( false, "Panorama pack signature verification is not available in this build" );
-	return false;
+	{
+		static bool s_bWarnedPanoramaPackSignature = false;
+		if ( !s_bWarnedPanoramaPackSignature )
+		{
+			s_bWarnedPanoramaPackSignature = true;
+			Warning( "panorama: accepting signed resource pack without verifying its signature "
+					 "(no pack verification infrastructure in this build); %d resource bytes\n", numResourceBytes );
+		}
+	}
+	return numResourceBytes > 0;
 #else
 	const byte CertificateData[] = {
 #include PANORAMA_PACK_PUBLIC_KEY_HEADER
-// SE port (temporary bring-up probe): the process exits silently while the UI engine is being set up,
-// and Warning() output is lost with it, so these probes append straight to a file.
 	};
 	return launcher_keypair_verifymsg( ( const byte * ) pvResourceData, numResourceBytes + 1, CertificateData, sizeof( CertificateData ), ( const byte * )( ( ( char * ) bufFileData.Base() ) + 4 ), numSignatureDigestBytes );
 #endif

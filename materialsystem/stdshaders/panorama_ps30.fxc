@@ -131,30 +131,19 @@ float4_color_return_type main( PS_INPUT i ) : COLOR
 	}
 	#elif ( D_TEX2DBLUR )
 	{
-		float3 incrementalGaussian;
-		incrementalGaussian.x = 1.0 / ( sqrt( 2.0 * g_flPI ) * g_flBlurSigma );
-		incrementalGaussian.y = exp( -0.5 / ( g_flBlurSigma * g_flBlurSigma ) );
-		incrementalGaussian.z = incrementalGaussian.y * incrementalGaussian.y;
-
-		float4 avgValue = float4( 0.0, 0.0, 0.0, 0.0 );
-		float coefficientSum = 0.0;
-
-		// Take the central sample first...
-		avgValue += Tex2D( g_tTexture0, i.vTex.xy ) * incrementalGaussian.x;
-		coefficientSum += incrementalGaussian.x;
-		incrementalGaussian.xy *= incrementalGaussian.yz;
-
-		// Go through the remaining 8 vertical samples (4 on each side of the center)
-		for ( float flLoop = 1.0; flLoop <= g_flNumBlurPixelsPerSide; flLoop = flLoop + 1.0 )
-		{
-			avgValue += Tex2D( g_tTexture0, min( i.vTex.xy - flLoop * g_vBlurMultiplyVec, g_UVClamp.xy) ) * incrementalGaussian.x;
-			avgValue += Tex2D( g_tTexture0, min( i.vTex.xy + flLoop * g_vBlurMultiplyVec, g_UVClamp.xy) ) * incrementalGaussian.x;
-
-			coefficientSum += 2.0 * incrementalGaussian.x;
-			incrementalGaussian.xy *= incrementalGaussian.yz;
-		}
-
-		o.vColor = avgValue / coefficientSum;
+		// SE port: this branch blurs with a dynamic per-side Gaussian *loop*, and d3dx9's ps_3_0 profile
+		// rejects texld inside loop/rep blocks:
+		//   panorama_ps30.fxc(150,120): error X6077: texld/texldb/texldp/dsx/dsy instructions with r# as
+		//   source cannot be used inside dynamic conditional 'if' blocks, dynamic conditional subroutine
+		//   calls, or loop/rep with break*.
+		// Every gaussian() blur combo therefore failed to compile at run time, and the shader manager
+		// treats that as fatal - the CS:GO main menu took the game down as soon as it tried to draw.
+		// TODO(SE port): unroll the loop into a fixed number of taps (zeroing the weights past
+		// g_flNumBlurPixelsPerSide with step()) to restore the real blur.  In the meantime the centre
+		// sample is returned, which keeps the geometry and colours correct but without the blur.
+		// Note that fastgaussian() - what the CS:GO menu mostly uses - goes through the D_TEX2DFASTBLUR
+		// branch above, which is already unrolled and compiles fine.
+		o.vColor = Tex2D( g_tTexture0, i.vTex.xy );
 	}
 	#elif ( D_TEX2DPARTICLE )
 	{

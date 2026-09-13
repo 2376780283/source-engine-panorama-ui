@@ -76,6 +76,12 @@ using namespace panorama;
 
 ConVar s_convarPanoramaECOMode( "@panorama_ECO_mode", "1", FCVAR_NONE, "0 - disable, 1 - default, 2 - force always ON" );
 
+// SE port: the layout the hosted menu view loads.  "panorama_menu <layout>" retargets this at run time.
+// NOTE: outside of the DEVELOPMENT_ONLY block below - that block is compiled out of release builds, which
+// is exactly the build this port runs as.
+ConVar panorama_menu_layout( "panorama_menu_layout", "file://{resources}/layout/mainmenu.xml", FCVAR_NONE,
+	"Panorama layout loaded by the panorama_menu view" );
+
 #if ( PLATFORM_WINDOWS && DEVELOPMENT_ONLY )
 
 ConVar panorama_debugger_saved_width( "panorama_debugger_saved_width", "1280", FCVAR_ARCHIVE );
@@ -116,6 +122,68 @@ static void CC_PanoramaTest( const CCommand &args )
 }
 static ConCommand panorama_test( "panorama_test", CC_PanoramaTest, "Creates (1) or destroys (0) the hosted panorama test view; no argument toggles" );
 
+// SE port: create/destroy the CS:GO main-menu view (needs panorama/code.pbin in the mod - that pack
+// contains layout/mainmenu.xml).  Same toggling as panorama_test.
+static void CC_PanoramaMenu( const CCommand &args )
+{
+	bool bCreate = !PanoramaEngineHandler().HasPanoramaMenuView();
+	bool bRetarget = false;
+	if ( args.ArgC() > 1 )
+	{
+		const char *pchArg = args.Arg( 1 );
+		if ( V_strcmp( pchArg, "0" ) == 0 || V_stricmp( pchArg, "false" ) == 0 )
+		{
+			bCreate = false;
+		}
+		else if ( V_strcmp( pchArg, "1" ) == 0 || V_stricmp( pchArg, "true" ) == 0 )
+		{
+			bCreate = true;
+		}
+		else
+		{
+			// SE port: "panorama_menu layout/console.xml" retargets the view at another layout without a
+			// rebuild, which is what makes it possible to try CS:GO layouts one by one.  The panoramic
+			// "file://{resources}/layout/" prefix is optional.
+			CUtlString strLayout;
+			if ( V_strnicmp( pchArg, "file:", 5 ) == 0 )
+			{
+				strLayout = pchArg;
+			}
+			else if ( V_strnicmp( pchArg, "layout/", 7 ) == 0 )
+			{
+				strLayout.Format( "file://{resources}/%s", pchArg );
+			}
+			else
+			{
+				strLayout.Format( "file://{resources}/layout/%s", pchArg );
+			}
+
+			if ( V_strcmp( strLayout.Get(), panorama_menu_layout.GetString() ) != 0 )
+			{
+				bRetarget = true;
+			}
+
+			panorama_menu_layout.SetValue( strLayout.Get() );
+			bCreate = true;
+		}
+	}
+
+	if ( bCreate && bRetarget && PanoramaEngineHandler().HasPanoramaMenuView() )
+	{
+		PanoramaEngineHandler().DestroyPanoramaMenuView();
+	}
+
+	if ( bCreate )
+	{
+		PanoramaEngineHandler().CreatePanoramaMenuView();
+	}
+	else
+	{
+		PanoramaEngineHandler().DestroyPanoramaMenuView();
+	}
+}
+static ConCommand panorama_menu( "panorama_menu", CC_PanoramaMenu, "Creates (1) / destroys (0) the hosted CS:GO menu view, or loads a different layout (pano layout path); no argument toggles" );
+
 static void CC_PanoramaStatus( const CCommand &args )
 {
 	PanoramaEngineHandler().PrintPanoramaStatus();
@@ -152,6 +220,7 @@ CPanoramaEngineHandler::CPanoramaEngineHandler()
 	m_bValid = false;
 	m_pUIEngine = NULL;
 	m_pTestWindow = NULL;
+	m_pMenuWindow = NULL;
 	m_nMainWindowWidth = 0;
 	m_nMainWindowHeight = 0;
 
@@ -319,6 +388,103 @@ void CPanoramaEngineHandler::DestroyPanoramaTestView()
 
 
 //-----------------------------------------------------------------------------
+// SE port: the CS:GO main menu view.  See the note in the header - the markup comes out of the
+// retail panorama/code.pbin pack.
+//-----------------------------------------------------------------------------
+bool CPanoramaEngineHandler::CreatePanoramaMenuView()
+{
+	if ( m_pMenuWindow )
+	{
+		Warning( "panorama: the main menu view already exists (\"panorama_menu 0\" removes it)\n" );
+		return true;
+	}
+
+	if ( !m_pUIEngine )
+	{
+		Warning( "panorama: the hosted UI isn't initialized, can't create the main menu view\n" );
+		return false;
+	}
+
+	int nWidth = 0;
+	int nHeight = 0;
+	materials->GetBackBufferDimensions( nWidth, nHeight );
+	if ( !nWidth || !nHeight )
+	{
+		Warning( "panorama: no back buffer size yet, the main menu view was not created\n" );
+		return false;
+	}
+
+	panorama::IUIWindow *pMenuWindow = m_pUIEngine->CreateNewUILayerWindow( 0, 0, nWidth, nHeight, false, false, false, true, "CSGOMainMenu", INPUT_CONTEXT_HANDLE_INVALID );
+	panorama::IUIPanelClient *pMenuPanel = pMenuWindow ? AddPanoramaView( "CSGOMainMenu", pMenuWindow ) : NULL;
+	if ( !pMenuPanel )
+	{
+		Warning( "panorama: could not create the main menu view\n" );
+		return false;
+	}
+
+	m_pMenuWindow = pMenuWindow;
+
+	// This is what CS:GO's CCSGOMainMenu loads (game/client/cstrike15/panorama/csgo_mainmenu.cpp).
+	const char *pMenuLayout = panorama_menu_layout.GetString();
+	if ( !pMenuPanel->UIPanel()->BLoadLayout( pMenuLayout ) )
+	{
+		Warning( "panorama: could not load %s - see the layout/style parsing errors above (every panel type"
+			" this port does not implement is reported as 'panel type ... is not implemented')\n", pMenuLayout );
+	}
+	else
+	{
+		Warning( "panorama: loaded %s\n", pMenuLayout );
+	}
+
+	{
+		struct SEDumpMenuTree
+		{
+			static void Dump( panorama::IUIPanel *pPanel, int nDepth )
+			{
+				if ( !pPanel || nDepth > 3 )
+					return;
+
+				Warning( "SE_PORT_MENUTREE: %*s%s visible=%d children=%d w=%.1f h=%.1f\n",
+					nDepth * 2, "", pPanel->GetID(),
+					(int)pPanel->BIsVisible(), pPanel->GetChildCount(),
+					pPanel->GetActualLayoutWidth(), pPanel->GetActualLayoutHeight() );
+
+				for ( int i = 0; i < pPanel->GetChildCount(); ++i )
+				{
+					Dump( pPanel->GetChild( i ), nDepth + 1 );
+				}
+			}
+		};
+
+		SEDumpMenuTree::Dump( pMenuPanel->UIPanel(), 0 );
+	}
+
+	return true;
+}
+
+
+void CPanoramaEngineHandler::DestroyPanoramaMenuView()
+{
+	if ( !m_pMenuWindow )
+	{
+		Warning( "panorama: there is no main menu view\n" );
+		return;
+	}
+
+	panorama::IUIWindow *pMenuWindow = m_pMenuWindow;
+	m_pMenuWindow = NULL;
+
+	RemovePanoramaView( pMenuWindow );
+	if ( m_pUIEngine )
+	{
+		m_pUIEngine->DestroyWindow( pMenuWindow );
+	}
+
+	Warning( "panorama: main menu view destroyed\n" );
+}
+
+
+//-----------------------------------------------------------------------------
 // Purpose: dumps what the hosted UI is currently doing (the panorama_status command)
 //-----------------------------------------------------------------------------
 void CPanoramaEngineHandler::PrintPanoramaStatus()
@@ -332,9 +498,9 @@ void CPanoramaEngineHandler::PrintPanoramaStatus()
 		return;
 	}
 
-	Msg( "panorama: views=%d windows=%d ecom=%d debugger=%d forceBuiltPaintCmdCaches=%d testView=%s\n",
+	Msg( "panorama: views=%d windows=%d ecom=%d debugger=%d forceBuiltPaintCmdCaches=%d testView=%s menuView=%s\n",
 		m_Views.Count(), m_pWindows.Count(), (int)IsInECOMode(), (int)IsDebuggerShown(),
-		(int)m_pUIEngine->BShouldUseForceBuiltPaintCmdCaches(), m_pTestWindow ? "yes" : "no" );
+		(int)m_pUIEngine->BShouldUseForceBuiltPaintCmdCaches(), m_pTestWindow ? "yes" : "no", m_pMenuWindow ? "yes" : "no" );
 
 	for ( int i = 0; i < m_Views.Count(); ++i )
 	{

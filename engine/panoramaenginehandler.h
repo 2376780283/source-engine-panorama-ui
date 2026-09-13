@@ -60,6 +60,13 @@ public:
 	void DestroyPanoramaTestView();
 	bool HasPanoramaTestView() const { return m_pTestWindow != NULL; }
 
+	// SE port: the actual CS:GO main menu.  The markup (file://{resources}/layout/mainmenu.xml) lives
+	// inside the retail panorama/code.pbin pack, not in a loose layout/ folder, so this only works
+	// once that pack is present in the mod.  Same mechanics as the test view, separate window.
+	bool CreatePanoramaMenuView();
+	void DestroyPanoramaMenuView();
+	bool HasPanoramaMenuView() const { return m_pMenuWindow != NULL; }
+
 	// Dumps what the hosted UI is currently doing ("panorama_status").
 	void PrintPanoramaStatus();
 
@@ -156,6 +163,7 @@ private:
 
 	// The -panoramatest / "panorama_test" view, NULL when it hasn't been created.
 	panorama::IUIWindow *m_pTestWindow;
+	panorama::IUIWindow *m_pMenuWindow;
 
 	int m_nMainWindowWidth;
 	int m_nMainWindowHeight;

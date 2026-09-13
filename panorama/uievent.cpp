@@ -931,11 +931,27 @@ template <> void FreeConvertedParam< v8::Persistent<v8::Function> *>( v8::Persis
 	*pOut = nullptr;
 }
 
+// SE port: when a script exception is pending, V8's ToNumber()/ToBoolean() return an *empty* MaybeLocal,
+// and the stock code's ToLocalChecked() turns that into a fatal V8 abort ("Fatal error in
+// v8::ToLocalChecked / Empty MaybeLocal") which terminates the game.  That is what the CS:GO main menu
+// scripts triggered while this port still lacks parts of the JS API they use.  Fall back to the default
+// value instead - the pending exception is reported by whichever TryCatch encloses this conversion.
+static bool SE_V8TryToNumber( const v8::Handle<v8::Value> &pValueIn, v8::Local<v8::Context> hContext, double *pOutNumber )
+{
+	v8::MaybeLocal< v8::Number > maybeNumber = pValueIn->ToNumber( hContext );
+	if ( maybeNumber.IsEmpty() )
+		return false;
+
+	*pOutNumber = maybeNumber.ToLocalChecked()->Value();
+	return true;
+}
+
 template <> void V8ParamToPanoramaType< float >( const v8::Handle<v8::Value> &pValueIn, float *out )
 {
 	if( pValueIn->IsNumber() )
 	{
-		*out = (float)pValueIn->ToNumber( GetV8Isolate()->GetCurrentContext() ).ToLocalChecked()->Value();
+		double flNumber = 0.0;
+		*out = SE_V8TryToNumber( pValueIn, GetV8Isolate()->GetCurrentContext(), &flNumber ) ? (float)flNumber : 0.0f;
 	}
 	else
 	{
@@ -950,7 +966,8 @@ template <> void V8ParamToPanoramaType< double >( const v8::Handle<v8::Value> &p
 {
 	if( pValueIn->IsNumber() )
 	{
-		*out = (double)pValueIn->ToNumber( GetV8Isolate()->GetCurrentContext() ).ToLocalChecked()->Value();
+		double flNumber = 0.0;
+		*out = SE_V8TryToNumber( pValueIn, GetV8Isolate()->GetCurrentContext(), &flNumber ) ? flNumber : 0.0;
 	}
 	else
 	{
@@ -965,7 +982,8 @@ template <> void V8ParamToPanoramaType< int >( const v8::Handle<v8::Value> &pVal
 {
 	if( pValueIn->IsNumber() )
 	{
-		*out = (int)pValueIn->ToNumber( GetV8Isolate()->GetCurrentContext() ).ToLocalChecked()->Value();
+		double flNumber = 0.0;
+		*out = SE_V8TryToNumber( pValueIn, GetV8Isolate()->GetCurrentContext(), &flNumber ) ? (int)flNumber : 0;
 	}
 	else
 	{
@@ -980,7 +998,8 @@ template <> void V8ParamToPanoramaType< uint32 >( const v8::Handle<v8::Value> &p
 {
 	if( pValueIn->IsNumber() )
 	{
-		*out = (uint32)pValueIn->ToNumber( GetV8Isolate()->GetCurrentContext() ).ToLocalChecked()->Value();
+		double flNumber = 0.0;
+		*out = SE_V8TryToNumber( pValueIn, GetV8Isolate()->GetCurrentContext(), &flNumber ) ? (uint32)flNumber : 0u;
 	}
 	else
 	{
@@ -995,7 +1014,8 @@ template <> void V8ParamToPanoramaType< uint64 >( const v8::Handle<v8::Value> &p
 {
 	if( pValueIn->IsNumber() )
 	{
-		*out = (uint64)pValueIn->ToNumber( GetV8Isolate()->GetCurrentContext() ).ToLocalChecked()->Value();
+		double flNumber = 0.0;
+		*out = SE_V8TryToNumber( pValueIn, GetV8Isolate()->GetCurrentContext(), &flNumber ) ? (uint64)flNumber : 0ull;
 	}
 	else if ( pValueIn->IsString() )
 	{
@@ -1017,11 +1037,13 @@ template <> void V8ParamToPanoramaType< bool >( const v8::Handle<v8::Value> &pVa
 {
 	if( pValueIn->IsBoolean() )
 	{
-		*out = (int)pValueIn->ToBoolean( GetV8Isolate()->GetCurrentContext() ).ToLocalChecked()->Value();
+		v8::MaybeLocal< v8::Boolean > maybeBool = pValueIn->ToBoolean( GetV8Isolate()->GetCurrentContext() );
+		*out = ( maybeBool.IsEmpty() ? false : maybeBool.ToLocalChecked()->Value() );
 	}
 	else if( pValueIn->IsNumber() )
 	{
-		*out = ( pValueIn->ToNumber( GetV8Isolate()->GetCurrentContext() ).ToLocalChecked()->Value() != 0.0 );
+		double flNumber = 0.0;
+		*out = ( SE_V8TryToNumber( pValueIn, GetV8Isolate()->GetCurrentContext(), &flNumber ) && flNumber != 0.0 );
 	}
 	else
 	{
@@ -1147,13 +1169,19 @@ template <> void V8ParamToPanoramaType< time_t >( const v8::Handle<v8::Value> &p
 {
 	if ( pValueIn->IsNumber() )
 	{
-		*out = ( time_t )( pValueIn->ToNumber( GetV8Isolate()->GetCurrentContext() ).ToLocalChecked()->Value() );
+		double flNumber = 0.0;
+		*out = ( time_t )( SE_V8TryToNumber( pValueIn, GetV8Isolate()->GetCurrentContext(), &flNumber ) ? flNumber : 0.0 );
 	}
 	else
 	{
 		*out = 0;
-		// SE port: v8 7.x needs the isolate for ToString() and for the String::Utf8Value constructor.
-		v8::String::Utf8Value str( GetV8Isolate(), pValueIn->ToString( GetV8Isolate()->GetCurrentContext() ).ToLocalChecked() );
+		// SE port: v8 7.x needs the isolate for ToString() and for the String::Utf8Value constructor, and
+		// ToString() returns an empty MaybeLocal while a script exception is pending.
+		v8::Local< v8::String > pStr;
+		if ( !pValueIn->ToString( GetV8Isolate()->GetCurrentContext() ).ToLocal( &pStr ) )
+			return;
+
+		v8::String::Utf8Value str( GetV8Isolate(), pStr );
 		CFmtStr err( "V8ParamToPanoramaType expected Number type to convert, but got something else (%s)", *str );
 		GetV8Isolate()->ThrowException( v8::String::NewFromUtf8( GetV8Isolate(), err.Get() ) );
 	}
@@ -1163,7 +1191,8 @@ template <> void V8ParamToPanoramaType< CRTime >( const v8::Handle<v8::Value> &p
 {
 	if ( pValueIn->IsNumber() )
 	{
-		*out = CRTime((int64_t)pValueIn->ToNumber( GetV8Isolate()->GetCurrentContext() ).ToLocalChecked()->Value());
+		double flNumber = 0.0;
+		*out = CRTime( (int64_t)( SE_V8TryToNumber( pValueIn, GetV8Isolate()->GetCurrentContext(), &flNumber ) ? flNumber : 0.0 ) );
 	}
 	if ( pValueIn->IsString() )
 	{
