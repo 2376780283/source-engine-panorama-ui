@@ -424,6 +424,12 @@ bool CPanoramaEngineHandler::CreatePanoramaMenuView()
 
 	m_pMenuWindow = pMenuWindow;
 
+	// NOTE: the CS:GO API shim (MyPersonaAPI, PartyListAPI, ...) is not run from here.  Panorama keeps one
+	// JavaScript context per layout, so running it against the menu panel only helped the panel that was
+	// already open - the layout's own scripts (and every sub-layout pulled in with <Frame src="..."/>) still
+	// aborted on their first unknown global.  CLayoutFile::BAddJavaScript injects the shim as the first
+	// script of every layout instead, which covers all of those contexts.
+
 	// This is what CS:GO's CCSGOMainMenu loads (game/client/cstrike15/panorama/csgo_mainmenu.cpp).
 	const char *pMenuLayout = panorama_menu_layout.GetString();
 	if ( !pMenuPanel->UIPanel()->BLoadLayout( pMenuLayout ) )

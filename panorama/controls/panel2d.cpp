@@ -27,11 +27,29 @@ namespace panorama
 	const float k_flScrollLineSizeInPixelsHorizontal = 48.0f;
 
 	CUtlVector< IUIPanel * > CPanel2D::s_vecMatchingChildren;
+
+	// SE port: shared check for the panel arguments of the JavaScript-callable CPanel2D wrappers (see the
+	// note next to the declaration in panel2d.h).  A lookup that failed hands JavaScript 'undefined', which
+	// converts to NULL, and the wrappers used to dereference it.
+	bool CPanel2D::SE_PortBValidPanelArg( const char *pchMethod, CPanel2D *pPanel )
+	{
+		if ( pPanel )
+			return true;
+
+		// a layout that is missing pieces can produce a lot of these, so only report the first few
+		static int s_nReported = 0;
+		if ( s_nReported < 16 )
+		{
+			++s_nReported;
+			Warning( "panorama: CPanel2D::%s was called with a panel that does not exist; ignoring the call\n", pchMethod );
+		}
+
+		return false;
+	}
 }
 
 // panel registration
 REGISTER_PANEL2D_FACTORY( CPanel2D, Panel );
-
 REGISTER_PANEL2D_FACTORY( CFramePanel, Frame ); // moved from frame.cpp to force linkage
 
 namespace panorama

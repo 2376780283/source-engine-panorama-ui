@@ -207,6 +207,7 @@ protected:
 
 private:
 	bool m_bIsPartial;
+	bool m_bInjectedAPIShim;
 	CPanoramaSymbol m_symLayoutFile;
 	CStyleFileSet m_styleFileSet;
 	PanelDescription_t *m_pPanelDescription;

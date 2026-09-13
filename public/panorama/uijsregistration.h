@@ -117,7 +117,25 @@ namespace panorama
 
 	template< typename ObjType> ObjType* GetThisPtrForJSCall( v8::Local<v8::Object> self )
 	{
-		v8::Local<v8::External> wrap = v8::Local<v8::External>::Cast( self->GetInternalField( 0 ) );
+		// SE port: a script can reach one of these callbacks through an object that is not a panorama
+		// wrapper at all - CS:GO's layout scripts call panel methods on the stand-in objects this port
+		// installs for the game APIs it has no implementation of.  Reading an internal field the receiver
+		// does not have is undefined behaviour in V8; on this port it produced a garbage pointer and the
+		// process died inside CPanel2D::MoveChildBefore.  Report the bad receiver instead of crashing.
+		if ( self.IsEmpty() || self->InternalFieldCount() != 1 )
+		{
+			GetV8Isolate()->ThrowException( v8::String::NewFromUtf8( GetV8Isolate(), "Panorama: this method was called on an object that is not a panorama object!" ) );
+			return NULL;
+		}
+
+		v8::Local<v8::Value> field = self->GetInternalField( 0 );
+		if ( !field->IsExternal() )
+		{
+			GetV8Isolate()->ThrowException( v8::String::NewFromUtf8( GetV8Isolate(), "Panorama: this method was called on an object that is not a panorama object!" ) );
+			return NULL;
+		}
+
+		v8::Local<v8::External> wrap = v8::Local<v8::External>::Cast( field );
 
 		// This unsafe cast *should* be safe because we are attaching signatures to all of our callbacks, so V8 should verify that
 		// the panel being called is of the correct type before allowing the callback to happen.  See the documentation for

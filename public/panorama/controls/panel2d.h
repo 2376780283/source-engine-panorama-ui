@@ -457,8 +457,28 @@ public:
 	// Considers a failure to find a child a fatal error.
 	CPanel2D *RequirePanelInLayoutFile( const char *pchID ) { return ToPanel2D( m_pIUIPanel->RequirePanelInLayoutFile( pchID ) ); }
 
-	void MoveChildAfter( CPanel2D *pChildToMove, CPanel2D *pBefore ) { return m_pIUIPanel->MoveChildAfter( pChildToMove->UIPanel(), pBefore->UIPanel() ); }
-	void MoveChildBefore( CPanel2D *pChildToMove, CPanel2D *pAfter ) { return m_pIUIPanel->MoveChildBefore( pChildToMove->UIPanel(), pAfter->UIPanel() ); }
+	// SE port: JavaScript can hand these wrappers a NULL CPanel2D*.  A lookup that failed - for example
+	// FindChildInLayoutFile() for one of the CS:GO panel types this port substitutes with a plain Panel -
+	// comes back as 'undefined' and converts to NULL, and dereferencing it took the process down inside the
+	// JS callback (access at address 0 in CPanel2D::MoveChildBefore).  CUIPanel already ignores children it
+	// does not know, so report the call and make it a no-op.
+	static bool SE_PortBValidPanelArg( const char *pchMethod, CPanel2D *pPanel );
+
+	void MoveChildAfter( CPanel2D *pChildToMove, CPanel2D *pBefore )
+	{
+		if ( !SE_PortBValidPanelArg( "MoveChildAfter", pChildToMove ) || !SE_PortBValidPanelArg( "MoveChildAfter", pBefore ) )
+			return;
+
+		return m_pIUIPanel->MoveChildAfter( pChildToMove->UIPanel(), pBefore->UIPanel() );
+	}
+
+	void MoveChildBefore( CPanel2D *pChildToMove, CPanel2D *pAfter )
+	{
+		if ( !SE_PortBValidPanelArg( "MoveChildBefore", pChildToMove ) || !SE_PortBValidPanelArg( "MoveChildBefore", pAfter ) )
+			return;
+
+		return m_pIUIPanel->MoveChildBefore( pChildToMove->UIPanel(), pAfter->UIPanel() );
+	}
 
 	void FindChildrenWithClassTraverse( CPanoramaSymbol symClassName, /*out*/ CUtlVector<CPanel2D*> *pVecMatchingChildren );
 
@@ -685,7 +705,13 @@ public:
 	virtual IUIPanel *GetLocalizationParent() const OVERRIDE { return GetParent() ? GetParent()->m_pIUIPanel : NULL; }
 
 	// child management, use with caution! normally always managed internally.
-	void AddChild( CPanel2D *pChild ) { m_pIUIPanel->AddChild( pChild->UIPanel() ); }
+	void AddChild( CPanel2D *pChild )
+	{
+		if ( !SE_PortBValidPanelArg( "AddChild", pChild ) )
+			return;
+
+		m_pIUIPanel->AddChild( pChild->UIPanel() );
+	}
 
 	// child management, use with caution! normally always managed internally.  Returns child index we inserted at.
 	int AddChildSorted( bool( __cdecl *pfnLessFunc )(ClientPanelPtr_t const &p1, ClientPanelPtr_t const &p2), CPanel2D *pChild ) { return m_pIUIPanel->AddChildSorted( pfnLessFunc, pChild->UIPanel() ); }
@@ -694,7 +720,13 @@ public:
 	virtual int ReSortChild( bool( __cdecl *pfnLessFunc )( ClientPanelPtr_t const &p1, ClientPanelPtr_t const &p2 ), CPanel2D *pChild ) { return m_pIUIPanel->ReSortChild( pfnLessFunc, pChild->UIPanel() ); }
 
 	// child management, use with caution! normally always managed internally.
-	void RemoveChild( CPanel2D *pChild ) { m_pIUIPanel->RemoveChild( pChild->UIPanel() ); }
+	void RemoveChild( CPanel2D *pChild )
+	{
+		if ( !SE_PortBValidPanelArg( "RemoveChild", pChild ) )
+			return;
+
+		m_pIUIPanel->RemoveChild( pChild->UIPanel() );
+	}
 
 	// Check if styles are dirty for the panel
 	bool BStylesDirty() const { return m_pIUIPanel->BStylesDirty(); }

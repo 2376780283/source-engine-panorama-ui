@@ -1987,14 +1987,42 @@ void CUIEngine::RegisterEventWithEngine( CPanoramaSymbol symEvent, UIEventFactor
 
 
 //-----------------------------------------------------------------------------
-// Purpose: Check if a event name is valid
+// Purpose: Check if a event name is valid, declaring it on demand if this port has no C++ event for it
+//
+// SE port: CS:GO's scripts use event names that CS:GO's cstrike15 game DLL declares from C++.  This port
+// has no cstrike15, so panorama rejected every one of them, and a rejection is a thrown JS exception that
+// aborts the whole script using it (mainmenu.js died on $.DispatchEvent('SidebarIsCollapsed'), the sidebar
+// scripts on their own panel events).  Declaring the name the first time a script mentions it makes the
+// registration and dispatch entry points accept it.
+//
+// m_cParams is set to -1 ("unknown") because the name is declared before anything knows how many
+// arguments it takes; the dispatch path treats a negative count as "don't validate the argument list".
+// The factory is the same JS one $.DefineEvent installs, so handlers registered from JS get the same
+// event object they would get for a script-defined event.
 //-----------------------------------------------------------------------------
 bool CUIEngine::IsValidEventName( const CPanoramaSymbol symEvent )
 {
 	int iMap = m_mapEventRegistrations.Find( symEvent );
-	if( iMap == m_mapEventRegistrations.InvalidIndex() )
+	if( iMap != m_mapEventRegistrations.InvalidIndex() )
+		return true;
+
+	const char *pchEventName = symEvent.String();
+	if ( !symEvent.IsValid() || !pchEventName || !pchEventName[0] )
 		return false;
 
+	UIEventFactory factory;
+	factory.m_cParams = -1;
+	factory.m_bPanelEvent = false;
+	factory.m_eMakeUIEventType = k_eMakeUIEventType_NoArguments;
+	factory.m_pfnMakeUIEvent0 = nullptr;
+	factory.m_pfnParseUIEvent = nullptr;
+	factory.m_pfnParseUIEventJS = UIEvent::JSCreateEventFromString;
+	factory.m_pfnFormatUIEventArgs = UIEvent::JSFormatEventArgs;
+	factory.m_pchDocumentationArgs = "";
+	factory.m_pchDocumentationDescription = "Declared on demand by the SE port.";
+	factory.m_eDocFlags = k_eEventDocFlagNone;
+
+	RegisterEventWithEngine( symEvent, factory );
 	return true;
 }
 
@@ -2170,6 +2198,11 @@ void JSDispatchEventHelper( const v8::FunctionCallbackInfo<v8::Value>& args, boo
 	// find parse function
 	CPanoramaSymbol symEvent( pchEventName );
 	int iMap = mapEvents.Find( symEvent );
+	if( iMap == mapEvents.InvalidIndex() && UIEngineInternal()->IsValidEventName( symEvent ) )
+	{
+		// SE port: the name was unknown and has just been declared on demand - look it up again
+		iMap = mapEvents.Find( symEvent );
+	}
 	if( iMap == mapEvents.InvalidIndex() )
 	{
 		args.GetIsolate()->ThrowException( v8::String::NewFromUtf8( args.GetIsolate(), CFmtStrN<512>( "Invalid event name to DispatchEvent ('%s')", pchEventName ).String() ) );
@@ -2180,7 +2213,9 @@ void JSDispatchEventHelper( const v8::FunctionCallbackInfo<v8::Value>& args, boo
 
 	int iFirstFuncArg = bAsyncDispatch ? 2 : 1;
 	UIEventFactory &info = mapEvents.Element( iMap );
-	if( args.Length() - iFirstFuncArg == (info.m_cParams + 1) )
+	// SE port: m_cParams < 0 marks an on-demand event whose argument count is not known yet, so the
+	// argument list is passed through to the JS event factory untouched.
+	if( info.m_cParams >= 0 && args.Length() - iFirstFuncArg == (info.m_cParams + 1) )
 	{
 		// Parse next arg as target panel if we have an extra arg
 
@@ -2227,7 +2262,7 @@ void JSDispatchEventHelper( const v8::FunctionCallbackInfo<v8::Value>& args, boo
 
 		++iFirstFuncArg;
 	}
-	else if( args.Length() - iFirstFuncArg != info.m_cParams )
+	else if( info.m_cParams >= 0 && args.Length() - iFirstFuncArg != info.m_cParams )
 	{
 		// wrong arg count to event, don't allow this
 		args.GetIsolate()->ThrowException( v8::String::NewFromUtf8( args.GetIsolate(), CFmtStr1024( "Invalid number of arguments for event in %s for %s", pchFuncCall, pchEventName ).String() ) );

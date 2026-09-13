@@ -34,6 +34,10 @@ using namespace panorama;
 
 static const int64 k_nAutoReloadFailedFileLoadDelay = 100 * k_nThousand;
 
+// SE port: script that installs the CS:GO API objects into a layout's JavaScript context.  It is injected
+// as the first script of every layout - see CLayoutFile::BAddJavaScript.
+#define SE_PORT_API_SHIM "file://{resources}/scripts/se_api_shim.js"
+
 #if !defined( SOURCE2_PANORAMA )
 static CCommandLineParam g_DevMode( "-dev", "Developer mode" );
 #endif
@@ -2874,6 +2878,7 @@ static bool LayoutSnippetStringLessFunc( const CUtlString &lhs, const CUtlString
 CLayoutFile::CLayoutFile() : m_pPanelDescription( NULL ) , m_nReloadCount( -1 ) // first load -> 0 reloads
 {
 	m_bIsPartial = false;
+	m_bInjectedAPIShim = false;
 	m_mapSnippets.SetLessFunc( LayoutSnippetStringLessFunc );
 }
 
@@ -2945,6 +2950,25 @@ void CLayoutFile::GetStyleFileSymbols( StyleFileIndex_t iFileIndex, CUtlVector< 
 //-----------------------------------------------------------------------------
 bool CLayoutFile::BAddJavaScript( const char *pchPath )
 {
+	// SE port: CS:GO's scripts assume the game DLL installed its API objects (MyPersonaAPI, PartyListAPI,
+	// CompetitiveMatchAPI, ...) into every layout's script context, and this port has no cstrike15 DLL to
+	// do that - every layout that used one of them aborted on its first reference.
+	//
+	// Panorama keeps one JavaScript context per layout, so the shim has to be the first script of *every*
+	// layout, including the sub-layouts a main menu pulls in with <Frame src="..."/> (advertising_toggle,
+	// match-reconnect, playercard, avatar, ...) which each get their own context.  Injecting it here
+	// covers every context and leaves the shipped layout files untouched.
+	if ( !m_bInjectedAPIShim )
+	{
+		m_bInjectedAPIShim = true;
+
+		if ( V_strcmp( pchPath, SE_PORT_API_SHIM ) != 0 )
+		{
+			// do not fail the layout if the shim itself cannot be loaded
+			BAddJavaScript( SE_PORT_API_SHIM );
+		}
+	}
+
 	CUtlString resolvedPath;
 	JSFilePtr_t pJSFile = UIEngineInternal()->UILayoutManagerInternal()->GetJavaScriptFile( pchPath, &resolvedPath );
 	if( !pJSFile )
@@ -3169,6 +3193,7 @@ bool CLayoutFile::BLoadFromBuffer( CPanoramaSymbol symPath, CUtlBuffer &buffer, 
 	m_bIsPartial = bIsPartial;
 
 	m_vecJavscriptIncludes.RemoveAll();
+	m_bInjectedAPIShim = false;
 
 	if ( !bIsPartial )
 	{

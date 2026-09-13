@@ -223,6 +223,9 @@
 
 	// panorama throws when a script registers for an event that no C++ code has declared; these
 	// wrappers turn that into a no-op so a missing event cannot abort a whole script.
+	// NOTE: do not try to declare the missing event from here - calling $.DefineEvent for a name that
+	// panorama already knows *replaces* the C++ factory (and turns panel events into plain events),
+	// which destabilises handlers.  Unknown names are declared on demand in C++ instead.
 	function tolerant(name) {
 		if (typeof $ === "undefined") { return; }
 		var orig = $[name];
