@@ -1923,6 +1923,22 @@ retry_compile:
 	if ( hr != D3D_OK )
 	{
 		const char *pErrorMessageString = ( const char * )pErrorMessages->GetBufferPointer();
+
+		// SE port (bring-up aid): Plat_DebugString() only reaches OutputDebugString, which is invisible
+		// without a debugger attached - mirror the compiler diagnostic to the console/log too.
+		{
+			static int s_nSEFxcProbe = 0;
+			if ( s_nSEFxcProbe < 3 )
+			{
+				s_nSEFxcProbe++;
+				Warning( "SE_PORT_FXC: failed to compile '%s' (%s) static=%d dynamic=%d model=%s fileFound=%s\n",
+					pShaderName, filename, nStaticIndex, nDynamicIndex, pShaderModel,
+					( fp != FILESYSTEM_INVALID_HANDLE ) ? "yes" : "no" );
+				Warning( "SE_PORT_FXC:   %s\n",
+					pErrorMessages ? ( const char * )pErrorMessages->GetBufferPointer() : "(no error buffer)" );
+			}
+		}
+
 		Plat_DebugString( pErrorMessageString );
 		Plat_DebugString( "\n" );
 

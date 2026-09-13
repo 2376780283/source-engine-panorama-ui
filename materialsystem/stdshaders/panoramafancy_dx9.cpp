@@ -142,6 +142,23 @@ BEGIN_VS_SHADER( panoramafancy_dx9, "Help for panorama" )
 
 			int texType = pAttr->GetValue( ATTR_D_TEXTURETYPE );
 
+			// SE port (bring-up aid): what does the fancy shader actually get for a solid colour fill?
+			{
+				static int s_nSEFancyShaderLogged = 0;
+				if ( s_nSEFancyShaderLogged < 6 )
+				{
+					s_nSEFancyShaderLogged++;
+					Warning( "SE_PORT_FANCY: draw blend=%d texType=%d grad2=%d gradc=%d outer=%d inner=%d corr=%d mask=%d radial=%d topLeft=(%.1f,%.1f,%.1f,%.1f)\n",
+						params[ BLENDSTATE ]->GetIntValue(), texType,
+						pAttr->GetValue( ATTR_D_GRADIENT_TWOSTOP ), pAttr->GetValue( ATTR_D_GRADIENT_COMPLEX ),
+						pAttr->GetValue( ATTR_D_USEOUTERCORNER ), pAttr->GetValue( ATTR_D_USEINNERCORNER ),
+						pAttr->GetValue( ATTR_D_COLORCORRECTION ), pAttr->GetValue( ATTR_D_USEOPACITYMASK ),
+						pAttr->GetValue( ATTR_D_USERADIALCLIP ),
+						pAttr->GetValue( ATTR_TopLeftWdHt ).x, pAttr->GetValue( ATTR_TopLeftWdHt ).y,
+						pAttr->GetValue( ATTR_TopLeftWdHt ).z, pAttr->GetValue( ATTR_TopLeftWdHt ).w );
+				}
+			}
+
 			if ( texType )
 			{
 				pAttr->GetValue( &pTexture, ATTR_Texture0 );

@@ -1956,13 +1956,36 @@ bool CUIPanel::BSetProperty( CPanoramaSymbol symName, const char *pchValue )
 			buf.SeekPut( CUtlBuffer::SEEK_HEAD, ( int )strLen );
 
 			StylePropertyHash_t styleProperties;
-			if ( m_pLayoutFile->BParseStyleTag( buf, &styleProperties ) )
+			bool bSEStyleParsed = m_pLayoutFile->BParseStyleTag( buf, &styleProperties );
+			if ( bSEStyleParsed )
 			{
 				FOR_EACH_HASHMAP( styleProperties, i )
 				{
 					m_style.SetProperty( styleProperties.Element( i ) );
 				}
+
+				// SE port (bring-up aid): did the inline style actually make it into the panel style?
+				{
+					static int s_nSEStyleProbe = 0;
+					if ( s_nSEStyleProbe < 12 )
+					{
+						s_nSEStyleProbe++;
+						Warning( "SE_PORT_STYLE: '%s' parse=%d props=%d raw=[%s]\n",
+							m_strID.String(), (int)bSEStyleParsed, styleProperties.Count(), pchValue );
+					}
+				}
+
 				return true;
+			}
+
+			// SE port (bring-up aid)
+			{
+				static int s_nSEStyleFailProbe = 0;
+				if ( s_nSEStyleFailProbe < 12 )
+				{
+					s_nSEStyleFailProbe++;
+					Warning( "SE_PORT_STYLE: '%s' BParseStyleTag FAILED for [%s]\n", m_strID.String(), pchValue );
+				}
 			}
 		}
 		else
@@ -6082,6 +6105,24 @@ void CUIPanel::DesiredLayoutSizeTraverse( float *pflDesiredWidth, float *pflDesi
 {
 	VPROF_BUDGET_DETAILED( "CUIPanel::DesiredLayoutSizeTraverse", VPROF_BUDGETGROUP_TENFOOT );
 
+	// SE port (bring-up aid): panels are coming out 0x0 - trace inputs, resolved style and results.
+	static int s_nSELayoutSizeProbe = 0;
+	bool bSELayoutSizeProbe = ( s_nSELayoutSizeProbe < 24 ) && !bFinalDimensions;
+	if ( bSELayoutSizeProbe )
+	{
+		s_nSELayoutSizeProbe++;
+
+		CUILength probeW, probeH;
+		AccessStyle()->GetInterpolatedWidth( probeW, bFinalDimensions );
+		AccessStyle()->GetInterpolatedHeight( probeH, bFinalDimensions );
+
+		Warning( "SE_PORT_SIZE: in '%s' type=%s max=%.1f,%.1f styleW(set=%d val=%.2f pct=%d fit=%d fill=%d) styleH(set=%d val=%.2f pct=%d) inlineProps=%d layoutFile=%d\n",
+			m_strID.String(), GetPanelType().String(), flMaxWidth, flMaxHeight,
+			(int)probeW.IsSet(), probeW.GetValue(), (int)probeW.IsPercent(), (int)probeW.IsFitChildren(), (int)probeW.IsFillParentFlow(),
+			(int)probeH.IsSet(), probeH.GetValue(), (int)probeH.IsPercent(),
+			AccessStyle()->PropertiesSetFromElement().Count(), (int)( m_pLayoutFile.Get() != NULL ) );
+	}
+
 	// if nothing is dirty, can early out
 	if( !bFinalDimensions && IsSizeValid() && IsChildSizeValid() && !IsSizeTransitioning() && m_flLastDesiredWidthFromParent == flMaxWidth && m_flLastDesiredHeightFromParent == flMaxHeight )
 	{
@@ -6231,6 +6272,13 @@ void CUIPanel::DesiredLayoutSizeTraverse( float *pflDesiredWidth, float *pflDesi
 
 	if( pflDesiredHeight )
 		*pflDesiredHeight = flDesiredLayoutHeight;
+
+	// SE port (bring-up aid)
+	if ( bSELayoutSizeProbe )
+	{
+		Warning( "SE_PORT_SIZE:   out '%s' inner=%.1f,%.1f desired=%.1f,%.1f content=%.1f,%.1f\n",
+			m_strID.String(), flInnerWidth, flInnerHeight, flDesiredLayoutWidth, flDesiredLayoutHeight, flContentWidth, flContentHeight );
+	}
 
 	// only set our member variables if not calculating final dimensions
 	if( !bFinalDimensions )
@@ -6403,6 +6451,19 @@ void CUIPanel::LayoutTraverse( float xFromParent, float yFromParent, float flFin
 	if( IsPositionValid() && IsChildPositionValid() && !IsPositionTransitioning() && xFromParent == m_flLastLayoutXFromParent &&
 		yFromParent == m_flLastLayoutYFromParent && m_flLastLayoutWidthFromParent == flFinalWidth && m_flLastLayoutHeightFromParent == flFinalHeight )
 	{
+		// SE port (bring-up aid)
+		{
+			static int s_nSELayoutTraverseEarly = 0;
+			if ( s_nSELayoutTraverseEarly < 8 )
+			{
+				s_nSELayoutTraverseEarly++;
+				Warning( "SE_PORT_SIZET: earlyout '%s' from=%.1f,%.1f desired=%.1f,%.1f actual=%.1f,%.1f lastFrom=%.1f,%.1f\n",
+					m_strID.String(), flFinalWidth, flFinalHeight,
+					m_flDesiredLayoutWidth, m_flDesiredLayoutHeight, m_flActualLayoutWidth, m_flActualLayoutHeight,
+					m_flLastLayoutWidthFromParent, m_flLastLayoutHeightFromParent );
+			}
+		}
+
 		return;
 	}
 
@@ -6516,6 +6577,18 @@ void CUIPanel::LayoutTraverse( float xFromParent, float yFromParent, float flFin
 
 	m_flActualLayoutWidth = flOurWidth;
 	m_flActualLayoutHeight = flOurHeight;
+
+	// SE port (bring-up aid)
+	{
+		static int s_nSELayoutTraverseProbe = 0;
+		if ( s_nSELayoutTraverseProbe < 24 )
+		{
+			s_nSELayoutTraverseProbe++;
+			Warning( "SE_PORT_SIZET: '%s' xy=%.1f,%.1f from=%.1f,%.1f desired=%.1f,%.1f actual=%.1f,%.1f\n",
+				m_strID.String(), x, y, flFinalWidth, flFinalHeight,
+				m_flDesiredLayoutWidth, m_flDesiredLayoutHeight, m_flActualLayoutWidth, m_flActualLayoutHeight );
+		}
+	}
 
 	ClientPtr()->OnLayoutTraverse( flOurWidth, flOurHeight );
 	LayoutChildrenInHiding( flOurWidth, flOurHeight );

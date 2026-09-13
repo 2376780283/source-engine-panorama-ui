@@ -1631,12 +1631,14 @@ bool CSource2Surface::BUpdateWindowSizeIfNeeded( uint32 nWidth, uint32 nHeight )
 //-----------------------------------------------------------------------------
 void CSource2Surface::BeginFrame( const BeginFrameRenderCommand_t &renderCommand )
 {
-	// SE port (bring-up aid): the surface is being driven by the render thread.
-	static int s_nSEBeginFrameLogged = 0;
-	if ( s_nSEBeginFrameLogged < 4 )
+	// SE port (bring-up aid): rate-limited frame counter for the surface render thread.
 	{
-		Warning( "SE_PORT_SURFACE: BeginFrame (%ux%u)\n", m_unSurfaceWidth, m_unSurfaceHeight );
-		s_nSEBeginFrameLogged++;
+		static int s_nSEBeginFrame = 0;
+		s_nSEBeginFrame++;
+		if ( ( s_nSEBeginFrame % 60 ) == 0 )
+		{
+			Warning( "SE_PORT_SURFACE: BeginFrame #%d (%ux%u)\n", s_nSEBeginFrame, m_unSurfaceWidth, m_unSurfaceHeight );
+		}
 	}
 
 
@@ -3081,6 +3083,17 @@ void CSource2Surface::SetFancyQuadFillBrush( FancyQuadBrush_t &FancyBrush, const
 		FancyBrush.m_flColor[0][2] = b * a;
 		FancyBrush.m_flColor[0][3] = a;
 	}
+	else if ( brush.eFillBrushType == k_EFillBrushType_Color )
+	{
+		// SE port: this branch was missing, so every solid colour fill fell through to the
+		// "white" fallback below and painted every panel white.
+		ColorFromABGR( r, g, b, a, brush.color_rgba );
+		a *= brush.opacity;
+		FancyBrush.m_flColor[0][0] = r * a;
+		FancyBrush.m_flColor[0][1] = g * a;
+		FancyBrush.m_flColor[0][2] = b * a;
+		FancyBrush.m_flColor[0][3] = a;
+	}
 	else
 	{
 		FancyBrush.m_flColor[0][0] = 1.0f;
@@ -3122,10 +3135,28 @@ void CSource2Surface::DrawFilledRect( const RenderFilledRectRenderCommand_t &ren
 {
 	// SE port (bring-up aid): a filled rect reached the surface (what the test layout uses).
 	static int s_nSEDrawRectLogged = 0;
-	if ( s_nSEDrawRectLogged < 6 )
+	s_nSEDrawRectLogged++;
+	if ( ( s_nSEDrawRectLogged % 60 ) == 0 || s_nSEDrawRectLogged < 8 )
 	{
-		Warning( "SE_PORT_SURFACE: DrawFilledRect\n" );
-		s_nSEDrawRectLogged++;
+		const FillBrush_t *pProbeBrush = NULL;
+		for ( const FillBrush_t *pFillBrush : renderCommand.fill_brush_collection.fill_brush )
+		{
+			pProbeBrush = pFillBrush;
+			break;
+		}
+
+		if ( pProbeBrush )
+		{
+			Warning( "SE_PORT_SURFACE: DrawFilledRect (%.0f,%.0f)-(%.0f,%.0f) type=%d opacity=%.2f color=%02x%02x%02x%02x\n",
+				renderCommand.top_left.x, renderCommand.top_left.y, renderCommand.bottom_right.x, renderCommand.bottom_right.y,
+				(int)pProbeBrush->eFillBrushType, pProbeBrush->opacity,
+				(pProbeBrush->color_rgba >> 16) & 0xff, (pProbeBrush->color_rgba >> 8) & 0xff, pProbeBrush->color_rgba & 0xff, (pProbeBrush->color_rgba >> 24) & 0xff );
+		}
+		else
+		{
+			Warning( "SE_PORT_SURFACE: DrawFilledRect (%.0f,%.0f)-(%.0f,%.0f) no brushes\n",
+				renderCommand.top_left.x, renderCommand.top_left.y, renderCommand.bottom_right.x, renderCommand.bottom_right.y );
+		}
 	}
 
 	VPROF( "CSource2Surface::DrawFilledRect");

@@ -471,6 +471,18 @@ void CPanoramaEngineHandler::RunFrame()
 	if ( m_bValid )
 	{
 		bool bUseForceBuiltPaintCmdCaches = !g_ClientDLL->HudShouldPaintThisFrame();
+
+		// SE port (bring-up aid): this flag decides whether CTopLevelWindow::PerformLayout() runs at all.
+		{
+			static int s_nSEForceCacheProbe = 0;
+			if ( s_nSEForceCacheProbe < 3 )
+			{
+				s_nSEForceCacheProbe++;
+				Warning( "SE_PORT_FORCECACHE: clientHudPaints=%d forceCaches=%d debugger=%d\n",
+					(int)g_ClientDLL->HudShouldPaintThisFrame(), (int)bUseForceBuiltPaintCmdCaches, (int)IsDebuggerShown() );
+			}
+		}
+
 		m_pUIEngine->SetUseForceBuiltPaintCmdCaches( bUseForceBuiltPaintCmdCaches && !IsDebuggerShown() );
 		m_pUIEngine->RunFrame();
 	}

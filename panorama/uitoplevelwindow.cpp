@@ -296,14 +296,23 @@ void CTopLevelWindow::PaintEmptyFrameAndForceLaterRepaint()
 //-----------------------------------------------------------------------------
 void CTopLevelWindow::LayoutAndPaintIfNeeded()
 {
+#ifdef PANORAMA_SE_MATERIALSYSTEM_DRAW
+	// SE port: CS:GO's panorama renders into a Source 2 surface whose texture survives across frames,
+	// so a panel only has to rebuild its paint commands when it is dirty.  This port draws through the
+	// Source 1 material system straight into the current frame's back buffer, which the game redraws
+	// from scratch every frame - so every panel must re-emit its draw commands every frame, otherwise
+	// the UI shows up for the one or two frames a panel happened to be dirty and then disappears.
+	ForceFullRepaint();
+#endif
+
 	// SE port (bring-up aid): this is the pass that applies styles, performs layout and paints panels.
 	{
 		static int s_nSELayoutPaints = 0;
-		if ( s_nSELayoutPaints < 6 )
+		s_nSELayoutPaints++;
+		if ( ( s_nSELayoutPaints % 60 ) == 0 )
 		{
-			Warning( "SE_PORT_PAINT: LayoutAndPaintIfNeeded enter (visiblePanels=%d visible=%d)\n",
-				m_listVisiblePanels.Count(), (int)BIsVisible() );
-			s_nSELayoutPaints++;
+			Warning( "SE_PORT_PAINT: paint pass #%d (visiblePanels=%d forceCaches=%d)\n",
+				s_nSELayoutPaints, m_listVisiblePanels.Count(), (int)UIEngine()->BShouldUseForceBuiltPaintCmdCaches() );
 		}
 	}
 	{
@@ -634,6 +643,18 @@ CFastScrollSoundManager * CTopLevelWindow::AccessFastScrollSoundMgr()
 void CTopLevelWindow::PerformLayout()
 {
 	VPROF_BUDGET( "CTopLevelWindow::PerformLayout", VPROF_BUDGETGROUP_TENFOOT );
+
+	// SE port (bring-up aid): the layout pass uses the surface size - is it set?
+	{
+		static int s_nSEPerformLayoutProbe = 0;
+		if ( s_nSEPerformLayoutProbe < 4 )
+		{
+			s_nSEPerformLayoutProbe++;
+			Warning( "SE_PORT_PERFLAYOUT: surface=%ux%u window=%ux%u visiblePanels=%d scale=%.3f\n",
+				GetSurfaceWidth(), GetSurfaceHeight(), GetWindowWidth(), GetWindowHeight(),
+				m_listVisiblePanels.Count(), GetWindowScaleFactor() );
+		}
+	}
 
 	// layout pass
 	m_bInLayoutTraverse = true;

@@ -318,11 +318,20 @@ void CRenderContext::CtxDraw( RenderPrimitiveType_t type, int nFirstVertex, int 
 	// SE port (bring-up aid): is panorama reaching the draw path at all?
 	{
 		static int s_nSECtxDrawLogged = 0;
-		if ( s_nSECtxDrawLogged < 8 )
+		s_nSECtxDrawLogged++;
+		if ( ( s_nSECtxDrawLogged % 120 ) == 1 )
 		{
-			Warning( "SE_PORT_DRAW: CtxDraw verts=%d panMaterial=%d blend=%d material=%p\n",
-				nVertexCount, m_nPanMaterial, (int)m_blendState, (void*)m_pMaterial );
-			s_nSECtxDrawLogged++;
+			ITexture *pProbeRT = m_pMatRenderContext->GetRenderTarget();
+			int nProbeVX = 0, nProbeVY = 0, nProbeVW = 0, nProbeVH = 0;
+			m_pMatRenderContext->GetViewport( nProbeVX, nProbeVY, nProbeVW, nProbeVH );
+
+			Vector4D *pV = (Vector4D*)m_pBaseVB;
+			Warning( "SE_PORT_DRAW: CtxDraw #%d verts=%d panMaterial=%d blend=%d rt=%s viewport=%d,%d %dx%d vb=%p v0=(%.2f,%.2f,%.2f,%.2f) v1=(%.2f,%.2f,%.2f,%.2f)\n",
+				s_nSECtxDrawLogged, m_nVertCount, m_nPanMaterial, (int)m_blendState,
+				pProbeRT ? pProbeRT->GetName() : "BACKBUFFER", nProbeVX, nProbeVY, nProbeVW, nProbeVH,
+				m_pBaseVB,
+				pV ? pV[0].x : 0.0f, pV ? pV[0].y : 0.0f, pV ? pV[0].z : 0.0f, pV ? pV[0].w : 0.0f,
+				pV ? pV[1].x : 0.0f, pV ? pV[1].y : 0.0f, pV ? pV[1].z : 0.0f, pV ? pV[1].w : 0.0f );
 		}
 	}
 
