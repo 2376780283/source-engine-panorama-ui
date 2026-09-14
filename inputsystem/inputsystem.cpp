@@ -78,6 +78,7 @@ CInputSystem::CInputSystem()
 	m_bSteamController = false;
 	m_bSteamControllerActionsInitialized = false;
 	m_bSteamControllerActive = false;
+	m_nUIEventClientCount = 0;
 
 	Assert( (MAX_JOYSTICKS + 7) >> 3 << sizeof(unsigned short) ); 
 
@@ -1263,6 +1264,74 @@ void CInputSystem::UpdateMousePositionState( InputState_t &state, short x, short
 
 
 //-----------------------------------------------------------------------------
+// SE port (CS:GO addition, text taken from CSGO2019 inputsystem/inputsystem.cpp): the panorama UI
+// tracks the mouse cursor with IE_LocateMouseClick events.  CS:GO's input system generates them
+// straight from the mouse window messages, but SE's version never did - it only had a placeholder
+// comment where the enum value is defined - so a hosted panorama UI had no cursor position at all
+// and could not hit-test its panels (every click arrived but was never consumed by a panel).
+// A UI layer has to register with AddUIEventListener() first; CMatSystemSurface::EnableWindowsMessages()
+// does that for the VGUI surface exactly like CS:GO does.
+//-----------------------------------------------------------------------------
+//-----------------------------------------------------------------------------
+// SE port (bring-up aid): self-contained file probe (the input system is a separate DLL and has no
+// access to the engine's SE_PortUIProbe).
+//-----------------------------------------------------------------------------
+static void SE_InputProbe( const char *pFmt, ... )
+{
+	FILE *fp = fopen( "D:\\cstrike\\se_input_probe.txt", "a" );
+	if ( !fp )
+		return;
+
+	va_list args;
+	va_start( args, pFmt );
+	vfprintf( fp, pFmt, args );
+	va_end( args );
+	fflush( fp );
+	fclose( fp );
+}
+
+void CInputSystem::AddUIEventListener()
+{
+	++m_nUIEventClientCount;
+	SE_InputProbe( "ADD listener -> count=%d\n", m_nUIEventClientCount );
+}
+
+void CInputSystem::RemoveUIEventListener()
+{
+	--m_nUIEventClientCount;
+	SE_InputProbe( "REMOVE listener -> count=%d\n", m_nUIEventClientCount );
+}
+
+//-----------------------------------------------------------------------------
+// Generates LocateMouseClick messages
+//-----------------------------------------------------------------------------
+void CInputSystem::LocateMouseClick( LPARAM lParam )
+{
+	static int s_nSEProbe = 0;
+	if ( s_nSEProbe < 12 )
+	{
+		++s_nSEProbe;
+		SE_InputProbe( "LOCATE x=%d y=%d uiEvents=%d (count=%d)\n",
+			(int)(short)LOWORD( lParam ), (int)(short)HIWORD( lParam ), ShouldGenerateUIEvents() ? 1 : 0, m_nUIEventClientCount );
+	}
+
+	if ( ShouldGenerateUIEvents() )
+	{
+		int x = (short)LOWORD( lParam );
+		int y = (short)HIWORD( lParam );
+
+		// The window messages give window coordinates, but the panorama window handler expects
+		// screen coordinates and converts them back itself (panorama/source2/uitoplevelwindowsource2.cpp:
+		// case IE_LocateMouseClick -> Plat_ScreenToWindowCoords).  CS:GO gets away with passing window
+		// coordinates only because it runs fullscreen, where the two are identical.
+		Plat_WindowToScreenCoords( (PlatWindow_t)m_hAttachedHWnd, x, y );
+
+		PostEvent( IE_LocateMouseClick, m_nLastSampleTick, x, y );
+	}
+}
+
+
+//-----------------------------------------------------------------------------
 // Handles input messages
 //-----------------------------------------------------------------------------
 LRESULT CInputSystem::WindowProc( HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam )
@@ -1292,6 +1361,7 @@ LRESULT CInputSystem::WindowProc( HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
 
 	case WM_LBUTTONDOWN:
 		{
+			LocateMouseClick( lParam );
 			int nButtonMask = ButtonMaskFromMouseWParam( wParam, MOUSE_LEFT, true );
 			ETWMouseDown( 0, (short)LOWORD(lParam), (short)HIWORD(lParam) );
 			UpdateMouseButtonState( nButtonMask );
@@ -1300,6 +1370,7 @@ LRESULT CInputSystem::WindowProc( HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
 
 	case WM_LBUTTONUP:
 		{
+			LocateMouseClick( lParam );
 			int nButtonMask = ButtonMaskFromMouseWParam( wParam, MOUSE_LEFT, false );
 			ETWMouseUp( 0, (short)LOWORD(lParam), (short)HIWORD(lParam) );
 			UpdateMouseButtonState( nButtonMask );
@@ -1308,6 +1379,7 @@ LRESULT CInputSystem::WindowProc( HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
 
 	case WM_RBUTTONDOWN:
 		{
+			LocateMouseClick( lParam );
 			int nButtonMask = ButtonMaskFromMouseWParam( wParam, MOUSE_RIGHT, true );
 			ETWMouseDown( 2, (short)LOWORD(lParam), (short)HIWORD(lParam) );
 			UpdateMouseButtonState( nButtonMask );
@@ -1316,6 +1388,7 @@ LRESULT CInputSystem::WindowProc( HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
 
 	case WM_RBUTTONUP:
 		{
+			LocateMouseClick( lParam );
 			int nButtonMask = ButtonMaskFromMouseWParam( wParam, MOUSE_RIGHT, false );
 			ETWMouseUp( 2, (short)LOWORD(lParam), (short)HIWORD(lParam) );
 			UpdateMouseButtonState( nButtonMask );
@@ -1324,6 +1397,7 @@ LRESULT CInputSystem::WindowProc( HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
 
 	case WM_MBUTTONDOWN:
 		{
+			LocateMouseClick( lParam );
 			int nButtonMask = ButtonMaskFromMouseWParam( wParam, MOUSE_MIDDLE, true );
 			ETWMouseDown( 1, (short)LOWORD(lParam), (short)HIWORD(lParam) );
 			UpdateMouseButtonState( nButtonMask );
@@ -1332,6 +1406,7 @@ LRESULT CInputSystem::WindowProc( HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
 
 	case WM_MBUTTONUP:
 		{
+			LocateMouseClick( lParam );
 			int nButtonMask = ButtonMaskFromMouseWParam( wParam, MOUSE_MIDDLE, false );
 			ETWMouseUp( 1, (short)LOWORD(lParam), (short)HIWORD(lParam) );
 			UpdateMouseButtonState( nButtonMask );
@@ -1340,6 +1415,7 @@ LRESULT CInputSystem::WindowProc( HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
 
 	case MS_WM_XBUTTONDOWN:
 		{
+			LocateMouseClick( lParam );
 			ButtonCode_t code = ( HIWORD( wParam ) == 1 ) ? MOUSE_4 : MOUSE_5;
 			int nButtonMask = ButtonMaskFromMouseWParam( wParam, code, true );
 			UpdateMouseButtonState( nButtonMask );
@@ -1351,6 +1427,7 @@ LRESULT CInputSystem::WindowProc( HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
 
 	case MS_WM_XBUTTONUP:
 		{
+			LocateMouseClick( lParam );
 			ButtonCode_t code = ( HIWORD( wParam ) == 1 ) ? MOUSE_4 : MOUSE_5;
 			int nButtonMask = ButtonMaskFromMouseWParam( wParam, code, false );
 			UpdateMouseButtonState( nButtonMask );
@@ -1362,6 +1439,7 @@ LRESULT CInputSystem::WindowProc( HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
 
 	case WM_LBUTTONDBLCLK:
 		{
+			LocateMouseClick( lParam );
 			int nButtonMask = ButtonMaskFromMouseWParam( wParam, MOUSE_LEFT, true );
 			ETWMouseDown( 0, (short)LOWORD(lParam), (short)HIWORD(lParam) );
 			UpdateMouseButtonState( nButtonMask, MOUSE_LEFT );
@@ -1370,6 +1448,7 @@ LRESULT CInputSystem::WindowProc( HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
 
 	case WM_RBUTTONDBLCLK:
 		{
+			LocateMouseClick( lParam );
 			int nButtonMask = ButtonMaskFromMouseWParam( wParam, MOUSE_RIGHT, true );
 			ETWMouseDown( 2, (short)LOWORD(lParam), (short)HIWORD(lParam) );
 			UpdateMouseButtonState( nButtonMask, MOUSE_RIGHT );
@@ -1378,6 +1457,7 @@ LRESULT CInputSystem::WindowProc( HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
 
 	case WM_MBUTTONDBLCLK:
 		{
+			LocateMouseClick( lParam );
 			int nButtonMask = ButtonMaskFromMouseWParam( wParam, MOUSE_MIDDLE, true );
 			ETWMouseDown( 1, (short)LOWORD(lParam), (short)HIWORD(lParam) );
 			UpdateMouseButtonState( nButtonMask, MOUSE_MIDDLE );
@@ -1386,6 +1466,7 @@ LRESULT CInputSystem::WindowProc( HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
 
 	case MS_WM_XBUTTONDBLCLK:
 		{
+			LocateMouseClick( lParam );
 			ButtonCode_t code = ( HIWORD( wParam ) == 1 ) ? MOUSE_4 : MOUSE_5;
 			int nButtonMask = ButtonMaskFromMouseWParam( wParam, code, true );
 			UpdateMouseButtonState( nButtonMask, code );

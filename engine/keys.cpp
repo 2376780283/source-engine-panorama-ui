@@ -22,6 +22,9 @@
 #include "panoramaenginehandler.h"
 #include "igame.h"		// game->GetMainWindow()
 #include "console.h"		// Con_IsVisible()
+
+// SE port (bring-up aid): the file probe lives in panoramaenginehandler.cpp.
+void SE_PortUIProbe( const char *pFmt, ... );
 #endif
 
 // memdbgon must be the last include file in a .cpp file!!!
@@ -782,7 +785,24 @@ void Key_Event( const InputEvent_t &event )
 		return;
 							 
 	// Let vgui have a whack at keys
-	if ( FilterKey( event, KEY_UP_VGUI, HandleVGuiKey ) )
+	bool bSEVguiConsumed = FilterKey( event, KEY_UP_VGUI, HandleVGuiKey );
+#ifdef PANORAMA_ENABLE
+	// SE port (bring-up aid): who eats the input?  Logs every button/key event that reaches
+	// Key_Event plus whether the VGUI filter consumed it.  engine/keys.cpp filters VGUI *before*
+	// panorama, and in this port the CS:S VGUI main menu is still up (CS:GO has no such menu),
+	// so VGUI may be swallowing everything panorama would need.
+	if ( ( event.m_nType == IE_ButtonPressed ) || ( event.m_nType == IE_ButtonReleased ) || ( event.m_nType == IE_KeyTyped ) )
+	{
+		static int s_nSEKeyProbe = 0;
+		if ( s_nSEKeyProbe < 120 )
+		{
+			++s_nSEKeyProbe;
+			SE_PortUIProbe( "KEY type=%d data=%d vguiConsumed=%d\n", event.m_nType, event.m_nData,
+				bSEVguiConsumed ? 1 : 0 );
+		}
+	}
+#endif
+	if ( bSEVguiConsumed )
 		return;
 
 #ifdef PANORAMA_ENABLE

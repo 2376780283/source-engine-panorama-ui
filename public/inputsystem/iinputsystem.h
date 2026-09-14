@@ -202,6 +202,16 @@ public:
 	}
 
 	virtual void StartTextInput() = 0;
+
+	// SE port (CS:GO addition): a UI layer registers itself here so the input system starts
+	// generating UI events - notably IE_LocateMouseClick, which is how the panorama UI learns the
+	// cursor position (see CSGO2019 inputsystem/inputsystem.cpp AddUIEventListener() /
+	// ShouldGenerateUIEvents()).  CS:GO calls these from CMatSystemSurface::EnableWindowsMessages().
+	// NOTE: appended at the end of the interface on purpose - inserting virtuals in the middle
+	// changes the vtable layout for every other module (doing that once crashed materialsystem.dll
+	// during window creation).
+	virtual void AddUIEventListener() {}
+	virtual void RemoveUIEventListener() {}
 };
 
 

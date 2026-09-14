@@ -340,17 +340,50 @@ void CRenderContext::CtxDraw( RenderPrimitiveType_t type, int nFirstVertex, int 
 {
 	if ( type != RENDER_PRIM_TRIANGLES ) Error( "Panorama : Invalid prim type\n" );
 
-	// SE port (bring-up aid): is panorama reaching the draw path at all?
+	// SE port (bring-up aid): is panorama reaching the draw path at all, and are the quads the size the
+	// layout thinks they are?  The vertices are already in clip space, so map them back through the
+	// viewport and log the device rect - that can be reconciled against the MENUTREE lines the engine
+	// writes to the same probe file (a 1.5x error here means a resolution/scale mismatch on the draw
+	// side, a correct rect means the layout and the surface agree).
 	{
 		static int s_nSECtxDrawLogged = 0;
 		s_nSECtxDrawLogged++;
-		if ( ( s_nSECtxDrawLogged % 120 ) == 1 )
+		if ( s_nSECtxDrawLogged <= 40 && m_pBaseVB && m_nVertCount >= 3 )
 		{
-			ITexture *pProbeRT = m_pMatRenderContext->GetRenderTarget();
-			int nProbeVX = 0, nProbeVY = 0, nProbeVW = 0, nProbeVH = 0;
-			m_pMatRenderContext->GetViewport( nProbeVX, nProbeVY, nProbeVW, nProbeVH );
+			Vector4D *pV = (Vector4D *)m_pBaseVB;
 
-			Vector4D *pV = (Vector4D*)m_pBaseVB;
+			float flMinX = 1e30f, flMaxX = -1e30f, flMinY = 1e30f, flMaxY = -1e30f;
+			float flMinW = 1e30f, flMaxW = -1e30f;
+			for ( int i = 0; i < m_nVertCount; ++i )
+			{
+				flMinX = MIN( flMinX, pV[i].x ); flMaxX = MAX( flMaxX, pV[i].x );
+				flMinY = MIN( flMinY, pV[i].y ); flMaxY = MAX( flMaxY, pV[i].y );
+				flMinW = MIN( flMinW, pV[i].w ); flMaxW = MAX( flMaxW, pV[i].w );
+			}
+
+			int nVX = 0, nVY = 0, nVW = 0, nVH = 0;
+			m_pMatRenderContext->GetViewport( nVX, nVY, nVW, nVH );
+
+			ITexture *pRT = m_pMatRenderContext->GetRenderTarget();
+			const int nRTW = pRT ? pRT->GetActualWidth() : 0;
+			const int nRTH = pRT ? pRT->GetActualHeight() : 0;
+
+			// clip -> device (y flips)
+			const float flDevX0 = ( flMinX * 0.5f + 0.5f ) * nVW + nVX;
+			const float flDevX1 = ( flMaxX * 0.5f + 0.5f ) * nVW + nVX;
+			const float flDevY0 = ( 0.5f - flMaxY * 0.5f ) * nVH + nVY;
+			const float flDevY1 = ( 0.5f - flMinY * 0.5f ) * nVH + nVY;
+
+			FILE *fp = fopen( "D:\\cstrike\\se_ui_probe.txt", "a" );
+			if ( fp )
+			{
+				fprintf( fp, "QUAD #%d verts=%d vp=%d,%d %dx%d rt=%dx%d clipX=[%.4f,%.4f] clipY=[%.4f,%.4f] w=[%.3f,%.3f] dev=%.1f,%.1f..%.1f,%.1f (%.1fx%.1f)\n",
+					s_nSECtxDrawLogged, m_nVertCount, nVX, nVY, nVW, nVH, nRTW, nRTH,
+					flMinX, flMaxX, flMinY, flMaxY, flMinW, flMaxW,
+					flDevX0, flDevY0, flDevX1, flDevY1, flDevX1 - flDevX0, flDevY1 - flDevY0 );
+				fflush( fp );
+				fclose( fp );
+			}
 		}
 	}
 

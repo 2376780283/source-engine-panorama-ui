@@ -755,6 +755,26 @@ bool CImageData::SetImageDataR8G8B8A8( const byte *pchData, int cbData, const ch
 
 	bool bLoadedImage = ( m_nWide != 0 && m_nTall != 0 );
 
+	// SE port probe (bring-up aid): what the decoders actually produced, so the texture size can be
+	// compared against the panel sizes the engine side logs to the same file (SE_PortUIProbe in
+	// engine/panoramaenginehandler.cpp).  Self contained because this module and the engine are
+	// different DLLs.  Capped so a run stays readable.
+	{
+		static int s_nSEImgProbe = 0;
+		if ( s_nSEImgProbe < 900 )
+		{
+			++s_nSEImgProbe;
+			FILE *fp = fopen( "D:\\cstrike\\se_ui_probe.txt", "a" );
+			if ( fp )
+			{
+				fprintf( fp, "IMG #%d ok=%d %dx%d srcfmt=%d path=%s\n", s_nSEImgProbe, bLoadedImage ? 1 : 0,
+					(int)m_nWide, (int)m_nTall, (int)m_eSourceFormat, pchFilePath );
+				fflush( fp );
+				fclose( fp );
+			}
+		}
+	}
+
 	// PANORAMA_USE_S1WRAPPER - Dropping gif support (currently unused, except from an incorrect rss image)
 	// If we need to re-add gif support, make sure to revisit ImageLoader / UIEngine shutdown process
 	// (as the CImageData class will create an instance of the video player, and destroying the video

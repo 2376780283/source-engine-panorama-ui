@@ -29,6 +29,9 @@
 #include <windows.h>
 #endif
 
+#include <stdarg.h>
+#include <stdio.h>
+
 #include "panoramaenginehandler.h"
 #include "interfaces/interfaces.h"
 #include "filesystem.h"
@@ -56,6 +59,12 @@
 #include "tier2/renderutils.h"
 #include "videocfg/videocfg.h"
 #include "tier0/vprof.h"
+#include "cmd.h"		// Cbuf_AddText (SE port bring-up hook below)
+#include "ienginevgui.h"	// VGuiPanel_t / EngineVGui()->GetPanel
+#include "vgui_baseui_interface.h"	// EngineVGui()
+#include "vgui/ipanel.h"	// vgui::ipanel()->SetVisible
+#include <vgui_controls/Controls.h>	// vgui::ipanel() lives here
+#include <vgui/ISurface.h>	// vgui::surface()->IsCursorLocked/IsCursorVisible (probe)
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include <tier0/memdbgon.h>
@@ -242,6 +251,10 @@ CPanoramaEngineHandler::CPanoramaEngineHandler()
 //-----------------------------------------------------------------------------
 // Add a view to the system, that is a standalone top level panorama window
 //-----------------------------------------------------------------------------
+// SE port (bring-up aid): flushed probe file, defined below; declared here because AddPanoramaView
+// (which is above the definition) reports what it does to a view.
+void SE_PortUIProbe( const char *pFmt, ... );
+
 panorama::IUIPanelClient *CPanoramaEngineHandler::AddPanoramaView( const char *pchViewName, panorama::IUIWindow *pWindow )
 {
 	ViewEntry_t view;
@@ -254,10 +267,12 @@ panorama::IUIPanelClient *CPanoramaEngineHandler::AddPanoramaView( const char *p
 	{
 		view.m_pWindow->OnWindowResize( m_nMainWindowWidth, m_nMainWindowHeight );
 		view.m_pWindow->SetWindowScaleFactor( m_nMainWindowHeight / 1080.0f );
+		SE_PortUIProbe( "ADDVIEW %s : main=%dx%d -> scale=%.4f\n", pchViewName, m_nMainWindowWidth, m_nMainWindowHeight, m_nMainWindowHeight / 1080.0f );
 	}
 	else
 	{
 		view.m_pWindow->SetWindowScaleFactor( (float)pWindow->GetSurfaceHeight() / 1080.0f );
+		SE_PortUIProbe( "ADDVIEW %s : main=0x0 -> scale from surface=%u = %.4f\n", pchViewName, pWindow->GetSurfaceHeight(), (float)pWindow->GetSurfaceHeight() / 1080.0f );
 	}
 
 	m_Views.SortedInsert( view, &ViewPriorityOrder, NULL ); // keep the views sorted in ascending priority
@@ -351,7 +366,6 @@ bool CPanoramaEngineHandler::CreatePanoramaTestView()
 					nDepth * 2, "", pPanel->GetID(),
 					(int)pPanel->BIsVisible(), pPanel->GetChildCount(),
 					pPanel->GetActualLayoutWidth(), pPanel->GetActualLayoutHeight() );
-
 				for ( int i = 0; i < pPanel->GetChildCount(); ++i )
 				{
 					Dump( pPanel->GetChild( i ), nDepth + 1 );
@@ -388,6 +402,56 @@ void CPanoramaEngineHandler::DestroyPanoramaTestView()
 
 
 //-----------------------------------------------------------------------------
+// SE port (bring-up aid): a probe that is still readable when we need it.
+//
+// Warning()/Msg() only reach engine.log during roughly the first three seconds of a run (the port's
+// log file stops being written after that), which makes every measurement taken once layout has run
+// worthless - and a force kill can lose the tail on top of that.  This appends to its own file and
+// flushes immediately, so it survives the log gap, a hard kill and an early crash.
+//-----------------------------------------------------------------------------
+void SE_PortUIProbe( const char *pFmt, ... )
+{
+	FILE *fp = fopen( "D:\\cstrike\\se_ui_probe.txt", "a" );
+	if ( !fp )
+		return;
+
+	va_list args;
+	va_start( args, pFmt );
+	vfprintf( fp, pFmt, args );
+	va_end( args );
+
+	fflush( fp );
+	fclose( fp );
+}
+
+// The menu root, remembered so the tree can be dumped again once layout has run.
+static panorama::IUIPanel *s_pSEProbeMenuRoot = NULL;
+static int s_nSEProbeDumpLines = 0;
+
+//-----------------------------------------------------------------------------
+// Dumps panel sizes/scale.  Called right after BLoadLayout (everything is still 0x0 there) and again
+// a couple of seconds in, which is the dump that actually answers "is the size/scale right".
+//-----------------------------------------------------------------------------
+void SE_PortDumpPanelTree( panorama::IUIPanel *pPanel, int nDepth )
+{
+	if ( !pPanel || nDepth > 8 || s_nSEProbeDumpLines > 400 )
+		return;
+
+	++s_nSEProbeDumpLines;
+
+	SE_PortUIProbe( "MENUTREE %*s%-34s visible=%d ch=%d w=%.1f h=%.1f desired=%.1fx%.1f render=%.1f scale=%.2f/%.2f\n",
+		nDepth * 2, "", pPanel->GetID(),
+		(int)pPanel->BIsVisible(), pPanel->GetChildCount(),
+		pPanel->GetActualLayoutWidth(), pPanel->GetActualLayoutHeight(),
+		pPanel->GetDesiredLayoutWidth(), pPanel->GetDesiredLayoutHeight(),
+		pPanel->GetActualRenderWidth(),
+		pPanel->GetActualUIScaleX(), pPanel->GetActualUIScaleY() );
+
+	for ( int i = 0; i < pPanel->GetChildCount(); ++i )
+		SE_PortDumpPanelTree( pPanel->GetChild( i ), nDepth + 1 );
+}
+
+//-----------------------------------------------------------------------------
 // SE port: the CS:GO main menu view.  See the note in the header - the markup comes out of the
 // retail panorama/code.pbin pack.
 //-----------------------------------------------------------------------------
@@ -413,6 +477,8 @@ bool CPanoramaEngineHandler::CreatePanoramaMenuView()
 		Warning( "panorama: no back buffer size yet, the main menu view was not created\n" );
 		return false;
 	}
+
+	SE_PortUIProbe( "WINDOW backbuffer=%dx%d\n", nWidth, nHeight );
 
 	panorama::IUIWindow *pMenuWindow = m_pUIEngine->CreateNewUILayerWindow( 0, 0, nWidth, nHeight, false, false, false, true, "CSGOMainMenu", INPUT_CONTEXT_HANDLE_INVALID );
 	panorama::IUIPanelClient *pMenuPanel = pMenuWindow ? AddPanoramaView( "CSGOMainMenu", pMenuWindow ) : NULL;
@@ -443,26 +509,10 @@ bool CPanoramaEngineHandler::CreatePanoramaMenuView()
 	}
 
 	{
-		struct SEDumpMenuTree
-		{
-			static void Dump( panorama::IUIPanel *pPanel, int nDepth )
-			{
-				if ( !pPanel || nDepth > 3 )
-					return;
-
-				Warning( "SE_PORT_MENUTREE: %*s%s visible=%d children=%d w=%.1f h=%.1f\n",
-					nDepth * 2, "", pPanel->GetID(),
-					(int)pPanel->BIsVisible(), pPanel->GetChildCount(),
-					pPanel->GetActualLayoutWidth(), pPanel->GetActualLayoutHeight() );
-
-				for ( int i = 0; i < pPanel->GetChildCount(); ++i )
-				{
-					Dump( pPanel->GetChild( i ), nDepth + 1 );
-				}
-			}
-		};
-
-		SEDumpMenuTree::Dump( pMenuPanel->UIPanel(), 0 );
+		s_pSEProbeMenuRoot = pMenuPanel->UIPanel();
+		s_nSEProbeDumpLines = 0;
+		SE_PortUIProbe( "MENUTREE (right after BLoadLayout - layout has not run yet):\n" );
+		SE_PortDumpPanelTree( s_pSEProbeMenuRoot, 0 );
 	}
 
 	return true;
@@ -531,7 +581,134 @@ void CPanoramaEngineHandler::PanoramaRunFrame(int nSlot)
 	int nWd, nHt;
 	materials->GetBackBufferDimensions( nWd, nHt );
 	ChangeResolution( nWd, nHt );
+
+	// SE port (bring-up aid): drive "the game changed to a lower resolution at run time".  Panorama
+	// decodes SVG/images at the panel size * UI scale and CS:GO reloads them on a resolution change
+	// (CImageResourceManager::OnResolutionChange -> ReloadChangedImage); this hook switches the video
+	// mode after N frames so that path can be exercised without touching the options menu.
+	//   D:\cstrike\se_switch.txt   =>   "<frame>,<width>,<height>"
+	// (a file, not a command line switch: command line arguments routed through the test harness get
+	//  mangled before the engine ever sees them)
+	{
+		static int s_nSESwitchFrame = -2;
+		static int s_nSESwitchW = 0, s_nSESwitchH = 0;
+		static int s_nSEFrameCount = 0;
+
+		if ( s_nSESwitchFrame == -2 )
+		{
+			s_nSESwitchFrame = -1;
+			FILE *fp = fopen( "D:\\cstrike\\se_switch.txt", "r" );
+			if ( fp )
+			{
+				int nFrame = 0, nW = 0, nH = 0;
+				if ( fscanf( fp, "%d,%d,%d", &nFrame, &nW, &nH ) == 3 && nFrame > 0 && nW > 0 && nH > 0 )
+				{
+					s_nSESwitchFrame = nFrame;
+					s_nSESwitchW = nW;
+					s_nSESwitchH = nH;
+					SE_PortUIProbe( "SWITCH-ARMED frame=%d -> %dx%d", nFrame, nW, nH );
+				}
+				fclose( fp );
+			}
+		}
+
+		if ( s_nSESwitchFrame > 0 && ++s_nSEFrameCount == s_nSESwitchFrame )
+		{
+			char pCmd[128];
+			V_snprintf( pCmd, sizeof( pCmd ), "mat_setvideomode %d %d 1\n", s_nSESwitchW, s_nSESwitchH );
+			SE_PortUIProbe( "SWITCH frame %d -> %s", s_nSEFrameCount, pCmd );
+			Cbuf_AddText( pCmd );
+		}
+	}
+
+	// SE port: the hosted views are created while the video mode is still settling (in the port the back
+	// buffer goes 1920x1080 -> 1280x1024 -> 1280x720 during startup), and ChangeResolution() early-outs
+	// once its cached size matches, so a view created inside that window can keep the surface size and
+	// UI scale of the old mode.  That draws the whole UI oversized and clipped at the right/bottom edges
+	// (a 1080-tall layout on a 720-tall surface is exactly 1.5x too big).  Re-sync every view whose
+	// surface disagrees with the current back buffer; OnWindowResize/SetWindowScaleFactor invalidate the
+	// panels, so the layout is redone at the right size.
+	for ( int i = 0; i < m_Views.Count(); ++i )
+	{
+		ViewEntry_t &view = m_Views[i];
+		panorama::IUIWindow *pView = view.m_pWindow;
+		if ( !pView )
+			continue;
+
+		if ( (int)pView->GetSurfaceWidth() != nWd || (int)pView->GetSurfaceHeight() != nHt )
+		{
+			static int s_nSEResyncProbe = 0;
+			if ( s_nSEResyncProbe < 20 )
+			{
+				++s_nSEResyncProbe;
+				SE_PortUIProbe( "RESYNC %s surface=%ux%u -> %dx%d (scale %.4f -> %.4f)\n",
+					view.m_sViewName.Get(), pView->GetSurfaceWidth(), pView->GetSurfaceHeight(), nWd, nHt,
+					pView->GetWindowScaleFactor(), nHt / 1080.0f );
+			}
+
+			pView->OnWindowResize( nWd, nHt );
+			pView->SetWindowScaleFactor( nHt / 1080.0f );
+		}
+	}
+
+	// SE port (dev switch, **default off**): -se_panorama_menu_only
+	// The CS:S VGUI main menu is drawn on top of the hosted panorama UI, and engine/keys.cpp lets
+	// VGUI filter input *before* panorama (CS:GO's order, but CS:GO has no VGUI menu), so the VGUI
+	// main menu swallows every click/key press and the panorama UI can never be used.  Hiding the
+	// gameui root panel while a panorama menu view exists is what CS:GO's structure amounts to.
+	// NOTE: EngineVGui()->HideGameUI() cannot be used here: at the main menu (a background level) it
+	// deliberately does not hide anything (engine/vgui_baseui_interface.cpp).
+	{
+		static int s_nSEMenuOnly = -1;
+		static bool s_bSEGameUIHidden = false;
+		if ( s_nSEMenuOnly == -1 )
+		{
+			s_nSEMenuOnly = CommandLine()->FindParm( "-se_panorama_menu_only" ) ? 1 : 0;
+			SE_PortUIProbe( "SE panorama-menu-only switch: %s\n", s_nSEMenuOnly ? "ON" : "off" );
+		}
+		if ( s_nSEMenuOnly )
+		{
+			bool bWantHidden = ( m_pMenuWindow != NULL );
+			if ( bWantHidden != s_bSEGameUIHidden )
+			{
+				vgui::VPANEL hGameUI = EngineVGui() ? EngineVGui()->GetPanel( PANEL_GAMEUIDLL ) : 0;
+				if ( hGameUI && vgui::ipanel() )
+				{
+					s_bSEGameUIHidden = bWantHidden;
+					vgui::ipanel()->SetVisible( hGameUI, !bWantHidden );
+					SE_PortUIProbe( "SE vgui gameui panel %s (panorama menu %s)\n",
+						bWantHidden ? "hidden" : "shown", m_pMenuWindow ? "exists" : "absent" );
+				}
+			}
+		}
+	}
+
 	RunFrame();
+
+	// SE port (bring-up aid): once layout/animation have run, dump the menu tree again.  This is the
+	// dump that has real sizes in it (the one in CreatePanoramaMenuView is all zeros).
+	if ( m_pMenuWindow )
+	{
+		static int s_nSEProbeFrame = 0;
+		++s_nSEProbeFrame;
+		if ( s_nSEProbeFrame == 120 && s_pSEProbeMenuRoot )
+		{
+			s_nSEProbeDumpLines = 0;
+
+			// The window's logical size is what the panels lay out against; the surface size is the
+			// physical back buffer and the scale factor is the mapping between them.  CS:GO creates
+			// the window with the back buffer size and then sets scale = height/1080, so the layout
+			// space always ends up 1080 high.
+			panorama::IUIWindow *pWindow = m_pMenuWindow;
+			SE_PortUIProbe( "WINDOW surface=%ux%u window=%ux%u scale=%.4f backbuffer=%dx%d\n",
+				pWindow->GetSurfaceWidth(), pWindow->GetSurfaceHeight(),
+				pWindow->GetWindowWidth(), pWindow->GetWindowHeight(),
+				pWindow->GetWindowScaleFactor(), nWd, nHt );
+
+			SE_PortUIProbe( "MENUTREE-AFTER-LAYOUT (frame %d, back buffer %dx%d):\n", s_nSEProbeFrame, nWd, nHt );
+			SE_PortDumpPanelTree( s_pSEProbeMenuRoot, 0 );
+		}
+	}
 }
 
 
@@ -987,6 +1164,42 @@ bool CPanoramaEngineHandler::ProcessUserInput( const InputEvent_t &inputEvent )
 			result = g_pPanoramaUIClient->HandleInputEvent(updatedEvent, m_vecWindowInputOrder, false);
 	}
 
+	// SE port (bring-up aid): record whether the panorama UI ever receives input, and whether it
+	// consumed it.  A completely absent INPUT line means the event never reached panorama (VGUI in
+	// engine/keys.cpp::Key_Event filters input before panorama and may have eaten it);
+	// an "order=0" means no hosted window can be hit.
+	if ( ( inputEvent.m_nType == IE_ButtonPressed ) || ( inputEvent.m_nType == IE_ButtonReleased ) ||
+		 ( inputEvent.m_nType == IE_ButtonDoubleClicked ) || ( inputEvent.m_nType == IE_KeyTyped ) ||
+		 ( inputEvent.m_nType == IE_KeyCodeTyped ) || ( inputEvent.m_nType == IE_KeyCodeReleased ) ||
+		 ( inputEvent.m_nType == IE_LocateMouseClick ) )
+	{
+		static int s_nSEInputProbe = 0;
+		if ( s_nSEInputProbe < 200 )
+		{
+			++s_nSEInputProbe;
+			SE_PortUIProbe( "INPUT type=%d data=%d d2=%d d3=%d consumed=%d order=%d\n",
+				inputEvent.m_nType, inputEvent.m_nData, inputEvent.m_nData2, inputEvent.m_nData3,
+				result ? 1 : 0, m_vecWindowInputOrder.Count() );
+		}
+	}
+
+	// SE port (bring-up aid): does the input system even feed panorama absolute mouse positions?
+	// Panorama hit-tests with the cursor position carried by IE_LocateMouseClick (converted from the
+	// MOUSE_XY analog event); if the cursor is locked and the mouse is in raw mode, no such event is
+	// ever produced and every click is "received but not consumed".
+	if ( inputEvent.m_nType == IE_AnalogValueChanged && (AnalogCode_t)inputEvent.m_nData == MOUSE_XY )
+	{
+		static int s_nSEMouseProbe = 0;
+		if ( s_nSEMouseProbe < 30 )
+		{
+			++s_nSEMouseProbe;
+			SE_PortUIProbe( "MOUSEXY -> (%d,%d) consumed=%d order=%d cursorLocked=%d cursorVisible=%d\n",
+				updatedEvent.m_nData, updatedEvent.m_nData2, result ? 1 : 0, m_vecWindowInputOrder.Count(),
+				( vgui::surface() && vgui::surface()->IsCursorLocked() ) ? 1 : 0,
+				( vgui::surface() && vgui::surface()->IsCursorVisible() ) ? 1 : 0 );
+		}
+	}
+
 	// Don't eat this key if we didn't use it, and it happens to be the console toggle key
 	if ( result == false )
 	{
@@ -1316,6 +1529,18 @@ bool CPanoramaEngineHandler::OnWindowShutdown( IUIWindow *pWindow )
 //-----------------------------------------------------------------------------
 void CPanoramaEngineHandler::ChangeResolution( const int nWindowWidth, const int nWindowHeight )
 {
+	// SE port probe: the UI scale comes from this height, so log the sequence (capped).
+	{
+		static int s_nSEChgResProbe = 0;
+		if ( s_nSEChgResProbe < 30 )
+		{
+			++s_nSEChgResProbe;
+			SE_PortUIProbe( "CHANGERES %d x %d (was %d x %d) views=%d scale=%.4f\n",
+				nWindowWidth, nWindowHeight, m_nMainWindowWidth, m_nMainWindowHeight, m_Views.Count(),
+				nWindowHeight / 1080.0f );
+		}
+	}
+
 	if ( m_nMainWindowWidth != nWindowWidth || m_nMainWindowHeight != nWindowHeight )
 	{
 		if( (m_nMainWindowHeight > 0) && (m_nMainWindowHeight != nWindowHeight) )
