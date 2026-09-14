@@ -54,6 +54,9 @@ def build(bld):
 			'assert_dialog.rc',
 			#'etwprof.cpp',			[$WINDOWS]
 			'platform.cpp',
+			# SE port: Plat_WindowToScreenCoords/Plat_ScreenToWindowCoords (declared in the CS:GO-era
+			# public/tier0/platwindow.h) - panorama's Source 2 top level window calls them.
+			'platwindow.cpp',
 			'pme.cpp',
 			'vcrmode.cpp',
 			'win32consoleio.cpp'

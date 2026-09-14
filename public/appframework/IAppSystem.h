@@ -33,6 +33,33 @@ enum InitReturnVal_t
 };
 
 
+//-----------------------------------------------------------------------------
+// Specifies a module + interface name for initialization
+//
+// SE port: CS:GO declares this (and AppSystemTier_t) in IAppSystem.h.  Source Engine 2013 had
+// AppSystemInfo_t only in appframework/IAppSystemGroup.h; the definition below is token-identical
+// to that one, so both headers may be included by the same translation unit.
+// panorama/source2/panoramauiengine.h derives from IAppSystem and overrides GetDependencies(),
+// which only compiles once the type and the virtual exist here.
+//-----------------------------------------------------------------------------
+struct AppSystemInfo_t
+{
+	const char *m_pModuleName;
+	const char *m_pInterfaceName;
+};
+
+
+enum AppSystemTier_t
+{
+	APP_SYSTEM_TIER0 = 0,
+	APP_SYSTEM_TIER1,
+	APP_SYSTEM_TIER2,
+	APP_SYSTEM_TIER3,
+
+	APP_SYSTEM_TIER_OTHER,
+};
+
+
 abstract_class IAppSystem
 {
 public:
@@ -47,6 +74,14 @@ public:
 	// Init, shutdown
 	virtual InitReturnVal_t Init() = 0;
 	virtual void Shutdown() = 0;
+
+	// SE port (CS:GO addition): additive, defaulted virtuals.  Existing Source Engine
+	// implementations keep compiling and panorama's source2 UI engine can override
+	// GetDependencies() with OVERRIDE.
+	virtual const AppSystemInfo_t *GetDependencies() { return NULL; }
+	virtual AppSystemTier_t GetTier() { return APP_SYSTEM_TIER_OTHER; }
+	virtual void Reconnect( CreateInterfaceFn factory, const char *pInterfaceName ) {}
+	virtual bool IsSingleton() { return true; }
 };
 
 
@@ -68,6 +103,12 @@ public:
 	// Init, shutdown
 	virtual InitReturnVal_t Init() { return INIT_OK; }
 	virtual void Shutdown() {}
+
+	// SE port (CS:GO addition): see the note on IAppSystem above.
+	virtual const AppSystemInfo_t *GetDependencies() { return NULL; }
+	virtual AppSystemTier_t GetTier() { return APP_SYSTEM_TIER_OTHER; }
+	virtual void Reconnect( CreateInterfaceFn factory, const char *pInterfaceName ) {}
+	virtual bool IsSingleton() { return true; }
 };
 
 

@@ -12,6 +12,23 @@
 #include <float.h>
 #endif
 #include "mathlib/vector.h"
+#include "panorama/panoramasymbol.h"
+
+#if _GNUC
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wshadow"
+#endif
+#if defined( SOURCE2_PANORAMA )
+// SE port: CS:GO's Source2 branch used the v8 mirror in thirdparty/v8 (a 6.8-era drop with the
+// old internal::Object** API).  This port has a single v8 (7.3.492, internal::Address API) in
+// external/v8, so always use it - mixing the two ABIs left v8 symbols unresolved at link time.
+#include "../external/v8/include/v8.h"
+#else
+#include "../external/v8/include/v8.h"
+#endif
+#if _GNUC
+#pragma GCC diagnostic pop
+#endif
 
 #ifdef SOURCE2_PANORAMA
 #include "tier1/mempool.h"
@@ -31,15 +48,26 @@ typedef void (RenderCallbackFunction_t)( ISceneView *, IRenderContext **, IScene
 
 const uint32 k_cubSHA1Hash = k_cubHash;
 
+#ifdef PANORAMA_USE_S1WRAPPER
+
 #ifndef SAFE_DELETE
 #define SAFE_DELETE( x ) if ( (x) != NULL ) { delete (x); x = NULL; }
 #endif
 #ifndef SAFE_RELEASE
 #define SAFE_RELEASE( x ) if ( NULL != ( x ) ) { ( x )->Release(); x = NULL; }
 #endif
+
+#endif
+
+#ifndef AssertFatalMsg2
 #define AssertFatalMsg2( b, msg, p1, p2 ) AssertFatalMsg( b, msg, p1, p2 )
 #define AssertFatalMsg1( b, msg, p1 ) AssertFatalMsg( b, msg, p1 )
+#endif 
+#define WeakRandomFloat( minval, maxval ) RandomFloat( minval, maxval )
 
+// ConstructOneArg/TwoArg are already provided by SE's tier0/platform.h; skip the
+// legacy duplicate definitions when building against SE (macro set in SE builds).
+#if !defined( SE_PLATFORM_HAS_CONSTRUCT_HELPERS )
 template <class T, class P>
 inline void ConstructOneArg( T* pMemory, P const& arg )
 {
@@ -53,6 +81,7 @@ inline void ConstructTwoArg( T* pMemory, P const& arg1, P2 const &arg2 )
 	HINT( pMemory != 0 );
 	::new(pMemory)T( arg1, arg2 );
 }
+#endif
 
 template <class T, class P, class P2, class P3, class P4, class P5, class P6, class P7 >
 inline void ConstructSevenArg( T* pMemory, P const& arg1, P2 const &arg2, P3 const &arg3, P4 const &arg4, P5 const &arg5, P6 const &arg6, P7 const &arg7 )
@@ -69,10 +98,18 @@ namespace panorama
 class IUIPanelClient;
 
 
+enum BlurType_t
+{
+	BT_NORMAL = 0,
+	BT_FAST = 1,
+	BT_FASTANIM = 2
+};
+
+
 //-----------------------------------------------------------------------------
 // Purpose: Text/font related types
 //-----------------------------------------------------------------------------
-enum EFontWeight
+enum EFontWeight : int8
 {
 	k_EFontWeightUnset = -1,
 	k_EFontWeightNormal = 0,
@@ -84,14 +121,14 @@ enum EFontWeight
 	k_EFontWeightSemiBold = 6,
 };
 
-enum EFontStyle
+enum EFontStyle : int8
 {
 	k_EFontStyleUnset = -1,
 	k_EFontStyleNormal = 0,
 	k_EFontStyleItalic = 2,
 };
 
-enum ETextAlign
+enum ETextAlign : int8
 {
 	k_ETextAlignUnset = -1,
 	k_ETextAlignLeft = 0,
@@ -99,7 +136,7 @@ enum ETextAlign
 	k_ETextAlignRight = 2
 };
 
-enum ETextDecoration
+enum ETextDecoration : int8
 {
 	k_ETextDecorationUnset = -1,
 	k_ETextDecorationNone = 0,
@@ -107,7 +144,7 @@ enum ETextDecoration
 	k_ETextDecorationLineThrough = 2,
 };
 
-enum ETextTransform
+enum ETextTransform : int8
 {
 	k_ETextTransformUnset = -1,
 	k_ETextTransformNone = 0,
@@ -115,11 +152,20 @@ enum ETextTransform
 	k_ETextTransformLowercase = 2,
 };
 
+enum ETextOverflow : int8
+{
+	k_ETextOverflowUnset = -1,
+	k_ETextOverflowClip = 0,
+	k_ETextOverflowEllipsis = 1,
+	k_ETextOverflowShrink = 2,
+	k_ETextOverflowNoClip = 3,
+};
+
 
 //-----------------------------------------------------------------------------
 // Purpose: Transform related types
 //-----------------------------------------------------------------------------
-enum ETransform3DType
+enum ETransform3DType : uint8
 {
 	k_ETransform3DRotate,
 	k_ETransform3DTranslate,
@@ -128,29 +174,9 @@ enum ETransform3DType
 
 
 //-----------------------------------------------------------------------------
-// Purpose: Types for border images
-//-----------------------------------------------------------------------------
-enum EBorderImageRepeatType
-{
-	k_EBorderImageStretchStretch = 0,
-	k_EBorderImageStretchRepeat = 1,
-	k_EBorderImageStretchRound = 2,
-	k_EBorderImageStretchSpace = 3,
-};
-
-
-enum EBorderImageWidthType
-{
-	k_EBorderImageWidthAuto = 0,
-	k_EBorderImageWidthNumber = 1,
-	k_EBorderImageWidthPercentage = 2
-};
-
-
-//-----------------------------------------------------------------------------
 // Purpose: Transition timing functions
 //-----------------------------------------------------------------------------
-enum EAnimationTimingFunction
+enum EAnimationTimingFunction : uint8
 {
 	k_EAnimationNone = 0, // Indicates that there is no transition set, do not animate.  Don't change from zero!
 	k_EAnimationEase,
@@ -168,7 +194,7 @@ enum EAnimationTimingFunction
 //-----------------------------------------------------------------------------
 // Purpose: Possible animation directions
 //-----------------------------------------------------------------------------
-enum EAnimationDirection
+enum EAnimationDirection : uint8
 {
 	k_EAnimationDirectionUnset = 0,
 	k_EAnimationDirectionNormal,
@@ -181,29 +207,64 @@ enum EAnimationDirection
 
 
 //-----------------------------------------------------------------------------
+// Purpose: Possible animation fill modes
+//-----------------------------------------------------------------------------
+enum EAnimationFillMode : uint8
+{
+	k_EAnimationFillModeNone = 0,
+	k_EAnimationFillModeForwards,
+	k_EAnimationFillModeBackwards,
+	k_EAnimationFillModeBoth,
+
+	// if you add another, update BParseAnimationFillModeFunction()
+};
+
+
+//-----------------------------------------------------------------------------
 // Purpose: Supported style psuedo classes
 //-----------------------------------------------------------------------------
+enum EStyleFlagBit : uint8
+{
+	k_EStyleFlagMinBit = 0,
+
+	k_EStyleFlagHoverBit = k_EStyleFlagMinBit,
+	k_EStyleFlagFocusBit,
+	k_EStyleFlagActiveBit,
+	k_EStyleFlagDisabledBit,
+	k_EStyleFlagEnabledBit,
+	k_EStyleFlagInspectBit,
+	k_EStyleFlagSelectedBit,
+	k_EStyleFlagDescendantFocusedBit,
+	k_EStyleFlagParentDisabledBit,
+	k_EStyleFlagLayoutLoadingBit,
+	k_EStyleFlagLayoutLoadFailedBit,
+	k_EStyleFlagActivationDisabledBit,
+
+	k_EStyleFlagMaxBit
+};
+
 enum EStyleFlags : uint16
 {
 	k_EStyleFlagNone = 0,
-	k_EStyleFlagHover = 1 << 0,			// mouse is over the panel
-	k_EStyleFlagFocus = 1 << 1,			// panel has keyboard focus
-	k_EStyleFlagActive = 1 << 2,		// panel is being actively used (mouse-down on the panel)
-	k_EStyleFlagDisabled = 1 << 3,		// panel is disabled
-	k_EStyleFlagInspect = 1 << 4,		// panel is being inspected by the debugger
-	k_EStyleFlagSelected = 1 << 5,		// panel is selected (button checked)
-	k_EStyleFlagDescendantFocused = 1 << 6,	// a descendant of the panel has keyboard focus
-	k_EStyleFlagParentDisabled = 1 << 7, // a parent of this panel is disabled, thus implicitly disabling it
-	k_EStyleFlagLayoutLoading = 1 << 8,	// panel is in-progress loading it's layout file and thus may want to display specially
-	k_EStyleFlagLayoutLoadFailed = 1 << 9, // panel failed to load requested layout file, and thus may want to display specially
-	k_EStyleFlagActivationDisabled = 1 << 10, // panel is disabled for activation, may still be enabled for focus (normal disabled disallows all input/focus)
+	k_EStyleFlagHover = 1 << k_EStyleFlagHoverBit,							// mouse is over the panel
+	k_EStyleFlagFocus = 1 << k_EStyleFlagFocusBit,							// panel has keyboard focus
+	k_EStyleFlagActive = 1 << k_EStyleFlagActiveBit,						// panel is being actively used (mouse-down on the panel)
+	k_EStyleFlagDisabled = 1 << k_EStyleFlagDisabledBit,					// panel is disabled
+	k_EStyleFlagEnabled = 1 << k_EStyleFlagEnabledBit,						// panel is enabled. Not actually set on the panel itself, but can be set on a selector
+	k_EStyleFlagInspect = 1 << k_EStyleFlagInspectBit,						// panel is being inspected by the debugger
+	k_EStyleFlagSelected = 1 << k_EStyleFlagSelectedBit,					// panel is selected (button checked)
+	k_EStyleFlagDescendantFocused = 1 << k_EStyleFlagDescendantFocusedBit,	// a descendant of the panel has keyboard focus
+	k_EStyleFlagParentDisabled = 1 << k_EStyleFlagParentDisabledBit,		// a parent of this panel is disabled, thus implicitly disabling it
+	k_EStyleFlagLayoutLoading = 1 << k_EStyleFlagLayoutLoadingBit,			// panel is in-progress loading it's layout file and thus may want to display specially
+	k_EStyleFlagLayoutLoadFailed = 1 << k_EStyleFlagLayoutLoadFailedBit,	// panel failed to load requested layout file, and thus may want to display specially
+	k_EStyleFlagActivationDisabled = 1 << k_EStyleFlagActivationDisabledBit, // panel is disabled for activation, may still be enabled for focus (normal disabled disallows all input/focus)
 };
 
 
 //-----------------------------------------------------------------------------
 // Purpose: Supported border styles
 //-----------------------------------------------------------------------------
-enum EBorderStyle
+enum EBorderStyle : int8
 {
 	k_EBorderStyleUnset = -1,
 	k_EBorderStyleNone = 0,
@@ -214,30 +275,32 @@ enum EBorderStyle
 //-----------------------------------------------------------------------------
 // Purpose: Horizontal alignments
 //-----------------------------------------------------------------------------
-enum EHorizontalAlignment
+enum EHorizontalAlignment : uint8
 {
 	k_EHorizontalAlignmentUnset,
 	k_EHorizontalAlignmentLeft,
 	k_EHorizontalAlignmentCenter,
-	k_EHorizontalAlignmentRight
+	k_EHorizontalAlignmentRight,
+	k_EHorizontalAlignmentCenterNoPixelSnap
 };
 
 
 //-----------------------------------------------------------------------------
 // Purpose: Vertical alignments
 //-----------------------------------------------------------------------------
-enum EVerticalAlignment
+enum EVerticalAlignment : uint8
 {
 	k_EVerticalAlignmentUnset,
 	k_EVerticalAlignmentTop,
 	k_EVerticalAlignmentCenter,
-	k_EVerticalAlignmentBottom
+	k_EVerticalAlignmentBottom,
+	k_EVerticalAlignmentCenterNoPixelSnap
 };
 
 //-----------------------------------------------------------------------------
 // Purpose: ContextUI (tooltips + context menus) position
 //-----------------------------------------------------------------------------
-enum EContextUIPosition
+enum EContextUIPosition : uint8
 {
 	k_EContextUIPositionUnset,
 	k_EContextUIPositionLeft,
@@ -249,7 +312,7 @@ enum EContextUIPosition
 //-----------------------------------------------------------------------------
 // Purpose: Possible flow directions
 //-----------------------------------------------------------------------------
-enum EBackgroundRepeat
+enum EBackgroundRepeat : uint8
 {
 	k_EBackgroundRepeatUnset,
 	k_EBackgroundRepeatRepeat,
@@ -262,11 +325,12 @@ enum EBackgroundRepeat
 //-----------------------------------------------------------------------------
 // Purpose: Special words for background sizes when not length or percentage
 //-----------------------------------------------------------------------------
-enum EBackgroundSizeConstant
+enum EBackgroundSizeConstant : uint8
 {
 	k_EBackgroundSizeConstantNone,
 	k_EBackgroundSizeConstantContain,
-	k_EBackgroundSizeConstantCover
+	k_EBackgroundSizeConstantCover,
+	k_EBackgroundSizeConstantClipThenCover
 };
 
 
@@ -284,7 +348,7 @@ enum EPanelRepaint : uint8
 //-----------------------------------------------------------------------------
 // Purpose: Specifies what category a sound is; each one of these maps to a volume control in the UI
 //-----------------------------------------------------------------------------
-enum ESoundType
+enum ESoundType : uint8
 {
 	k_ESoundType_Ambient,			// ambient sounds, intro movie
 	k_ESoundType_Movies,			// movies in store
@@ -296,7 +360,7 @@ enum ESoundType
 //-----------------------------------------------------------------------------
 // Purpose: Text Input handler types
 //-----------------------------------------------------------------------------
-enum ETextInputHandlerType_t
+enum ETextInputHandlerType_t : uint8
 {
 	k_ETextInputHandlerType_DaisyWheel,
 	k_ETextInputHandlerType_DualTouch,
@@ -310,11 +374,16 @@ enum ETextInputHandlerType_t
 //-----------------------------------------------------------------------------
 enum EFlowDirection : uint8
 {
+	k_EFlowUnset,
 	k_EFlowNone,
 	k_EFlowDown,
 	k_EFlowRight,
+	k_EFlowUp,
+	k_EFlowLeft,
 	k_EFlowDownWrap,
-	k_EFlowRightWrap
+	k_EFlowRightWrap,
+	k_EFlowUpWrap,
+	k_EFlowLeftWrap
 };
 
 
@@ -339,42 +408,70 @@ enum EMouseCanActivate : uint8
 };
 
 // Focus navigation
-enum EFocusMoveDirection
+enum EFocusMoveDirection : uint8
 {
-	k_ENextInTabOrder = 1,
-	k_EPrevInTabOrder = 2,
-	k_ENextByXPosition = 4,
-	k_EPrevByXPosition = 8,
-	k_ENextByYPosition = 16,
-	k_EPrevByYPosition = 32
+	k_ENextInTabOrder = ( 1 << 0 ),
+	k_EPrevInTabOrder = ( 1 << 1 ),
+	k_ENextByXPosition = ( 1 << 2 ),
+	k_EPrevByXPosition = ( 1 << 3 ),
+	k_ENextByYPosition = ( 1 << 4 ),
+	k_EPrevByYPosition = ( 1 << 5 )
 };
 
 
-enum ELoadLayoutAsyncDetails
+enum ELoadLayoutAsyncDetails : uint8
 {
 	k_ELoadLayoutAsyncDetailsNone,
 	k_ELoadLayoutAsyncDetailsNotLoggedIn
 };
 
-
-enum EMixBlendMode
+enum EMixBlendMode : uint8
 {
-	k_EMixBlendModeNormal,
+	k_EMixBlendModeNormal = 0,
 	k_EMixBlendModeMultiply,
-	k_EMixBlendModeScreen
+	k_EMixBlendModeScreen,
+	k_EMixBlendModeAdditive,
+	k_EMixBlendModeAdditiveSRGB,
+	k_EMixBlendModeOpaque
+};
+
+enum EFractionalPixelPositions : uint8
+{
+	k_EFractionalPixelPositionsDefault,
+	k_EFractionalPixelPositionsClamp,
+	k_EFractionalPixelPositionsNoClamp,
 };
 
 
-enum ETextureSampleMode
+enum ETextureSampleMode : uint8
 {
 	k_ETextureSampleModeNormal,
 	k_ETextureSampleModeAlphaOnly,
 };
 
+
+enum ERenderCallbackFlags : uint8
+{
+	k_ERenderCallbackFlagsDefault       = 0x00000000,
+	// The callback will take care of any clearing of the render target.
+	k_ERenderCallbackFlagsManualClear   = 0x00000001,
+	// The panel should always be drawn.
+	k_ERenderCallbackFlagsAlwaysRepaint = 0x00000002,
+	// The panel will call SetRepaint to be drawn.
+	k_ERenderCallbackFlagsManualRepaint = 0x00000004,
+	// Render target mode - The user provided a render target texture that
+	// will be drawn to the layer's surface (as opposed to callback mode 
+	// cf CSource2Surface::RequestRenderCallback)
+	k_ERenderCallbackFlagsRenderTargetMode = 0x00000008,
+	// Containing composition layer requires a depth buffer
+	k_ERenderCallbackFlagsNeedsDepth       = 0x00000010,
+};
+
+
 //-----------------------------------------------------------------------------
 // Purpose: Enum for the parts of layout a style invalidates when applied
 //-----------------------------------------------------------------------------
-enum EStyleInvalidateLayout
+enum EStyleInvalidateLayout : uint8
 {
 	k_EStyleInvalidateLayoutNone,
 	k_EStyleInvalidateLayoutSizeAndPosition,
@@ -382,7 +479,7 @@ enum EStyleInvalidateLayout
 };
 
 
-enum EStyleRepaint
+enum EStyleRepaint : uint8
 {
 	k_EStyleRepaintFull,
 	k_EStyleRepaintComposition,
@@ -390,13 +487,13 @@ enum EStyleRepaint
 };
 
 
-enum EAntialiasing
+enum EAntialiasing : uint8
 {
 	k_EAntialiasingNone,
 	k_EAntialisingEnabled
 };
 
-enum EOverlayWindowAlignment
+enum EOverlayWindowAlignment : uint8
 {
 	k_EOverlayWindowAlignment_FullscreenLetterboxed = 1,
 	k_EOverlayWindowAlignment_FullscreenNoLetterBox = 2,
@@ -410,20 +507,24 @@ enum EStylePresentFlags : uint32
 	k_EStylePresentPerspectiveOrigin = 1 << 2,
 	k_EStylePresentOpacity = 1 << 3,
 	k_EStylePresentWashColor = 1 << 4,
-	k_EStylePresentDesaturation = 1 << 5,
-	k_EStylePresentBlur = 1 << 6,
-	k_EStylePresentBorderRadius = 1 << 7,
-	k_EStylePresentOpacityMaskImage = 1 << 8,
-	k_EStylePresentBackgroundImage = 1 << 9,
-	k_EStylePresentBackgroundFillColor = 1 << 10,
-	k_EStylePresentBorder = 1 << 11,
-	k_EStylePresentBoxShadow = 1 << 12,
-	k_EStylePresentBorderImage = 1 << 13,
-	k_EStylePresentScale2DCentered = 1 << 14,
-	k_EStylePresentRotate2DCentered = 1 << 15,
-	k_EStylePresentTextShadow = 1 << 16,
-	k_EStylePresentClip = 1 << 17,
-	k_EStylePresentMixBlendMode = 1 << 18,
+	k_EStylePresentHueShift = 1 << 5,
+	k_EStylePresentSaturation = 1 << 6,
+	k_EStylePresentBrightness = 1 << 7,
+	k_EStylePresentContrast = 1 << 8,
+	k_EStylePresentBlur = 1 << 9,
+	k_EStylePresentBorderRadius = 1 << 10,
+	k_EStylePresentOpacityMaskImage = 1 << 11,
+	k_EStylePresentBackgroundImage = 1 << 12,
+	k_EStylePresentBackgroundFillColor = 1 << 13,
+	k_EStylePresentBorder = 1 << 14,
+	k_EStylePresentBoxShadow = 1 << 15,
+	k_EStylePresentScale2DCentered = 1 << 16,
+	k_EStylePresentRotate2DCentered = 1 << 17,
+	k_EStylePresentTextShadow = 1 << 18,
+	k_EStylePresentImageShadow = 1 << 19,
+	k_EStylePresentClip = 1 << 20,
+	k_EStylePresentMixBlendMode = 1 << 21,
+	k_EStylePresentBackgroundImgOpacity = 1 << 22,
 
 };
 
@@ -433,22 +534,18 @@ const float k_flSelectionPosInvalid = k_flTabIndexInvalid;
 const float k_flTabIndexAuto = FLT_MAX;
 const float k_flSelectionPosAuto = k_flTabIndexAuto;
 
-// These constants are duplicated in CSS files, so if you change them make sure to change the CSS values as well.
-const double k_flScrollTransitionTime = 0.2;
-const EAnimationTimingFunction k_flScrollTransitionFunc = k_EAnimationEaseInOut;
-
 
 //-----------------------------------------------------------------------------
 // Purpose: bit flags used to control panel construction behavior
 //-----------------------------------------------------------------------------
-enum EPanelFlags
+enum EPanelFlags : uint8
 {
 	ePanelFlags_DontAddAsChild = 0x1, // don't automatically add this panel as a child to its parent
 	ePanelFlags_DontFireOnLoad = 0x2, // don't fire the onload event when constructed, useful for image panel that waits until its contents load
 };
 
 
-enum EPanelEventSource_t
+enum EPanelEventSource_t : uint8
 {
 	k_ePanelEventSourceProgram,
 	k_ePanelEventSourceGamepad,
@@ -458,115 +555,52 @@ enum EPanelEventSource_t
 	k_ePanelEventSourceInvalid
 };
 
+enum EMakeUIEventType : byte
+{
+	k_eMakeUIEventType_NoArguments,
+	k_eMakeUIEventType_Source,
+	k_eMakeUIEventType_Repeats
+};
+
+enum EEventDocFlags : byte
+{
+	k_eEventDocFlagNone = 0,
+	k_eEventDocFlagInternalOnly = 1 << 0,
+};
 
 class IUIPanel;
 class IUIEvent;
+
 typedef IUIEvent* (*PFN_ParseUIEvent)(panorama::IUIPanel *pTarget, const char *pchEvent, const char **pchEventEnd);
+typedef IUIEvent* (*PFN_ParseUIEventJS)(panorama::CPanoramaSymbol symEvent, panorama::IUIPanel *pTarget, const CUtlVector< v8::Local< v8::Value > > &args);
 typedef IUIEvent* (*PFN_MakeUIEvent0)(const panorama::IUIPanelClient *pTarget);
 typedef IUIEvent* (*PFN_MakeUIEvent1Source)(const panorama::IUIPanelClient *pTarget, EPanelEventSource_t eSource);
 typedef IUIEvent* (*PFN_MakeUIEvent1Repeats)(const panorama::IUIPanelClient *pTarget, int nRepeats);
+typedef CUtlString (*PFN_FormatUIEventArgs)(const char *pchArgNames);
 struct UIEventFactory
 {
 	int m_cParams;
 	bool m_bPanelEvent;
+
+	EMakeUIEventType m_eMakeUIEventType;
+	union
+	{
+		PFN_MakeUIEvent0 m_pfnMakeUIEvent0;
+		PFN_MakeUIEvent1Repeats m_pfnMakeUIEvent1Repeats;
+		PFN_MakeUIEvent1Source m_pfnMakeUIEvent1Source;
+	};
+
 	PFN_ParseUIEvent m_pfnParseUIEvent;
-	PFN_MakeUIEvent0 m_pfnMakeUIEvent0;
-	PFN_MakeUIEvent1Repeats m_pfnMakeUIEvent1Repeats;
-	PFN_MakeUIEvent1Source m_pfnMakeUIEvent1Source;
+	PFN_ParseUIEventJS m_pfnParseUIEventJS;			// parsing function for events defined in javascript
+	PFN_FormatUIEventArgs m_pfnFormatUIEventArgs;
+
+	const char *m_pchDocumentationArgs;
+	const char *m_pchDocumentationDescription;
+	EEventDocFlags m_eDocFlags;
 };
 
 
-//-----------------------------------------------------------------------------
-// Simple refcounted base class that doesn't auto-delete when refs hit zero.
-//-----------------------------------------------------------------------------
-class CLayoutRefCounted
-{
-public:
-	CLayoutRefCounted()
-	{
-		m_nRefCount = 0;
-	}
-	int AddRef()
-	{
-		return ++m_nRefCount;
-	}
-	int Release()
-	{
-		int nResult = --m_nRefCount;
-		Assert( nResult >= 0 );
-		return nResult;
-	}
-	int GetRefCount() const
-	{
-		return m_nRefCount;
-	}
-private:
-	int m_nRefCount;
-};
-
-
-//-----------------------------------------------------------------------------
-// Pointer to a CLayoutRefCounted that owns a ref of the pointee
-//-----------------------------------------------------------------------------
-template< class T >
-class CLayoutRefPtr
-{
-public:
-	CLayoutRefPtr()                                        	: m_pObject( NULL ) {}
-	CLayoutRefPtr( T *pFrom )                        		{ Set( pFrom ); }
-	CLayoutRefPtr( const CLayoutRefPtr< T > &from )			{ Set( from.m_pObject ); }
-	~CLayoutRefPtr()
-	{
-		if ( m_pObject )
-		{
-			m_pObject->Release();
-		}
-	}
-
-	void operator=( const CLayoutRefPtr<T> &from ) 			{ Set( from.m_pObject ); }
-
-	operator const T *() const							    { return m_pObject; }
-	operator T *()											{ return m_pObject; }
-
-	operator bool() const									{ return ( m_pObject != NULL ); }
-
-	T *operator=( T *p )									{ Set( p ); return p; }
-
-    bool operator!() const									{ return ( !m_pObject ); }
-	bool operator==( T *p ) const							{ return ( m_pObject == p ); }
-	bool operator!=( T *p ) const							{ return ( m_pObject != p ); }
-	bool operator==( const CLayoutRefPtr<T> &p ) const		{ return ( m_pObject == p.m_pObject ); }
-	bool operator!=( const CLayoutRefPtr<T> &p ) const		{ return ( m_pObject != p.m_pObject ); }
-
-	T *  		operator->()								{ return m_pObject; }
-	T &  		operator *()								{ return *m_pObject; }
-	T ** 		operator &()								{ return &m_pObject; }
-
-	const T *   operator->() const							{ return m_pObject; }
-	const T &   operator *() const							{ return *m_pObject; }
-	T * const * operator &() const							{ return &m_pObject; }
-
-	void Set( T *pObject )
-	{
-		if ( m_pObject )
-		{
-			m_pObject->Release();
-		}
-
-		m_pObject = pObject;
-
-		if ( pObject )
-		{
-			pObject->AddRef();
-		}
-	}
-
-protected:
-	T *m_pObject;
-};
-
-
-enum EWindowFocusBehavior
+enum EWindowFocusBehavior : uint8
 {
 	// By default, controls in this window will take focus whenever they're interacted with.
 	k_EWindowFocusBehavior_Default,
@@ -583,12 +617,30 @@ struct SteamPadPointer_t
 	bool bVisible;
 	Vector2D vecCenter;
 	float flRadius;
+	float flOpacity;
 	uint32 nTextureID;
 	int iControllerID;
 	float (* funcPreRenderCalculatePadOffset)( float, bool );
 };
 
-
 } // namespace panorama
+
+
+// When compiled against SE's tier1 (which already provides CUtlVectorFixedGrowable
+// as CUtlVector<T, CUtlMemoryFixedGrowable<T,MAX_SIZE>>), skip this legacy duplicate
+// definition to avoid a template clash. Define SE_TIER1_FIXEDGROWABLE in SE builds.
+#if !defined( SOURCE2_PANORAMA ) && !defined( SE_TIER1_FIXEDGROWABLE )
+template< class T, int A >
+class CUtlVectorFixedGrowable : public CUtlVector< T >
+{
+public:
+	CUtlVectorFixedGrowable() 
+	{
+		this->EnsureCapacity( A );
+	}
+
+	virtual ~CUtlVectorFixedGrowable() { }
+};
+#endif
 
 #endif // PANORAMATYPES_H

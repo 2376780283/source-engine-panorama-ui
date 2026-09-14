@@ -40,6 +40,12 @@ class Color;
 typedef void * FileHandle_t;
 class CKeyValuesGrowableStringTable;
 
+// CS:GO-era symbol evaluation callback. Upstream declares this in tier1/exprevaluator.h,
+// which this Source 2013 tree does not have; a repeated identical typedef is legal C++.
+// NOTE: Source 2013's KeyValues parser has no conditional/symbol evaluation, so the
+// parameter is accepted for source compatibility and ignored (callers pass NULL).
+typedef bool (*GetSymbolProc_t)( const char *pKey );
+
 //-----------------------------------------------------------------------------
 // Purpose: Simple recursive data access class
 //			Used in vgui for message parameters and resource files
@@ -77,6 +83,9 @@ public:
 	//	this option was written for, but may not be in other situations. Make sure to
 	//	understand the implications before using this.
 	static void SetUseGrowableStringTable( bool bUseGrowableTable );
+
+	// CS:GO-era helper used by panorama (SE has no JSON->KeyValues parser; stub for now)
+	static KeyValues *FromJSON( CUtlBuffer &inputBuffer ) { return NULL; }
 
 	KeyValues( const char *setName );
 
@@ -124,10 +133,12 @@ public:
 	bool SaveToFile( IBaseFileSystem *filesystem, const char *resourceName, const char *pathID = NULL, bool sortKeys = false, bool bAllowEmptyString = false, bool bCacheResult = false );
 
 	// Read from a buffer...  Note that the buffer must be null terminated
-	bool LoadFromBuffer( char const *resourceName, const char *pBuffer, IBaseFileSystem* pFileSystem = NULL, const char *pPathID = NULL );
+	// NOTE (CS:GO port): pfnEvaluateSymbolProc / bForceTypeString exist for source
+	// compatibility with CS:GO panorama code; Source 2013 ignores them.
+	bool LoadFromBuffer( char const *resourceName, const char *pBuffer, IBaseFileSystem* pFileSystem = NULL, const char *pPathID = NULL, GetSymbolProc_t pfnEvaluateSymbolProc = NULL, bool bForceTypeString = false );
 
 	// Read from a utlbuffer...
-	bool LoadFromBuffer( char const *resourceName, CUtlBuffer &buf, IBaseFileSystem* pFileSystem = NULL, const char *pPathID = NULL );
+	bool LoadFromBuffer( char const *resourceName, CUtlBuffer &buf, IBaseFileSystem* pFileSystem = NULL, const char *pPathID = NULL, GetSymbolProc_t pfnEvaluateSymbolProc = NULL, bool bForceTypeString = false );
 
 	// Find a keyValue, create it if it is not found.
 	// Set bCreate to true to create the key if it doesn't already exist (which ensures a valid pointer will be returned)

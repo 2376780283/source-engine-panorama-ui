@@ -97,6 +97,9 @@ public:
 #endif
 	void GetHash(unsigned char *uDest);
 
+	// CS:GO-era helper: writes k_cubHash*2 uppercase hex digits + a NUL terminator
+	void GetHashHex( char *pDest, int nSize );
+
 private:
 	// Private SHA-1 transformation
 	void Transform(unsigned long state[5], unsigned char buffer[64]);

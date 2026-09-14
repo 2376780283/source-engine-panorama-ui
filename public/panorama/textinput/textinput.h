@@ -6,6 +6,10 @@
 #ifndef PANORAMA_TEXTINPUT_H
 #define PANORAMA_TEXTINPUT_H
 
+#if defined(_WIN32) || defined(SOURCE2_PANORAMA)
+#pragma once
+#endif
+
 #include "panorama/controls/panel2d.h"
 #include "panorama/input/iuiinput.h"
 
@@ -15,13 +19,13 @@ namespace panorama
 class ITextInputControl;
 class CTextInputHandlerSettings;
 
-// When text input finished, bool = true for Done, = false for Cancel; char const * = string that user typed
-// Dispatched to ITextInputControl::GetAssociatedPanel()
-DECLARE_PANEL_EVENT2( TextInputFinished, bool, char const * );
-
 // When the handler is up and sees gamepad right-stick input, it passes it through to the containing
 // control, so the control can do something with it. Dispatched to ITextInputControl::GetAssociatedPanel()
 DECLARE_PANEL_EVENT1( TextInputAnalogStickPassthrough, GamePadData_t );
+
+DECLARE_PANEL_EVENT1( TextInputSent, char const * );
+
+DECLARE_PANORAMA_EVENT1( TextInputUnhandledButtonPress, GamePadData_t );
 
 panorama::ETextInputHandlerType_t ETextInputHandlerType_tFromName( const char *pchName );
 const char *PchNameFromETextInputHandlerType_t( int eType );
@@ -40,7 +44,10 @@ enum ETextInputMode_t
 	k_ETextInputModeURL,
 	k_ETextInputModeSteamCode,
 	k_ETextInputModePhoneNumber,
+	k_ETextInputModeSubmit,
 };
+
+static const uint k_iPositionSlots = 4;
 
 ETextInputMode_t ETextInputMode_tFromName( const char *pchName );
 const char *PchNameFromETextInputMode_t( int eMode );
@@ -65,15 +72,29 @@ public:
 	virtual uint GetCharCount() const = 0;
 
 	virtual const char *PchGetText() const = 0;
-	virtual const wchar_t *PwchGetText() const = 0;
+	virtual const uchar32 *Pch32GetText() const = 0;
 
-	virtual void InsertCharacterAtCursor( const wchar_t &unichar ) = 0;
-	virtual void InsertCharactersAtCursor( const wchar_t *pwch, size_t cwch ) = 0;
+	virtual void InsertCharacterAtCursor( const uchar32 &unichar ) = 0;
+	virtual void InsertCharactersAtCursor( const uchar32 *pch32, size_t cch32 ) = 0;
 
 	virtual CPanel2D *GetAssociatedPanel() = 0;
 
+	virtual void OnTextInputHandlerOpened( class CTextInputHandler *pHandler ) = 0;
+
 	// request string the control now contains
 	virtual void RequestControlString() = 0;
+};
+
+
+//-----------------------------------------------------------------------------
+// Purpose: any suggestion entries need to implement this class
+//-----------------------------------------------------------------------------
+class CSuggestionPanel : public panorama::CPanel2D
+{
+	DECLARE_PANEL2D( CSuggestionPanel, panorama::CPanel2D );
+public:
+	CSuggestionPanel( panorama::CPanel2D *parent, const char *pchID ) : panorama::CPanel2D( parent, pchID ) {};
+	virtual const char *PchGetSuggestionTitle() = 0;
 };
 
 
@@ -88,12 +109,15 @@ public:
 	CTextInputHandler( panorama::CPanel2D *pParent, const char *pchID );
 	virtual ~CTextInputHandler();
 
-	virtual void OpenHandler() = 0;
+	void OnOpenHandler();
 	void CloseHandler( bool bCommitText );
-	virtual ETextInputHandlerType_t GetType() = 0;
+	void ApplyDockingPosition( uint unCurrentPosition ); // k_iPositionSlots
+
 	virtual ITextInputControl *GetControlInterface() = 0;
-	virtual void SuggestWord( const wchar_t *pwch, int ich ) = 0;
-	virtual void SetYButtonAction( const char *pchLabel, IUIEvent *pEvent ) = 0;
+	virtual void SuggestWord( const uchar32 *pch32, int ich ) = 0;
+
+	// If SetSuggestionPanels returns false, it is not accepting ownership of these panels - calling code must handle them
+	virtual bool SetSuggestionPanels( const CUtlVector<CSuggestionPanel *>& vecPanels ) = 0;
 
 protected:
 	virtual void CloseHandlerImpl( bool bCommitText ) = 0;

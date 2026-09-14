@@ -1,0 +1,11 @@
+"surfaceproperties"
+{
+	// The one surface property this mod defines.
+	"default"
+	{
+		"friction"		"0.8"
+		"elasticity"	"0.25"
+		"density"		"2000"
+		"gamematerial"	"C"
+	}
+}

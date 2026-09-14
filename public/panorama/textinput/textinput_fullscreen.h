@@ -18,6 +18,8 @@ namespace panorama
 
 DECLARE_PANEL_EVENT2( TextInputFullscreenClosed, bool, const char * );
 
+DECLARE_PANEL_EVENT0( TextInputFullscreenPositionChanged );
+
 //-----------------------------------------------------------------------------
 // Purpose: Full screen + daisy wheel
 //-----------------------------------------------------------------------------
@@ -33,15 +35,24 @@ public:
 	void SetDescription( const char *pchDescription );
 	void SetMaxChars( uint32 unCharMax );
 	void SetEnteredText( const char *pchText );
-	virtual panorama::IUIPanel *OnGetDefaultInputFocus();
-
+	void SetMinimalMode( bool bMinimal );
+	virtual panorama::IUIPanel *OnGetDefaultInputFocus() OVERRIDE;
+		
 private:
 	bool EventTextInputHandlerStateChange( const panorama::CPanelPtr< panorama::IUIPanel > &ptrPanel, bool bActivating );
 	bool EventTextInputFinished( const panorama::CPanelPtr< panorama::IUIPanel > &ptrPanel, bool bSubmitted, const char *pchText );
-
+	bool EventTextInputUnhandledButtonPress( panorama::GamePadData_t code );
+	
 	panorama::CTextInputHandler *m_pTextInputHandler;
 	panorama::CTextEntry *m_pEnteredText;
 	panorama::CLabel *m_pInputDescription;
+	
+	bool bDockedLeft;
+	bool bDockedTop;
+	
+	uint unCurrentPosition;
+	
+	bool m_bMinimal;
 };
 
 } // namespace panorama

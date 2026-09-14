@@ -153,6 +153,13 @@ enum KeyCode
 	KEY_LAST
 };
 
+enum SendTextSpecialKeys
+{
+	// special keys shouldn't match their actual ASCII codes
+	SENDTEXT_SPECIALKEY_ENTER = 0x01,
+	SENDTEXT_SPECIALKEY_BACKSPACE = 0x02,
+};
+
 } // namespace panorama
 
 #endif // KEYCODES_H

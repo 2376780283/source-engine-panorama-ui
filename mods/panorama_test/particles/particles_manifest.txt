@@ -1,0 +1,6 @@
+// Minimal particle manifest for the panorama test mod.  CParticleMgr::Init() only Warn()s when this
+// is missing, and keys other than "file" are ignored with a warning.
+"particles_manifest"
+{
+	"note"		"panorama test mod: no particle files"
+}

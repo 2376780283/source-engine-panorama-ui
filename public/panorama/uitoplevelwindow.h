@@ -65,8 +65,8 @@ public:
 	// Set scaling factor that applies to all x/y values in the UI for the window, used so we can 
 	// author content at say 1080p but pass 0.6666666f for this to render in 720p on cards with poor 
 	// fill rates or TVs without 1080p support.
-	virtual void SetUIScaleFactor( float flScaleFactor ) OVERRIDE;
-	virtual float GetUIScaleFactor() OVERRIDE { return m_flScaleFactor; }
+	virtual void SetWindowScaleFactor( float flScaleFactor ) OVERRIDE;
+	virtual float GetWindowScaleFactor() OVERRIDE { return m_flScaleFactor; }
 
 	// Window position/activation management
 	const char * GetTargetMonitor() { return m_strTargetMonitor.String(); }
@@ -78,9 +78,22 @@ public:
 	// Access the rendering interface you use to draw onto this window
 	virtual IUIRenderEngine * UIRenderEngine() OVERRIDE{ return (IUIRenderEngine*)m_pRenderEngine; }
 	CUIRenderEngine *GetUIRenderEngine() { return m_pRenderEngine; }
+
+	// Access the rendering device you use to create textures for this window
+	virtual IUIRenderDevice *UIRenderDevice() OVERRIDE { return m_pRenderDevice; }
+
 	virtual bool BIsVisible() { return true; }
 	virtual bool BIsOverlay() OVERRIDE { return UIEngine()->BIsOverlayTarget(m_eRenderTarget); }
 	virtual bool BIsSteamWMOverlay() OVERRIDE { return m_eRenderTarget == IUIEngine::k_ERenderToOverlaySteamWM; }
+	virtual bool BIsVROverlay() OVERRIDE { return false;  }
+	virtual bool BIsVROverlayFocused() OVERRIDE {return false; }
+	virtual uint64_t GetVROverlayHandle() { return 0;  }
+	virtual bool AddVROverlayHandleToProcess( uint64_t ulOverlayHandle ) { return false; }
+	virtual bool RemoveVROverlayHandleToProcess( uint64_t ulOverlayHandle ) { return false; }
+
+#ifdef PANORAMA_STEAMUI_STREAMING_CAPTURE_WIN32
+	virtual void SetSteamUIStreamingCaptureCallback( SteamUIStreamingCaptureCallback_t pCallback ) OVERRIDE { };
+#endif
 
 	virtual bool BIsFullscreen() { return IUIEngine::BIsRenderingToFullScreen( m_eRenderTarget ); }
 	virtual bool BIsFullscreenBorderlessWindow() { return m_eRenderTarget == IUIEngine::k_ERenderBorderlessFullScreenWindow; }
@@ -99,11 +112,14 @@ public:
 	virtual Color GetClearColor() { return Color( 0, 0, 0, 255 ); }
 
 	// Panel management for the window
+	CUIPanel *CreatePanel();
+	void FreePanel( CUIPanel *pPanel );
 	int AddPanel( CUIPanel *pPanel, bool bVisible );
 	void RemovePanel( int iPanelIndex, bool bVisible );
 	int SetPanelVisible( int iPanelIndex, bool bVisible );
 	virtual void AddClass( const char *pchName ) OVERRIDE;
 	virtual void RemoveClass( const char *pchName ) OVERRIDE;
+	virtual void SetHasClass( const char *pchName, bool bHasClass ) OVERRIDE;
 
 	// Layout/paint for window
 	virtual void LayoutAndPaintIfNeeded();
@@ -120,17 +136,20 @@ public:
 
 	// custom mouse cursor support, returns true if we want our manually drawn one, false for OS specific ones
 	bool BUseCustomMouseCursor() { return m_bUseCustomMouseCursor; }
-	// used by the os specific case to update the cursor
-	virtual void SetMouseCursor( EMouseCursors eCursor ) = 0;
-	IImageSource *GetMouseCursorTexture( Vector2D *pptHotspot );
+	virtual IImageSource *GetMouseCursorTexture( Vector2D *pptHotspot );
 
 	virtual bool BCursorVisible() OVERRIDE;
-	virtual bool BCursorFadingOut() OVERRIDE;
 	virtual void WakeupMouseCursor() OVERRIDE;
 	virtual void FadeOutCursorNow() OVERRIDE;
+
+	bool BHasVisibleHoverCursor() { return BIsVisible() && BCursorVisible() && m_pInputEngine && m_pInputEngine->GetMouseHover(); }
+	
+	virtual void EnableControllerCursor( bool bHide ) OVERRIDE;
+	virtual bool BIsControllerCursorEnabled() OVERRIDE;
+	virtual void SetHideCursorOnInactivity( bool bHide ) OVERRIDE;
 	
 	// Access image manager for window
-	CImageResourceManager* AccessImageManager() { return m_pImageResourceManager; }
+	virtual CImageResourceManager* AccessImageManager() = 0;
 
 	// Set a context ptr that is attached to the window, just lets other code (panels) that
 	// has access to the window access some shared state across the window.
@@ -190,6 +209,21 @@ public:
 	// Clears the GPU resources associated with the window before the next render frame
 	virtual void ClearGPUResourcesBeforeNextFrame() OVERRIDE;
 
+	virtual bool BOnMoveEdge( panorama::EFocusMoveDirection moveType ) OVERRIDE{ return false; }
+
+	// The window priority determines the order that overlapping windows are drawn and receive input.
+	// Lower priority is drawn at the back and receives input last.  Higher priority is drawn at the
+	// front and receives input first.
+	virtual void SetWindowPriority( int nPriority ) OVERRIDE;
+	virtual int GetWindowPriority() OVERRIDE { return m_nWindowPriority; }
+
+	virtual void ForceFullRepaint() OVERRIDE;
+
+	virtual void AsyncAddTextRegionToCache( const DrawTextRegionRenderCommand_t &renderCommand ) OVERRIDE;
+
+	virtual void TextEntryFocusChange( IUIPanel *pPanel ) OVERRIDE {}
+	virtual void TextEntryInvalid( IUIPanel *pPanel ) OVERRIDE {}
+
 #ifdef DBGFLAG_VALIDATE
 	virtual void Validate( CValidator &validator, const tchar *pchName );
 
@@ -205,11 +239,11 @@ protected:
 	// Render engine instance for window
 	CUIRenderEngine *m_pRenderEngine;
 
+	// Render device instance for window
+	IUIRenderDevice *m_pRenderDevice;
+
 	// Do we need to clear gpu resources before repaint
 	uint32 m_unFramesToClearGPUResourcesBeforeRepaint;
-
-	// Image manager for the window
-	CImageResourceManager *m_pImageResourceManager;
 
 	bool m_bDeviceLost;
 	bool m_bAlreadyForcedRepaintAllSinceLastPaint;
@@ -292,6 +326,12 @@ protected:
 	bool m_bInhibitInput;
 
 	EWindowFocusBehavior m_eFocusBehavior;
+
+	int m_nWindowPriority;
+
+
+	//PANORAMA_USE_S1WRAPPER CUtlMemoryPool< CUIPanel > m_PanelPool;
+	CClassMemoryPool< CUIPanel > m_PanelPool;
 };
 
 } // namespace panorama

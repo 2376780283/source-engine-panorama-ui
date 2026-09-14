@@ -1,0 +1,6 @@
+"surfaceproperties_manifest"
+{
+	// This test mod carries its own minimal surface data; physics plays no part in the hosted
+	// panorama UI, but the engine's default lookups still ask for "default".
+	"file"		"scripts/surfaceproperties_test.txt"
+}

@@ -145,6 +145,11 @@ public:
 	virtual bool NeedsAAClamp() const = 0;
 	virtual bool NeedsATICentroidHack() const = 0;
 
+	// SE port (CS:GO addition): CS:GO declares this as pure virtual; here it is defaulted so the
+	// existing Source Engine hardware config implementations stay valid.  CHardwareConfig can override
+	// it with SupportsNonPow2Textures() (shaderapidx9/hardwareconfig.cpp).
+	virtual bool SupportsNPO2Textures() const { return false; }
+
 	virtual bool SupportsColorOnSecondStream() const = 0;
 	virtual bool SupportsStaticPlusDynamicLighting() const = 0;
 

@@ -10,6 +10,16 @@
 #pragma once
 #endif
 
+#define PANORAMA_ZIPFILE_VERSION 1
+// SE port: the retail CS:GO 2023 code.pbin is version 2 (it is the pack the port targets now that the
+// actual CS:GO UI is being brought up).  The container layout is identical for 1 and 2 - checked
+// against the retail file: 4-byte 'P','A','N',<version> header, 512-byte signature digest, a plain
+// zip payload, then a trailing copy of the version byte - so both are accepted.
+#define PANORAMA_ZIPFILE_VERSION_MAX 2
+#define PANORAMA_ZIPFILE_NAME "panorama/code.pbin"
+
+// panzip tool is using minimal compile and cannot include all the V8 headers, support just the zip file version #define
+#ifndef INCLUDE_PANORAMA_ZIPFILE_VERSION_ONLY
 
 #include "panoramatypes.h"
 #include "utlbuffer.h"
@@ -25,13 +35,19 @@ typedef void( __cdecl *FileChangeCallback_t )( const char *pFullPath );
 
 typedef void (LoadFileIntoBufferCallback_t)( const char * pchFile, CUtlBuffer &buf, bool bSuccess );
 
+typedef void * HLOADINTOBUFFER;
+
 class IUIFileSystem
 {
 public:
 	// fully load the file into the buffer object
-	virtual bool LoadFileIntoBuffer( const char *pchFile, CUtlBuffer &buf, bool bText, FileChangeCallback_t fileChangeCallback = NULL ) = 0;
+	virtual bool LoadFileIntoBuffer( const char *pchFile, CUtlBuffer &buf, bool bText, FileChangeCallback_t fileChangeCallback = NULL, uint nPadding = 0 ) = 0;
 
-	virtual void LoadFileIntoBufferAsync( const char *pchFile, CUtlBuffer &buf, bool bText, CUtlDelegate< LoadFileIntoBufferCallback_t > del ) = 0;
+	// Perform an async file load
+	virtual HLOADINTOBUFFER LoadFileIntoBufferAsync( const char *pchFile, CUtlBuffer &buf, bool bText, CUtlDelegate< LoadFileIntoBufferCallback_t > del ) = 0;
+
+	// Cancel an async file load
+	virtual bool CancelLoadFileIntoBufferAsync( HLOADINTOBUFFER hLoad ) = 0;
 
 	// replace this file with the contents of the buffer object
 	virtual bool SaveBufferToFile( CUtlBuffer &buf, const char *pchFile ) = 0;
@@ -42,10 +58,19 @@ public:
 	virtual bool RestoreContentFilename( const char *pchFile, CUtlString &fixedFilename ) { return false; }
 	virtual bool RestoreResourceFilename( const char *pchFile, CUtlString &fixedFilename ) { return false; }
 
+	virtual char* LoadFromPanZip( const char* fname ) = 0;
+
 	// Run frame on main thread
 	virtual void RunFrame() = 0;
+
+#ifdef DBGFLAG_VALIDATE
+	virtual void Validate( CValidator &validator, const tchar *pchName ) = 0;
+#endif
 };
 
 
 }
+
+#endif // INCLUDE_PANORAMA_ZIPFILE_VERSION_ONLY
+
 #endif // IUIFILESYSTEM_H

@@ -97,12 +97,18 @@ public:
 	void		Set( const char *pValue );
 	operator const char*() const;
 
+	// CS:GO panorama writable accessor (Access = non-const Get)
+	char		*Access() { return GetForModify(); }
+
 	// Set directly and don't look for a null terminator in pValue.
 	// nChars does not include the nul and this will only copy
 	// at most nChars (even if pValue is longer).  If nChars
 	// is >strlen(pValue) it will copy past the end, don't do it
 	// Does nothing if pValue == String()
 	void		SetDirect( const char *pValue, int nChars );
+
+	// SE port (CS:GO addition): swap the contents of two strings without reallocating
+	void		Swap( CUtlString &src );
 
 	// for compatibility switching items from UtlSymbol
 	const char  *String() const { return Get(); }
@@ -111,6 +117,9 @@ public:
 	int			Length() const;
 	// IsEmpty() is more efficient than Length() == 0
 	bool		IsEmpty() const;
+
+	// GS - Added for chromehtml (CS:GO panorama uses this)
+	bool		IsValid() const { return ( Length() != 0 ); }
 
 	// Sets the length (used to serialize into the buffer )
 	// Note: If nLen != 0, then this adds an extra byte for a null-terminator.	
@@ -122,6 +131,19 @@ public:
 	// Case Change
 	void		ToLower();
 	void		ToUpper();
+
+	// CS:GO-era Unicode case conversion (declaration mirrors CS:GO public/tier1/utlstring.h;
+	// implementation lives in tier1/utlstring.cpp and calls V_UnicodeCaseConvert)
+	int			UnicodeCaseConvert( int nStringCaseFlags, EStringConvertErrorPolicy ePolicy = STRINGCONVERT_ASSERT_REPLACE );
+	int			ToLowerLinguistic( EStringConvertErrorPolicy ePolicy = STRINGCONVERT_ASSERT_REPLACE )
+	{
+		return UnicodeCaseConvert( STRINGCASE_LOWER | STRINGCASE_FLAG_LINGUISTIC, ePolicy );
+	}
+	int			ToUpperLinguistic( EStringConvertErrorPolicy ePolicy = STRINGCONVERT_ASSERT_REPLACE )
+	{
+		return UnicodeCaseConvert( STRINGCASE_UPPER | STRINGCASE_FLAG_LINGUISTIC, ePolicy );
+	}
+
 	void		Append( const char *pAddition, int nChars );
 
 	void		Append( const char *pchAddition );
@@ -463,6 +485,103 @@ template < typename T > struct UTLConstStringCaselessStringEqualFunctor { bool o
 // Helper function for CUtlMaps with a CUtlString key
 inline bool UtlStringLessFunc( const CUtlString &lhs, const CUtlString &rhs ) { return V_strcmp( lhs.Get(), rhs.Get() ) < 0; } 
 inline bool UtlStringCaseInsensitiveLessFunc( const CUtlString &lhs, const CUtlString &rhs ) { return V_stricmp( lhs.Get(), rhs.Get() ) < 0; } 
+
+//-----------------------------------------------------------------------------
+// CUtlStringBuilder (CS:GO-era minimal port)
+// A growable string builder used by CS:GO panorama. Minimal subset of the
+// original API as needed by the port (Append/AppendChar/AppendFormat/String/Get/Access).
+//-----------------------------------------------------------------------------
+#include <stdarg.h>
+#include <stdlib.h>
+#include <string.h>
+
+class CUtlStringBuilder
+{
+public:
+	CUtlStringBuilder() : m_pData( NULL ), m_nLen( 0 ), m_nAlloc( 0 ) {}
+	explicit CUtlStringBuilder( size_t nPreallocateBytes ) : m_pData( NULL ), m_nLen( 0 ), m_nAlloc( 0 )
+	{
+		if ( nPreallocateBytes )
+			EnsureCapacity( (int)nPreallocateBytes );
+	}
+	CUtlStringBuilder( const char *pchString ) : m_pData( NULL ), m_nLen( 0 ), m_nAlloc( 0 ) { Append( pchString ); }
+	CUtlStringBuilder( const CUtlStringBuilder &src ) : m_pData( NULL ), m_nLen( 0 ), m_nAlloc( 0 ) { Append( src.String(), src.Length() ); }
+	~CUtlStringBuilder() { free( m_pData ); }
+
+	CUtlStringBuilder &operator=( const CUtlStringBuilder &src ) { if ( this != &src ) { Clear(); Append( src.String(), src.Length() ); } return *this; }
+	CUtlStringBuilder &operator=( const char *pchString ) { Clear(); Append( pchString ); return *this; }
+	CUtlStringBuilder &operator+=( const char *rhs ) { Append( rhs ); return *this; }
+	CUtlStringBuilder &operator+=( const CUtlStringBuilder &rhs ) { Append( rhs.String(), rhs.Length() ); return *this; }
+
+	void Clear() { m_nLen = 0; if ( m_pData ) m_pData[0] = 0; }
+
+	void EnsureCapacity( int n ) { if ( n + 1 > m_nAlloc ) Grow( n + 1 ); }
+
+	int Length() const { return m_nLen; }
+	bool IsEmpty() const { return m_nLen == 0; }
+
+	void Append( const char *p ) { if ( !p ) return; Append( p, (int)V_strlen( p ) ); }
+	void Append( const char *p, int nLen )
+	{
+		if ( !p || nLen <= 0 )
+			return;
+
+		EnsureCapacity( m_nLen + nLen );
+		V_memcpy( m_pData + m_nLen, p, nLen );
+		m_nLen += nLen;
+		m_pData[m_nLen] = 0;
+	}
+	void Append( char c ) { EnsureCapacity( m_nLen + 1 ); m_pData[m_nLen++] = c; m_pData[m_nLen] = 0; }
+	void Append( const CUtlStringBuilder &str ) { Append( str.String(), str.Length() ); }
+	void AppendChar( char c ) { Append( c ); }
+	void AppendFormat( const char *pFmt, ... )
+	{
+		char buf[4096];
+		va_list ap; va_start( ap, pFmt );
+		V_vsnprintf( buf, (int)sizeof( buf ), pFmt, ap );
+		va_end( ap );
+		Append( buf );
+	}
+
+	void Set( const char *p ) { Clear(); Append( p ); }
+	void SetLength( int nLen )
+	{
+		if ( nLen < 0 )
+			nLen = 0;
+
+		if ( nLen + 1 > m_nAlloc )
+			Grow( nLen + 1 );
+
+		m_nLen = nLen;
+		m_pData[m_nLen] = 0;
+	}
+
+	const char *String() const { return m_pData ? m_pData : ""; }
+	const char *Get() const { return String(); }
+	char *Access() { return m_pData; }
+
+	// SE port (CS:GO parity): panorama/textinput/utlradixtrie.h uses these
+	// (the implicit conversion when passing the builder as a CUtlDict const char* key).
+	operator const char *() const { return String(); }
+	void Truncate( size_t nChars )
+	{
+		if ( nChars < (size_t)m_nLen )
+			SetLength( (int)nChars );
+	}
+
+private:
+	void Grow( int n )
+	{
+		int nNew = ( n < 16 ) ? 16 : n;
+		if ( nNew < m_nAlloc * 2 ) nNew = m_nAlloc * 2;
+		char *p = (char *)realloc( m_pData, nNew );
+		if ( p ) { m_pData = p; m_nAlloc = nNew; if ( m_nLen == 0 && m_pData ) m_pData[0] = 0; }
+	}
+
+	char *m_pData;
+	int m_nLen;
+	int m_nAlloc;
+};
 
 #include "memdbgoff.h"
 

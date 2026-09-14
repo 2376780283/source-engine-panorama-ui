@@ -10,6 +10,8 @@
 //=============================================================================//
 
 #include "client_pch.h"
+// SE port (temporary bring-up probe): the process dies during client DLL bring-up without printing
+// anything, so each step records itself in a file (see the note in engine/host.cpp).
 #include "getintersectingsurfaces_struct.h"
 #include "gl_model_private.h"
 #include "surfinfo.h"
@@ -1802,6 +1804,7 @@ void InitExtraClientCmdCanExecuteVars()
 //-----------------------------------------------------------------------------
 void ClientDLL_Init( void )
 {
+
 	extern void CL_SetSteamCrashComment();
 
 	// Assert ClientDLL_Load successfully created these interfaces, as we need them to init properly

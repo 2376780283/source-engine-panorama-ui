@@ -239,6 +239,7 @@ D3DFORMAT GetNearestD3DColorFormat( ImageFormat fmt,
 		break;
 
 	case IMAGE_FORMAT_DXT3:
+	case IMAGE_FORMAT_DXT3_RUNTIME:	// SE port: CS:GO runtime format, see public/bitmap/imageformat.h
 		if (TestTextureFormat(D3DFMT_DXT3, isRenderTarget, bIsVertexTexture, bIsFilterableRequired ))
 			return D3DFMT_DXT3;
 		break;

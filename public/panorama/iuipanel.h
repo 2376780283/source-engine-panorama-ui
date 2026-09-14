@@ -6,16 +6,18 @@
 #ifndef IUIPANEL_H
 #define IUIPANEL_H
 
-#ifdef _WIN32
+#if defined( _WIN32 ) || defined( SOURCE2_PANORAMA )
 #pragma once
 #endif
 
 #include "panoramatypes.h"
 #include "panoramasymbol.h"
+#include "panorama/input/mousecursors.h"
 #include "iuirenderengine.h"
 #include "layout/stylefiletypes.h"
 #include "layout/uilength.h"
 #include "tier1/utlstring.h"
+#include <functional>
 
 namespace panorama
 {
@@ -30,6 +32,8 @@ class IUIEvent;
 class IUIScrollBar;
 typedef panorama::IUIPanelClient * ClientPanelPtr_t;
 typedef CUtlVector< panorama::IUIEvent * > VecUIEvents_t;
+class CJSKeyframesObject;
+class CTransform3D;
 
 //-----------------------------------------------------------------------------
 // Purpose: Used to provide property info to debugger for output
@@ -53,6 +57,25 @@ enum ScrollBehavior_t
 
 	SCROLL_BEHAVIOR_DEFAULT = SCROLL_BEHAVIOR_SCROLL_MINIMUM_DISTANCE,
 };
+
+
+//-----------------------------------------------------------------------------
+// Purpose: Generic rect
+//-----------------------------------------------------------------------------
+struct PanoramaRect_t
+{
+	float flX;
+	float flY;
+	float flWidth;
+	float flHeight;
+
+	static inline bool Intersect( const PanoramaRect_t &a, const PanoramaRect_t &b )
+	{
+		return ( a.flX < b.flX + b.flWidth  && b.flX < a.flX + a.flWidth  ) &&
+		       ( a.flY < b.flY + b.flHeight && b.flY < a.flY + a.flHeight );
+	}
+};
+
 
 //-----------------------------------------------------------------------------
 // Purpose: Basic panel interface exposing operations used inside of panorama, rather
@@ -97,14 +120,35 @@ public:
 	// sets & loads the layout file for this panel
 	virtual bool BLoadLayout( const char *pchFile, bool bOverrideExisting = false, bool bPartialLayout = false ) = 0;
 
+	// Considers a layout load failure a fatal error.
+	virtual void RequireLoadLayout( const char *pchFile, bool bOverrideExisting = false, bool bPartialLayout = false ) = 0;
+
 	// sets & loads the layout for this panel
 	virtual bool BLoadLayoutFromString( const char *pchXMLString, bool bOverrideExisting = false, bool bPartialLayout = false ) = 0;
+
+	// Considers a layout load failure a fatal error.
+	virtual void RequireLoadLayoutFromString( const char *pchXMLString, bool bOverrideExisting = false, bool bPartialLayout = false ) = 0;
+
+	// Loads a snippet from the panel's current layout file
+	virtual bool BLoadLayoutSnippet( const char *pchSnippetName ) = 0;
+
+	// Loads a snippet and considers failure a fatal error
+	virtual void RequireLoadLayoutSnippet( const char *pchSnippetName ) = 0;
+
+	// Returns true if a snippet is available by the given name
+	virtual bool BHasLayoutSnippet( const char *pchSnippetName ) = 0;
 
 	// sets loads the layout file for this panel, asynchronously supporting remote http:// paths
 	virtual void LoadLayoutAsync( const char *pchFile, bool bOverrideExisting = false, bool bPartialLayout = false ) = 0;
 
 	// loads the layout file for this panel, asynchronously supporting remote http:// paths in css within
 	virtual void LoadLayoutFromStringAsync( const char *pchXMLString, bool bOverrideExisting, bool bPartialLayout = false ) = 0;
+
+	// creates & appends child panels from a string. String XML should only include XML of children, not this panel as a wrapper
+	virtual bool BCreateChildren( const char *pchXMLSring ) = 0;
+
+	// unload the layout file for this panel, destroying all children
+	virtual void UnloadLayout( void ) = 0;
 
 	// Check if the panel has loaded layout
 	virtual bool IsLoaded() const = 0;
@@ -130,6 +174,8 @@ public:
 	// Set the layout file this panel is loaded from based on a parent, shouldn't need this directly normally
 	virtual void SetLayoutLoadedFromParent( panorama::IUIPanel *pParent ) = 0;
 
+	virtual void SetPanelIntoContext( panorama::IUIPanel *pPanel ) = 0;
+
 	// Returns the layout file for this panel (ie, the one it loaded if any)
 	virtual panorama::CPanoramaSymbol GetLayoutFile() const = 0;
 
@@ -140,17 +186,33 @@ public:
 	// Returns -1 if no layout file.
 	virtual int GetLayoutFileReloadCount() const = 0;
 
+	// used to determine if sensitive JS functions should run with this panel as context (AsyncWebRequest, etc.)
+	virtual const char *GetLayoutFilePathForJSCheck() const = 0;
+	virtual void SetLayoutFilePathForJSCheck( const char *pchPath ) = 0;
+
 	// searches only immediate children
 	virtual panorama::IUIPanel *FindChild( const char *pchID ) = 0;
+
+	// Considers a failure to find a child a fatal error.
+	virtual panorama::IUIPanel *RequireChild( const char *pchID ) = 0;
 
 	// searches all children even outside layout file scope
 	virtual panorama::IUIPanel *FindChildTraverse( const char *pchID ) = 0;
 
+	// Considers a failure to find a child a fatal error.
+	virtual panorama::IUIPanel *RequireChildTraverse( const char *pchID ) = 0;
+
 	// searches any children created from our layout file
-	virtual IUIPanel *FindChildInLayoutFile( const char *pchID ) = 0;
+	virtual panorama::IUIPanel *FindChildInLayoutFile( const char *pchID ) = 0;
+
+	// Considers a failure to find a child a fatal error.
+	virtual panorama::IUIPanel *RequireChildInLayoutFile( const char *pchID ) = 0;
 
 	// searches any panel created from our layout file (so parents or children!)
-	virtual IUIPanel *FindPanelInLayoutFile( const char *pchID ) = 0;
+	virtual panorama::IUIPanel *FindPanelInLayoutFile( const char *pchID ) = 0;
+
+	// Considers a failure to find a child a fatal error.
+	virtual panorama::IUIPanel *RequirePanelInLayoutFile( const char *pchID ) = 0;
 
 	// Check if this panel is a descendant of the passed panel
 	virtual bool IsDescendantOf( const panorama::IUIPanel *pPanel ) const = 0;
@@ -178,17 +240,21 @@ public:
 	virtual IUIPanel *GetHiddenChild( int i ) = 0;
 
 	// Find ancestor with matching id
-	virtual IUIPanel *FindAncestor( const char *pchID ) = 0;
+	virtual IUIPanel *FindAncestor( const char *pchID ) const = 0;
+
+	// Find the lowest common ancestor between this panel and another panel
+	virtual IUIPanel *FindLowestCommonAncestor( IUIPanel *pOther ) const = 0;
 
 	// Set the panels repaint state
 	virtual void SetRepaint( panorama::EPanelRepaint eRepaintNeeded ) = 0;
+	// Set repaint state on all ancestors if the current panel is flagged
+	// as needing a full/composition repaint. Stops walking up hierarchy
+	// as soon as we find an ancestor that already needs a full repaint.
+	virtual void SetRepaintOnAncestors() = 0;
 
-	// Check if we should draw this child
-	virtual bool BShouldDrawChild( panorama::IUIPanel *pChild ) = 0;
-
-	// Apply layout file to panel
-	virtual bool BAppyLayoutFile( panorama::CLayoutFile *pLayoutFile, CUtlVector< panorama::IUIPanel * > *pvecExistingPanels ) = 0;
-
+	// Sets whether to call Paint() or PaintArea() on the client panel
+	virtual void SetNeedsPaintArea( bool bPaintArea ) = 0;
+	
 	// Enable or disable background movies on panel 
 	virtual void EnableBackgroundMovies( bool bEnabled ) = 0;
 
@@ -200,6 +266,7 @@ public:
 	
 	// Apply styles on the panel, resolving them all fully and updating actual panel style
 	virtual void ApplyStyles( bool bTraverse ) = 0;
+	virtual void AfterStylesApplied( bool bStylesChanged, EStyleRepaint eRepaint, bool bInheritablePropertiesChanged, bool bTraverse ) = 0;
 
 	// Set that we want an on styles changed event when styles are applied even if styles aren't actually dirty
 	virtual void SetOnStylesChangedNeeded() = 0;
@@ -238,6 +305,16 @@ public:
 	virtual bool IsChildSizeTransitioning() = 0;
 	virtual void TransitionPositionApplied( bool bImmediate ) = 0;
 
+	// A hack has been introduced to re-run the layout traverse on a panel if the opacity is changing
+	// as we early out in OnContentSizeTraverse on panels with opacity 0. Ideally we only need to 
+	// re-run the layout traverse if the opacity is changing from 0 to any other value. Instead of 
+	// globally doing that change for all panels, the methods below have been introduced to disable
+	//  the "size and position invalidation" on a panel when the opacity is changing and it is therefore the 
+	// responsibility of the caller to invalidate size and position on the panel when opacity is changing 
+	// from 0 to any other value.
+	virtual void SetInvalidateSizeAndPositionOnOpacityChangeDisabled( bool bDisable ) = 0;
+	virtual bool BInvalidateSizeAndPositionOnOpacityChangeDisabled() = 0;
+
 	// size getters
 	virtual float GetDesiredLayoutWidth() const = 0;
 	virtual float GetDesiredLayoutHeight() const = 0;
@@ -265,6 +342,15 @@ public:
 	virtual float GetRawActualXOffset() const = 0;
 	virtual float GetRawActualYOffset() const = 0;
 
+	// Returns the calculated UI scale for this panel
+	virtual Vector GetActualUIScale() const = 0;
+	virtual float GetActualUIScaleX() const = 0;
+	virtual float GetActualUIScaleY() const = 0;
+	virtual float GetActualUIScaleZ() const = 0;
+
+	// Returns the calculated UI scale for this panel's parent
+	virtual Vector GetParentActualUIScale() const = 0;
+
 	// Offset to apply to contents for scrolling
 	virtual float GetContentsYScrollOffset() const = 0;
 	virtual float GetContentsXScrollOffset() const = 0;
@@ -272,8 +358,20 @@ public:
 	virtual float GetContentsXScrollOffsetTarget() const = 0;
 	virtual double GetContentsXScrollTransitionStart() const = 0;
 	virtual double GetContentsYScrollTransitionStart() const = 0;
+	virtual double GetContentsXScrollTransitionTime() const = 0;
+	virtual double GetContentsYScrollTransitionTime() const = 0;
+	virtual EAnimationTimingFunction GetContentsXScrollTransitionTimingFunction() const = 0;
+	virtual EAnimationTimingFunction GetContentsYScrollTransitionTimingFunction() const = 0;
+	virtual void GetContextXScrollTransitionControlPoints( Vector2D (&vecPoints)[4] ) const = 0;
+	virtual void GetContextYScrollTransitionControlPoints( Vector2D (&vecPoints)[4] ) const = 0;
 	virtual float GetInterpolatedXScrollOffset() = 0;
 	virtual float GetInterpolatedYScrollOffset() = 0;
+	virtual bool BScrollInProgress() = 0;
+	virtual float StopHorizontalScroll() = 0;
+	virtual float StopVerticalScroll() = 0;
+
+	// Does the panel implement drag scroll?
+	virtual bool BCanDragScroll() = 0;
 
 	// Can the panel scroll further?
 	virtual bool BCanScrollUp() = 0;
@@ -302,6 +400,10 @@ public:
 	virtual void SetHasClass( CPanoramaSymbol symName, bool bHasClass ) = 0;
 	virtual void SwitchClass( const char *pchAttribute, const char *pchName ) = 0;
 	virtual void SwitchClass( const char *pchAttribute, CPanoramaSymbol symName ) = 0;
+	virtual void SwitchClass( CPanoramaSymbol symAttribute, const char *pchName ) = 0;
+	virtual void SwitchClass( CPanoramaSymbol symAttribute, CPanoramaSymbol symName ) = 0;
+	virtual void TriggerClass( const char *pchName ) = 0;
+	virtual void TriggerClass( CPanoramaSymbol symName ) = 0;
 
 	virtual bool BAcceptsInput() = 0;
 	virtual void SetAcceptsInput( bool bAllowInput ) = 0;
@@ -313,6 +415,13 @@ public:
 	virtual const char *GetDefaultFocus() const = 0;
 	virtual void SetDisableFocusOnMouseDown( bool bDisable ) = 0;
 	virtual bool BFocusOnMouseDown() = 0;
+	virtual bool BCanClearFocusByClicking() = 0;
+	virtual bool BAlwaysConsumeHoverClicks() = 0;
+	virtual void SetAlwaysConsumeHoverClicks( bool bAlwaysConsumeHoverClicks ) = 0;
+	virtual void SetCanClearFocusByClicking( bool bCanClearFocusByClicking ) = 0;
+
+	virtual bool BScrollParentToFitWhenFocused() = 0;
+	virtual void SetScrollParentToFitWhenFocused( bool bScrollParentToFit ) = 0;
 
 	// Should this panel be the top of an input hierarchy and keep track of focus within itself, not losing focus when a panel in some
 	// other hierarchy changes focus?  Use this for panels that are peers like friends vs browser vs mainmenu in tenfoot
@@ -349,6 +458,12 @@ public:
 	virtual bool BHasDescendantKeyFocus() const = 0;
 	virtual bool IsLayoutLoading() const = 0;
 
+	// Allow turning off specific style flags for a given panel. This should rarely be used, but for styles that propogate to the
+	// root it can save a lot of perf. In particular, by disabling hover/descendantfocus on the root, we can avoid recalculating
+	// styles on the entire tree when they change.
+	virtual void SetDisallowedStyleFlags( uint unDisallowedStyleFlags ) = 0;
+	virtual uint GetDisallowedStyleFlags() const = 0;
+
 	// enable/disable
 	virtual void SetEnabled( bool bEnabled ) = 0;
 	virtual bool IsEnabled() const = 0;
@@ -368,9 +483,32 @@ public:
 	virtual bool BHitTestEnabled() const = 0;
 	virtual void SetHitTestEnabledTraverse( bool bEnabled ) = 0;
 
+	// Enable/disable hit testing on children of this panel. Prevents recursing into children when doing hit testing,
+	// thus it override children's individual hit test flags.
+	virtual void SetHitTestChildrenEnabled( bool bEnabled ) = 0;
+	virtual bool BHitTestChildrenEnabled() const = 0;
+
 	// drag/drop
 	virtual void SetDraggable( bool bEnabled ) = 0;
 	virtual bool IsDraggable() const = 0;
+
+	// Remember child focus
+	virtual void SetRememberChildFocus( bool bRememberChildFocus ) = 0;
+	virtual bool GetRememberChildFocus() const = 0;
+	virtual void ClearLastChildFocus() = 0;
+
+	// Rendering may require an intermediate texture for this panel
+	virtual void SetNeedsIntermediateTexture( bool bNeedsIntermediateTexture ) = 0;
+	virtual bool GetNeedsIntermediateTexture() const = 0;
+
+	// Force a composition layer and give it a name
+	virtual void SetCompositionLayerTextureName( const char *pszCompositionLayerTextureName ) = 0;
+	virtual const char *GetCompositionLayerTextureName() const = 0;
+
+	// Sets whether having a transform should trigger creation of a composition layer. Turning this off will save
+	// memory for large panels with a transform, but it may cause incorrect clipping on their children.
+	virtual void SetClipAfterTransform( bool bClipAfterTransform ) = 0;
+	virtual bool GetClipAfterTransform() const = 0;
 
 	// the input namespace to use for this panel
 	virtual const char *GetInputNamespace() const = 0;
@@ -383,11 +521,14 @@ public:
 	// Check if styles are dirty for the panel
 	virtual bool BStylesDirty() const = 0;
 
+	// Mark child styles are dirty for the panel parent 
+	virtual void MarkChildStylesDirtyOnParents() = 0;
+
 	// Check if styles are possibly dirty for any of our children
 	virtual bool BChildStylesDirty() = 0;
 
 	// Parse panel event for this panel
-	virtual bool BParsePanelEvent( CPanoramaSymbol symPanelEvent, const char *pchValue ) = 0;
+	virtual bool BParsePanelEvent( CPanoramaSymbol symPanelEvent, const char *pchValue, IUIPanel *pJavascriptContext ) = 0;
 
 	// Check if panel event is set on panel for event type
 	virtual bool BIsPanelEventSet( CPanoramaSymbol symPanelEvent ) = 0;
@@ -407,8 +548,11 @@ public:
 	// Accessor for appropriate 3d surface interface for this panel
 	virtual panorama::IUIRenderEngine *UIRenderEngine() = 0;
 
+	// Accessor for appropriate render device for this panel
+	virtual panorama::IUIRenderDevice *UIRenderDevice() = 0;
+
 	// Explicit call to paint the panel and all it's children, normally called internally by window
-	virtual void PaintTraverse() = 0;
+	virtual void PaintTraverse( PanoramaRect_t *pPaintArea, bool bUseForceBuiltPaintCmdCache ) = 0;
 
 	// Tab index setting
 	virtual void SetTabIndex( float flTabIndex ) = 0;
@@ -436,6 +580,10 @@ public:
 	virtual void SetChildFocusOnHover( bool bEnable ) = 0;
 	virtual bool GetChildFocusOnHover() = 0;
 
+	// controls if hovering on an unfocused panel should set focus
+	virtual void SetFocusOnHover(bool bEnable) = 0;
+	virtual bool GetFocusOnHover() = 0;
+
 	// Panel scrolling
 	virtual void ScrollToTop() = 0;
 	virtual void ScrollToBottom() = 0;
@@ -453,13 +601,16 @@ public:
 	virtual bool IsScrolledIntoView() const = 0;
 
 	// Direct child management
-	virtual void SortChildren( int( __cdecl *pfnCompare )(const ClientPanelPtr_t *, const ClientPanelPtr_t *) ) = 0;
+	virtual void SortChildren( std::function< int( IUIPanelClient *, IUIPanelClient * ) > fnCompare ) = 0;
 
 	// child management, use with caution! normally always managed internally.
 	virtual void AddChild( IUIPanel *pChild ) = 0;
 
 	// child management, use with caution! normally always managed internally.  Returns child index we inserted at.
 	virtual int AddChildSorted( bool( __cdecl *pfnLessFunc )(ClientPanelPtr_t const &p1, ClientPanelPtr_t const &p2), IUIPanel *pChild ) = 0;
+
+	// re-sort a newly inserted child
+	virtual int ReSortChild( bool( __cdecl *pfnLessFunc )( ClientPanelPtr_t const &p1, ClientPanelPtr_t const &p2 ), IUIPanel *pChild ) = 0;
 
 	// child management, use with caution! normally always managed internally.
 	virtual void RemoveChild( IUIPanel *pChild ) = 0;
@@ -469,6 +620,9 @@ public:
 
 	// Move child before another child
 	virtual void MoveChildBefore( IUIPanel *pChildToMove, IUIPanel *pAfter ) = 0;
+
+	virtual EMouseCursors GetPanelMouseCursor() = 0;
+	virtual void SetPanelMouseCursor( EMouseCursors eCursor ) = 0;
 
 	virtual void SetMouseCanActivate( EMouseCanActivate eMouseCanActivate, const char *pchOptionalParent = NULL ) = 0;
 	virtual EMouseCanActivate GetMouseCanActivate() = 0;
@@ -492,31 +646,39 @@ public:
 	virtual bool BBuildMatchingStyleList( CUtlVector< CascadeStyleFileInfo_t > *pvecStyles ) = 0;
 
 	// Getter for panel attributes
-	virtual int GetAttribute( const char *pchAttrName, int nDefaultValue ) = 0;
-
-	// Getter for panel attributes
-	virtual const char *GetAttribute( const char *pchAttrName, const char * pchDefaultValue ) = 0;
-
-	// Getter for panel attributes
-	virtual uint32 GetAttribute( const char *pchAttrName, uint32 unDefaultValue ) = 0;
-
-	// Getter for panel attributes
-	virtual uint64 GetAttribute( const char *pchAttrName, uint64 unDefaultValue ) = 0;
+	virtual int GetAttribute( const char *pchAttrName, int nDefaultValue ) const = 0;
+	virtual const char *GetAttribute( const char *pchAttrName, const char * pchDefaultValue ) const = 0;
+	virtual uint32 GetAttribute( const char *pchAttrName, uint32 unDefaultValue ) const = 0;
+	virtual uint64 GetAttribute( const char *pchAttrName, uint64 unDefaultValue ) const = 0;
+	virtual float GetAttribute( const char *pchAttrName, float flDefaultValue ) const = 0;
 
 	// Setter for panel attributes
 	virtual void SetAttribute( const char *pchAttrName, int nValue ) = 0;
-
-	// Setter for panel attributes
 	virtual void SetAttribute( const char *pchAttrName, const char * pchValue ) = 0;
-
-	// Setter for panel attributes
 	virtual void SetAttribute( const char *pchAttrName, uint32 unValue ) = 0;
+	virtual void SetAttribute( const char *pchAttrName, uint64 unValue ) = 0;
+	virtual void SetAttribute( const char *pchAttrName, float flValue ) = 0;
+
+	virtual int GetAttribute( CPanoramaSymbol symName, int nDefaultValue ) const = 0;
+	virtual const char *GetAttribute( CPanoramaSymbol symName, const char * pchDefaultValue ) const = 0;
+	virtual uint32 GetAttribute( CPanoramaSymbol symName, uint32 unDefaultValue ) const = 0;
+	virtual uint64 GetAttribute( CPanoramaSymbol symName, uint64 unDefaultValue ) const = 0;
+	virtual float GetAttribute( CPanoramaSymbol symName, float flDefaultValue ) const = 0;
 
 	// Setter for panel attributes
-	virtual void SetAttribute( const char *pchAttrName, uint64 unValue ) = 0;
+	virtual void SetAttribute( CPanoramaSymbol symName, int nValue ) = 0;
+	virtual void SetAttribute( CPanoramaSymbol symName, const char * pchValue ) = 0;
+	virtual void SetAttribute( CPanoramaSymbol symName, uint32 unValue ) = 0;
+	virtual void SetAttribute( CPanoramaSymbol symName, uint64 unValue ) = 0;
+	virtual void SetAttribute( CPanoramaSymbol symName, float flValue ) = 0;
+
+
+	// Clear a panel attribute
+	virtual void RemoveAttribute( const char *pchAttrName ) = 0;
+	virtual void RemoveAttribute( CPanoramaSymbol symName ) = 0;
 
 	// Set animation property on panel
-	virtual void SetAnimation( const char *pchAnimationName, float flDuration, float flDelay, EAnimationTimingFunction eTimingFunc, EAnimationDirection eDirection, float flIterations ) = 0;
+	virtual void SetAnimation( const char *pchAnimationName, float flDuration, float flDelay, EAnimationTimingFunction eTimingFunc, EAnimationDirection eDirection, EAnimationFillMode eFillMode, float flIterations ) = 0;
 
 	// Force an immediate update of the visibility list on our window for our current visibility
 	virtual void UpdateVisibility( bool bUseDirtyStyles ) = 0;
@@ -529,9 +691,11 @@ public:
 
 	// Populates a vector with all immediate children matching a class
 	virtual void FindChildrenWithClass( const char *pchClass, CUtlVector<IUIPanel *> &vecMatchingChildren ) = 0;
+	virtual void FindChildrenWithClass( CPanoramaSymbol symClass, CUtlVector<IUIPanel *> &vecMatchingChildren ) = 0;
 
 	// Populates a vector with all children matching a class
 	virtual void FindChildrenWithClassTraverse( const char *pchClass, CUtlVector<IUIPanel *> &vecMatchingChildren ) = 0;
+	virtual void FindChildrenWithClassTraverse( CPanoramaSymbol symClass, CUtlVector<IUIPanel *> &vecMatchingChildren ) = 0;
 
 	// Play focus change sound accounting for fast scroll volume fade effects, etc
 	virtual void PlayFocusChangeSound( int nRepeats, float flPan ) = 0;
@@ -548,6 +712,7 @@ public:
 
 	// Should analog stick be able to scroll this panel?
 	virtual bool BEnableAnalogStickScrolling() = 0;
+	virtual void EnableAnalogStickScrolling( bool bEnable ) = 0;
 
 	// Set mouse tracking state
 	virtual void SetMouseTracking( bool bState ) = 0;
@@ -568,6 +733,46 @@ public:
 
 	// Callback that styles have cleaned up some transitions, we should update cached state about what styles are present
 	virtual void OnStyleTransitionsCleanup() = 0;
+
+	// composition layer hints to improve performance
+	virtual void SetRequireCompositionLayer( bool bRequireCompositionLayer ) = 0;
+	virtual bool BRequireCompositionLayer() const = 0;
+	virtual void SetAlwaysCacheCompositionLayer( bool bAlwaysCacheCompositionLayer ) = 0;
+	virtual bool BAlwaysCacheCompositionLayer() const = 0;
+	virtual void SetForceNoCompositionLayer( bool bForceNoCompositionLayer ) = 0;
+	virtual bool BForceNoCompositionLayer() const = 0;
+
+	virtual const char*GetCompositionLayerRenderTargetName() = 0;
+
+	// ready for display
+	virtual void RegisterForReadyEvents( bool bEnable ) = 0;
+	virtual bool BReadyForDisplay() = 0;
+	virtual void SetReadyForDisplay( bool bReady ) = 0;
+
+	// Stop the animation (in animation thread) of style property until a frame update comes in from layout thread and return
+	// the actual final animation/interpolation time so we can match up to it on layout thread
+	virtual float StopAnimationOfPropertyUntilFrameUpdateAndGetStopTime( uint32 hSymbol ) = 0;
+
+	// Panel paint performance
+	virtual bool BHasCachedCommandList() const = 0;
+	virtual uint32 GetCommandListBytesSize() const = 0;
+	virtual float GetRepaintRate() const = 0;
+
+	// V8 context usage
+	virtual bool BUsesGlobalContext() const = 0;
+	virtual void SetUseGlobalContext( bool bUseGlobalContext ) = 0;
+
+	// Control of paint cmd list cache
+	virtual bool BCachePaintCmdList() const = 0;
+	virtual void SetCachePaintCmdList( bool bCachePaintCmdList ) = 0;
+
+	virtual CJSKeyframesObject *JSCreateCopyOfCSSKeyframes( const char *pchKeyframesName ) = 0;
+	virtual void JSDeleteKeyframes( CJSKeyframesObject *pKeyframes ) = 0;
+	virtual	void JSUpdateCurrentAnimationKeyframes( CJSKeyframesObject *pKeyframes ) = 0;
+
+	// Style properties from code
+	virtual void SetTransform3DSimple( const CUtlVector<CTransform3D *> &vecTransforms ) = 0;
+	virtual void SetOpacitySimple( float opacity ) = 0;
 
 #ifdef DBGFLAG_VALIDATE
 	virtual void Validate( CValidator &validator, const char *pchName ) = 0;

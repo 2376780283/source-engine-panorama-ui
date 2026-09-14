@@ -2124,6 +2124,22 @@ const char * V_GetFileExtension( const char * path )
 	return src;
 }
 
+//-----------------------------------------------------------------------------
+// Purpose: Returns a pointer to the file extension within a file name string,
+//			never NULL (CS:GO-era helper used by panorama)
+// Input:	in - file name 
+// Output:	pointer to beginning of extension (after the "."), or ""
+//				if there is no extension
+//-----------------------------------------------------------------------------
+const char *V_GetFileExtensionSafe( const char *path )
+{
+	const char *pExt = V_GetFileExtension( path );
+	if ( pExt == NULL )
+		return "";
+	else
+		return pExt;
+}
+
 
 //-----------------------------------------------------------------------------
 // Purpose: Returns a pointer to the filename part of a path string
@@ -2521,6 +2537,58 @@ void V_SplitString( const char *pString, const char *pSeparator, CUtlVector<char
 }
 
 
+//-----------------------------------------------------------------------------
+// SE port: CS:GO's CUtlString based split (public/tier1/strtools.h declares the 4 argument
+// V_SplitString; the panorama modules use it).  Ported verbatim from CSGO2019/tier1/strtools.cpp.
+//-----------------------------------------------------------------------------
+void V_SplitString2( const char *pString, const char * const *pSeparators, int nSeparators, CUtlVector<CUtlString> &outStrings, bool bIncludeEmptyStrings )
+{
+	outStrings.Purge();
+	const char *pCurPos = pString;
+	for (;;)
+	{
+		int iFirstSeparator = -1;
+		const char *pFirstSeparator = 0;
+		for ( int i = 0; i < nSeparators; i++ )
+		{
+			const char *pTest = V_stristr_fast( pCurPos, pSeparators[i] );
+			if ( pTest && ( !pFirstSeparator || pTest < pFirstSeparator ) )
+			{
+				iFirstSeparator = i;
+				pFirstSeparator = pTest;
+			}
+		}
+
+		if ( pFirstSeparator )
+		{
+			// Split on this separator and continue on.
+			int separatorLen = (int)strlen( pSeparators[iFirstSeparator] );
+			if ( pFirstSeparator > pCurPos || ( pFirstSeparator == pCurPos && bIncludeEmptyStrings ) )
+			{
+				outStrings[outStrings.AddToTail()].SetDirect( pCurPos, (int)( pFirstSeparator - pCurPos ) );
+			}
+
+			pCurPos = pFirstSeparator + separatorLen;
+		}
+		else
+		{
+			// Copy the rest of the string, if there's anything there
+			if ( pCurPos[0] != 0 )
+			{
+				outStrings[outStrings.AddToTail()].Set( pCurPos );
+			}
+			return;
+		}
+	}
+}
+
+
+void V_SplitString( const char *pString, const char *pSeparator, CUtlVector<CUtlString> &outStrings, bool bIncludeEmptyStrings )
+{
+	V_SplitString2( pString, &pSeparator, 1, outStrings, bIncludeEmptyStrings );
+}
+
+
 bool V_GetCurrentDirectory( char *pOut, int maxLen )
 {
 	return _getcwd( pOut, maxLen ) == pOut;
@@ -2614,6 +2682,64 @@ void V_StrRight( const char *pStr, int nChars, char *pOut, int outSize )
 //-----------------------------------------------------------------------------
 // Convert multibyte to wchar + back
 //-----------------------------------------------------------------------------
+//-----------------------------------------------------------------------------
+// SE port (CS:GO addition): 3 dimensional memory copy with arbitrary strides.
+// Optimizes to a single memcpy when possible.  For 2d data pass nNumSlices = 1.
+// (CS:GO's original loops ran nNumSlices + 1 times as a side effect of the post-decrement
+// in its do/while; this version performs exactly nNumSlices iterations.)
+//-----------------------------------------------------------------------------
+void CopyMemory3D( void *pDest, void const *pSrc,
+				   int nNumCols, int nNumRows, int nNumSlices,	// dimensions of copy
+				   int nSrcBytesPerRow, int nSrcBytesPerSlice,	// strides for source.
+				   int nDestBytesPerRow, int nDestBytesPerSlice	// strides for dest
+				   )
+{
+	if ( !nNumSlices || !nNumRows || !nNumCols )
+		return;
+
+	uint8 *pDestAdr = reinterpret_cast<uint8 *>( pDest );
+	uint8 const *pSrcAdr = reinterpret_cast<uint8 const *>( pSrc );
+
+	// first check for the optimized cases
+	if ( ( nNumCols == nSrcBytesPerRow ) && ( nNumCols == nDestBytesPerRow ) )	// no row-to-row stride?
+	{
+		int n2DSize = nNumCols * nNumRows;
+		if ( nSrcBytesPerSlice == nDestBytesPerSlice )		// can we do one memcpy?
+		{
+			memcpy( pDestAdr, pSrcAdr, n2DSize * nNumSlices );
+		}
+		else
+		{
+			// there might be some slice-to-slice stride
+			do
+			{
+				memcpy( pDestAdr, pSrcAdr, n2DSize );
+				pDestAdr += nDestBytesPerSlice;
+				pSrcAdr += nSrcBytesPerSlice;
+			} while( --nNumSlices );
+		}
+	}
+	else
+	{
+		// there is a row-by-row stride - we have to do the full nested loop
+		do
+		{
+			int nRowCtr = nNumRows;
+			uint8 const *pSrcRow = pSrcAdr;
+			uint8 *pDestRow = pDestAdr;
+			do
+			{
+				memcpy( pDestRow, pSrcRow, nNumCols );
+				pDestRow += nDestBytesPerRow;
+				pSrcRow += nSrcBytesPerRow;
+			} while( --nRowCtr );
+
+			pSrcAdr += nSrcBytesPerSlice;
+			pDestAdr += nDestBytesPerSlice;
+		} while( --nNumSlices );
+	}
+}
+
 void V_strtowcs( const char *pString, int nInSize, wchar_t *pWString, int nOutSizeInBytes )
 {
 	Assert( nOutSizeInBytes >= sizeof(pWString[0]) );
@@ -3350,9 +3476,70 @@ const Tier1FullHTMLEntity_t g_Tier1_FullHTMLEntities[] =
 #endif
 
 
+//-----------------------------------------------------------------------------
+// SE port: size of the string V_BasicHtmlEntityEncode() would produce, terminator excluded.
+// Mirrors the replacement tables of the encoder below (no whitespace pass - the query form and the
+// 4-argument call both use the default bPreserveWhitespace == false).
+//-----------------------------------------------------------------------------
+static int V_BasicHtmlEntityEncodeLength( char const *pIn, const int nInSize )
+{
+	int iOutput = 0;
+	for ( int iInput = 0; iInput < nInSize; ++iInput )
+	{
+		bool bReplacementDone = false;
+		for ( int i = 0; g_BasicHTMLEntities[ i ].uCharCode != 0; ++i )
+		{
+			if ( pIn[ iInput ] == g_BasicHTMLEntities[ i ].uCharCode )
+			{
+				iOutput += g_BasicHTMLEntities[ i ].nEntityLength;
+				bReplacementDone = true;
+				break;
+			}
+		}
+
+		if ( !bReplacementDone )
+		{
+			++iOutput;
+		}
+	}
+	return iOutput;
+}
+
+//-----------------------------------------------------------------------------
+// SE port: the measure-then-encode form CS:GO's panorama code uses.  The 4-argument call and the
+// bPreserveWhitespace form both land in the overload below; this one only exists because CS:GO passes
+// the required size back through the 5th parameter:
+//     V_BasicHtmlEntityEncode( NULL, 0, pchIn, nLen, &nRequiredBytes );
+// Before this overload existed the call bound to the bPreserveWhitespace version - the int* converted
+// to "true" and the NULL destination was written through (crash in the terminator write below).
+//-----------------------------------------------------------------------------
+bool V_BasicHtmlEntityEncode( char *pDest, const int nDestSize, char const *pIn, const int nInSize, int *pnRequiredBytes )
+{
+	// +1 for the terminator: callers allocate exactly this and then pass it back as nDestSize
+	const int nRequired = V_BasicHtmlEntityEncodeLength( pIn, nInSize ) + 1;
+	if ( pnRequiredBytes )
+	{
+		*pnRequiredBytes = nRequired;
+	}
+
+	if ( !pDest )
+	{
+		return true;			// measure-only call, nothing to write
+	}
+
+	return V_BasicHtmlEntityEncode( pDest, nDestSize, pIn, nInSize, false );
+}
+
 bool V_BasicHtmlEntityEncode( char *pDest, const int nDestSize, char const *pIn, const int nInSize, bool bPreserveWhitespace /*= false*/ )
 {
 	Assert( nDestSize == 0 || pDest != NULL );
+	if ( !pDest )
+	{
+		// SE port: measure-only callers use the int* overload above; never write a terminator through
+		// a NULL destination (this is what an uninitialised "size query" used to do).
+		return true;
+	}
+
 	int iOutput = 0;
 	for ( int iInput = 0; iInput < nInSize; ++iInput )
 	{

@@ -1,0 +1,10 @@
+// Minimal sound emitter manifest for the panorama test mod.
+//
+// CSoundEmitterSystemBase::Init() (soundemittersystem/soundemittersystembase.cpp) Error()s out when
+// this file is missing, and KeyValues refuses to load a manifest whose root block has no sub-keys at
+// all - hence the placeholder entry.  The loader only accepts sub-keys called "file"; anything else is
+// reported as a bogus file type and ignored.
+"game_sounds_manifest"
+{
+	"note"		"panorama test mod: no sound emitter scripts"
+}

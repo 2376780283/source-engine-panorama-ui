@@ -44,9 +44,6 @@ public:
 	virtual bool OnTabForward( int nRepeats );
 	virtual bool OnTabBackward( int nRepeats );
 
-	virtual void Paint();
-	virtual void OnLayoutTraverse( float flFinalWidth, float flFinalHeight );
-
 	virtual bool OnSetFocusToNextPanel( int nRepeats, EFocusMoveDirection moveType, bool bAllowWrap, float flTabIndexCurrent, float flXPosCurrent, float flYPosCurrent, float flXStart, float fYStart ) OVERRIDE
 	{
 		switch( moveType )
@@ -95,7 +92,6 @@ protected:
 	bool EventSlideShowOnLayoutInitialized( const CPanelPtr< IUIPanel > &ptrPanel );
 	virtual void OnInitializedFromLayout();
 	void SetPanelStyles( int iOldFocus, int iNewFocus );
-	void LayoutMouseScrollRegions( float flFinalWidth, float flFinalHeight );
 
 private:
 	virtual void AddDisabledFlagToChildren() OVERRIDE;

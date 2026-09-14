@@ -1,0 +1,169 @@
+//=========== Copyright Valve Corporation, All rights reserved. ===============//
+//
+// Purpose: 
+//=============================================================================//
+
+#include <malloc.h>
+#include "stdafx.h"
+#include "mathlib/mathlib.h"
+#include "uitextserviceswin32.h"
+#include "text/texttexturecache.h"
+#include "text/textlayoutdrawcache.h"
+
+using namespace panorama;
+
+//-----------------------------------------------------------------------------
+// Purpose: Constructor
+//-----------------------------------------------------------------------------
+CUITextServicesWin32::CUITextServicesWin32()
+{
+}
+
+
+//-----------------------------------------------------------------------------
+// Purpose: startup, make sure win32 is configured
+//-----------------------------------------------------------------------------
+void CUITextServicesWin32::InitializeServices()
+{
+	// SE port: CS:GO created the DirectWrite globals when a D2D surface came up
+	// (CD3D10D2DSurface::BInitialize / CUIEngineWin32::BInitialize).  The s1wrapper surface this
+	// port renders with has no D2D renderer, so the backend is initialised here -
+	// CreatePanoramaUIEngineInternal() calls this right after the UI engine object is created.
+	CUITextLayoutWin32::BInitGlobals();
+}
+
+
+//-----------------------------------------------------------------------------
+// Purpose: shutdown
+//-----------------------------------------------------------------------------
+void CUITextServicesWin32::ShutdownServices()
+{
+}
+
+
+//-----------------------------------------------------------------------------
+// Purpose: Register a custom font collection
+//-----------------------------------------------------------------------------
+bool CUITextServicesWin32::BLoadCustomFontCollection( const char *pchContainerDir, const char *pchPathForCustomFonts )
+{
+	CUtlString strPath;
+
+    if ( pchContainerDir )
+    {
+        strPath = pchContainerDir;
+        strPath += "/";
+        strPath += pchPathForCustomFonts;
+    }
+    else
+    {
+        strPath = pchPathForCustomFonts;
+    }
+	V_FixSlashes( strPath.Access() );
+	V_FixDoubleSlashes( strPath.Access() );
+
+	return CUITextLayoutWin32::BLoadCustomFontCollection( strPath );
+}
+
+
+//-----------------------------------------------------------------------------
+// Purpose: Register a single custom font file.
+// NOTE (SE port): the CS:GO original hands this to CUIFontLoaderLinux (the
+// freetype/fontconfig loader, which CS:GO used on Windows too).  This port uses the
+// DirectWrite backend instead, and the DirectWrite collection loader can only register
+// whole folders (BLoadCustomFontCollection above) - single-file registration has no
+// equivalent, so report and fail.  Custom font *packages* still work through
+// BLoadCustomFontCollection.
+//-----------------------------------------------------------------------------
+bool CUITextServicesWin32::BLoadCustomFontFile( const char *pchFontName, const char *pchFullPath )
+{
+	CUtlString strPath = pchFullPath;
+	V_FixSlashes( strPath.Access() );
+	V_FixDoubleSlashes( strPath.Access() );
+
+	Warning( "CUITextServicesWin32::BLoadCustomFontFile( \"%s\", \"%s\" ): single-file custom font "
+			 "registration is not supported by the DirectWrite text backend; use a font collection instead.\n",
+			 pchFontName ? pchFontName : "?", strPath.Get() ? strPath.Get() : "?" );
+	return false;
+}
+
+
+//-----------------------------------------------------------------------------
+// Purpose: Create a text layout object and return
+//-----------------------------------------------------------------------------
+IUITextLayout *CUITextServicesWin32::CreateTextLayout( const void *pRawText, int cbRawText, int cTextChars, EPanoramaTextEncoding eTextEncoding, const TextLayoutParams_t *pParams, UITextLayoutFontMetrics_t *pLayoutMetrics )
+{
+	if( pParams->m_flMaxWidth < 0.0f || pParams->m_flMaxHeight < 0.0f || pParams->m_flSize < 0.0f )
+		return NULL;
+
+	CUITextLayoutWin32 *pTextLayout = new CUITextLayoutWin32();
+	if ( pTextLayout->BInitialize( pRawText, cbRawText, cTextChars, eTextEncoding, pParams, pLayoutMetrics ) )
+	{
+		return pTextLayout;
+	}
+	else
+	{
+		delete pTextLayout;
+		return NULL;
+	}
+}
+
+
+//-----------------------------------------------------------------------------
+// Purpose: Free a text layout object
+//-----------------------------------------------------------------------------
+void CUITextServicesWin32::FreeTextLayout( IUITextLayout *pLayout )
+{
+	delete (CUITextLayoutWin32*)pLayout;
+}
+
+
+//-----------------------------------------------------------------------------
+// Purpose: Get a list of all the valid font names for use
+//-----------------------------------------------------------------------------
+const CUtlSortVector< CUtlString > &CUITextServicesWin32::GetSortedValidFontNames()
+{
+	return CUITextLayoutWin32::GetSortedValidFontNames();
+}
+
+
+//-----------------------------------------------------------------------------
+// Purpose: Create a text alpha texture cache
+//-----------------------------------------------------------------------------
+IUITextTextureCache *CUITextServicesWin32::CreateTextTextureCache( IUITextTextureProvider *pProvider )
+{
+	CTextTextureCache *pCache = new CTextTextureCache();
+	pCache->SetTextureProvider( pProvider );
+	return pCache;
+}
+
+
+//-----------------------------------------------------------------------------
+// Purpose: Free a text alpha texture cache
+//-----------------------------------------------------------------------------
+void CUITextServicesWin32::FreeTextTextureCache( IUITextTextureCache *pCache )
+{
+	delete (CTextTextureCache*)pCache;
+}
+
+
+//-----------------------------------------------------------------------------
+// Purpose: Create a drawn-text-layout image cache
+//-----------------------------------------------------------------------------
+IUITextLayoutDrawCache *CUITextServicesWin32::CreateTextLayoutDrawCache( IUITextTextureStorage *pStorage )
+{
+	CTextLayoutDrawCache *pCache = new CTextLayoutDrawCache();
+	pCache->SetTextServices( this );
+	pCache->SetTextureStorage( pStorage );
+	return pCache;
+}
+
+
+//-----------------------------------------------------------------------------
+// Purpose: Free a drawn-text-layout image cache
+//-----------------------------------------------------------------------------
+void CUITextServicesWin32::FreeTextLayoutDrawCache( IUITextLayoutDrawCache *pCache )
+{
+	delete (CTextLayoutDrawCache*)pCache;
+}
+
+

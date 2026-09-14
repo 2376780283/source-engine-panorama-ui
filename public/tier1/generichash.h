@@ -100,6 +100,39 @@ template<> inline unsigned HashItem<char *>(char * const &pszKey )
 }
 
 //-----------------------------------------------------------------------------
+// Generic hash functor used by the CS:GO/Source2 container classes (utlhashmap, CUtlHashMap)
+//-----------------------------------------------------------------------------
+template<typename T>
+struct HashMapFunctor_t
+{
+	typedef uint32 TargetType;
+	TargetType operator()(const T &key) const
+	{
+		return HashItem( key );
+	}
+};
+
+template<>
+struct HashMapFunctor_t<char *>
+{
+	typedef uint32 TargetType;
+	TargetType operator()(const char *key) const
+	{
+		return HashString( key );
+	}
+};
+
+template<>
+struct HashMapFunctor_t<const char *>
+{
+	typedef uint32 TargetType;
+	TargetType operator()(const char *key) const
+	{
+		return HashString( key );
+	}
+};
+
+//-----------------------------------------------------------------------------
 
 
 //-----------------------------------------------------------------------------
@@ -109,6 +142,8 @@ uint32 MurmurHash2( const void * key, int len, uint32 seed );
 
 // return murmurhash2 of a downcased string
 uint32 MurmurHash2LowerCase( char const *pString, uint32 nSeed );
+// CS:GO-era overload (panorama port) - hash of a length-bounded downcased string
+uint32 MurmurHash2LowerCase( char const *pString, int len, uint32 nSeed );
 
 uint64 MurmurHash64( const void * key, int len, uint32 seed );
 

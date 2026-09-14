@@ -530,7 +530,10 @@ void AddSurfacepropFile( const char *pFileName, IPhysicsSurfaceProps *pProps, IF
 	}
 	else
 	{
-		Error( "Unable to load surface prop file '%s' (referenced by manifest file '%s')\n", pFileName, SURFACEPROP_MANIFEST_FILE );
+		// SE port: CS:GO's mods always ship their surface properties; this port's test mod carries its
+		// own minimal set, and a missing file must not abort the game DLL (the hosted panorama UI does
+		// not use physics).
+		Warning( "Unable to load surface prop file '%s' (referenced by manifest file '%s')\n", pFileName, SURFACEPROP_MANIFEST_FILE );
 	}
 }
 
@@ -554,7 +557,9 @@ void PhysParseSurfaceData( IPhysicsSurfaceProps *pProps, IFileSystem *pFileSyste
 	}
 	else
 	{
-		Error( "Unable to load manifest file '%s'\n", SURFACEPROP_MANIFEST_FILE );
+		// SE port: see the note in AddSurfacepropFile() above - an unreadable manifest only means no
+		// surface data, which is not a fatal condition for this build.
+		Warning( "Unable to load manifest file '%s'\n", SURFACEPROP_MANIFEST_FILE );
 	}
 
 	manifest->deleteThis();

@@ -52,5 +52,7 @@ const char *GetLanguageShortName( ELanguage eLang );
 const char *GetLanguageICUName( ELanguage eLang );
 const char *GetLanguageVGUILocalization( ELanguage eLang );
 const char *GetLanguageName( ELanguage eLang );
+// SE port: CS:GO's language.cpp implements this (line 65) and common/timeutils.cpp calls it.
+int GetLanguageCodeID( ELanguage eLang );
 
 #endif /* LANG_H */

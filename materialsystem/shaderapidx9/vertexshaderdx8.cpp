@@ -573,6 +573,8 @@ public:
 	virtual void				BindPixelShader( PixelShaderHandle_t shader );
 	virtual void				*GetCurrentVertexShader();
 	virtual void				*GetCurrentPixelShader();
+	virtual void				*GetVertexShader( VertexShader_t shader, int nDynamicIndex );
+	virtual void				*GetPixelShader( PixelShader_t shader, int nDynamicIndex );
 	virtual void				ResetShaderState();
 	void						FlushShaders();
 	virtual void				ClearVertexAndPixelShaderRefCounts();
@@ -1921,6 +1923,22 @@ retry_compile:
 	if ( hr != D3D_OK )
 	{
 		const char *pErrorMessageString = ( const char * )pErrorMessages->GetBufferPointer();
+
+		// SE port (bring-up aid): Plat_DebugString() only reaches OutputDebugString, which is invisible
+		// without a debugger attached - mirror the compiler diagnostic to the console/log too.
+		{
+			static int s_nSEFxcProbe = 0;
+			if ( s_nSEFxcProbe < 3 )
+			{
+				s_nSEFxcProbe++;
+				Warning( "SE_PORT_FXC: failed to compile '%s' (%s) static=%d dynamic=%d model=%s fileFound=%s\n",
+					pShaderName, filename, nStaticIndex, nDynamicIndex, pShaderModel,
+					( fp != FILESYSTEM_INVALID_HANDLE ) ? "yes" : "no" );
+				Warning( "SE_PORT_FXC:   %s\n",
+					pErrorMessages ? ( const char * )pErrorMessages->GetBufferPointer() : "(no error buffer)" );
+			}
+		}
+
 		Plat_DebugString( pErrorMessageString );
 		Plat_DebugString( "\n" );
 
@@ -3268,6 +3286,35 @@ void* CShaderManager::GetCurrentPixelShader()
 	return (void*)m_HardwarePixelShader;
 }
 
+//-----------------------------------------------------------------------------
+// SE port (CS:GO addition): see IShaderManager in vertexshaderdx8.h.  HardwareShader_t is already the
+// D3D shader object (locald3dtypes.h), so this is the plain dictionary lookup the panorama renderer
+// needs - it never goes through SetVertexShader/SetPixelShader/binding state.
+//-----------------------------------------------------------------------------
+void *CShaderManager::GetVertexShader( VertexShader_t shader, int nDynamicIndex )
+{
+	if ( !m_VertexShaderDict.IsValidIndex( shader ) )
+		return NULL;
+
+	ShaderStaticCombos_t &combos = m_VertexShaderDict[shader].m_ShaderStaticCombos;
+	if ( !combos.m_pHardwareShaders || nDynamicIndex < 0 || nDynamicIndex >= combos.m_nCount )
+		return NULL;
+
+	return combos.m_pHardwareShaders[nDynamicIndex];
+}
+
+void *CShaderManager::GetPixelShader( PixelShader_t shader, int nDynamicIndex )
+{
+	if ( !m_PixelShaderDict.IsValidIndex( shader ) )
+		return NULL;
+
+	ShaderStaticCombos_t &combos = m_PixelShaderDict[shader].m_ShaderStaticCombos;
+	if ( !combos.m_pHardwareShaders || nDynamicIndex < 0 || nDynamicIndex >= combos.m_nCount )
+		return NULL;
+
+	return combos.m_pHardwareShaders[nDynamicIndex];
+}
+
 
 //-----------------------------------------------------------------------------
 // The low-level dx call to set the vertex shader state
@@ -3315,6 +3362,24 @@ void CShaderManager::SetVertexShader( VertexShader_t shader )
 //		vshLookup.m_nStaticIndex, m_nVertexShaderIndex );
 
 #ifdef DYNAMIC_SHADER_COMPILE
+	// SE port: same guard as the pixel shader path below - panorama supplies its own dynamic combo index and
+	// it can exceed what this tree compiled.
+	{
+		ShaderStaticCombos_t &combos = m_VertexShaderDict[shader].m_ShaderStaticCombos;
+		if ( !combos.m_pHardwareShaders || vshIndex >= combos.m_nCount )
+		{
+			static bool s_bWarnedPanoramaVertexCombo = false;
+			if ( !s_bWarnedPanoramaVertexCombo )
+			{
+				s_bWarnedPanoramaVertexCombo = true;
+				Warning( "panorama: vertex shader '%s' asked for dynamic combo %d but this tree only compiled %d"
+						 " - falling back to combo 0\n",
+					m_ShaderSymbolTable.String( vshLookup.m_Name ), vshIndex, combos.m_nCount );
+			}
+			vshIndex = 0;
+		}
+	}
+
 	HardwareShader_t &dxshader = m_VertexShaderDict[shader].m_ShaderStaticCombos.m_pHardwareShaders[vshIndex];
 	if ( dxshader == INVALID_HARDWARE_SHADER )
 	{
@@ -3418,6 +3483,28 @@ void CShaderManager::SetPixelShader( PixelShader_t shader )
 //		pshLookup.m_nStaticIndex, m_nPixelShaderIndex );
 
 #ifdef DYNAMIC_SHADER_COMPILE
+	// SE port: panorama hands this engine its own dynamic combo index (IShaderAPI::GetOSPixelShader +
+	// SetPixelShaderIndex) and CS:GO's tables always have that combo.  In this tree the index can point past
+	// the end of the allocation, and the array access below then produced a wild shader pointer that the
+	// engine went on to use for the world - that is what crashed in SetPixelShader (access at 0xEA4AB0FC)
+	// about ten seconds after the CS:GO menu started drawing.  Clamp instead and say so once: a wrong shader
+	// is survivable, a wild pointer is not.
+	{
+		ShaderStaticCombos_t &combos = m_PixelShaderDict[shader].m_ShaderStaticCombos;
+		if ( pshIndex < 0 || !combos.m_pHardwareShaders || pshIndex >= combos.m_nCount )
+		{
+			static bool s_bWarnedPanoramaPixelCombo = false;
+			if ( !s_bWarnedPanoramaPixelCombo )
+			{
+				s_bWarnedPanoramaPixelCombo = true;
+				Warning( "panorama: pixel shader '%s' asked for dynamic combo %d but this tree only compiled %d"
+						 " - falling back to combo 0\n",
+					m_ShaderSymbolTable.String( pshLookup.m_Name ), pshIndex, combos.m_nCount );
+			}
+			pshIndex = 0;
+		}
+	}
+
 	HardwareShader_t &dxshader = m_PixelShaderDict[shader].m_ShaderStaticCombos.m_pHardwareShaders[pshIndex];
 	if ( dxshader == INVALID_HARDWARE_SHADER )
 	{

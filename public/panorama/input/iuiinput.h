@@ -5,7 +5,7 @@
 #ifndef IUIINPUT_H
 #define IUIINPUT_H
 
-#ifdef _WIN32
+#if defined(_WIN32) || defined(SOURCE2_PANORAMA)
 #pragma once
 #endif
 
@@ -19,8 +19,10 @@
 #include "../iuiengine.h"
 
 #ifdef SOURCE2_PANORAMA
-#include "inputsystem/buttoncode.h"
+#include "inputsystem/ButtonCode.h"
 #endif
+
+const int k_flInvalidSurfaceMouseCoord = -32000;
 
 namespace panorama
 {
@@ -47,6 +49,7 @@ enum EInputType
 	k_eGamePadDown		= 12,
 	k_eGamePadUp		= 13,
 	k_eGamePadAnalog	= 14,
+	k_eVRTouchPad		= 15,
 
 	k_eOverlayCommand	= 5000,
 
@@ -56,10 +59,18 @@ enum EInputType
 
 enum EActiveControllerType
 {
-	k_EActiveControllerType_None,		// we aren't using a controller or we don't know to do
+	k_EActiveControllerType_None,		// we haven't seen any input yet
+	k_EActiveControllerType_KBMouse,
 	k_EActiveControllerType_XInput,
 	k_EActiveControllerType_Steam,
+	k_EActiveControllerType_VR,
 };
+
+inline bool BIsControllerActiveControllerType( EActiveControllerType eActiveControllerType )
+{
+	return eActiveControllerType == k_EActiveControllerType_XInput
+		|| eActiveControllerType == k_EActiveControllerType_Steam;
+}
 
 //
 // structs container input type specific data
@@ -71,7 +82,7 @@ struct KeyData_t
 	KeyCode m_KeyCode;
 	uint8 m_RepeatCount;
 	bool m_bFirstDown; // is this the first time this key was pressed
-	wchar_t m_UniChar; // unicode equivalent of this key
+	uchar32 m_UniChar; // unicode equivalent of this key
 	uint32 m_Modifiers; // alt, ctrl, etc held down?
 };
 
@@ -84,6 +95,8 @@ struct MouseData_t
 	uint32 m_Modifiers;
 	uint8 m_RepeatCount;
 	int m_Delta;
+	float m_XPos;
+	float m_YPos;
 };
 
 struct GamePadData_t
@@ -110,6 +123,28 @@ struct GamePadData_t
 	float m_fValueYRaw;
 };
 
+struct VRTouchEvent_t
+{
+	EPanelEventSource_t m_eSource; // this needs to be the first field of the struct, since it's unioned in InputMessage_t
+
+	// is this the main (i.e laser pointer) controller or another one
+	bool m_bPrimaryController;
+	// the VR api device index for this controller
+	uint32 m_nDeviceIndex;
+
+	// is the pad touched right now, you will get one scroll after release
+	bool m_bFingerDown;
+	// how many seconds the pad has been touched
+	float m_flFingerDown;
+
+	// the starting finger position (so you can do some basic swipe stuff)
+	float m_fValueXFirst;
+	float m_fValueYFirst;
+
+	// the raw sampled coordinate without deadzoning
+	float m_fValueXRaw;
+	float m_fValueYRaw;
+};
 
 struct InputMessage_t
 {
@@ -121,6 +156,7 @@ struct InputMessage_t
 		KeyData_t m_KeyData;
 		MouseData_t m_MouseData;
 		GamePadData_t m_GamePadData;
+		VRTouchEvent_t m_VRTouchData;
 	};
 };
 
@@ -198,6 +234,8 @@ struct ActionInput_t
 		case k_eGamePadAnalog:
 			m_Data.m_GamePadCode = msg.m_GamePadData.m_GamePadCode;
 			break;
+		case k_eVRTouchPad: // this is an analog event
+			break;
 		}
 	}
 
@@ -254,6 +292,8 @@ struct ActionInput_t
 		case k_eGamePadUp:
 		case k_eGamePadAnalog:
 			return m_Data.m_GamePadCode < that.m_Data.m_GamePadCode;
+		case k_eVRTouchPad:
+			return that.m_InputType < m_InputType;
 		}
 	}
 
@@ -281,6 +321,8 @@ struct ActionInput_t
 			case k_eGamePadUp:
 			case k_eGamePadAnalog:
 				return m_Data.m_GamePadCode == that.m_Data.m_GamePadCode;
+			case k_eVRTouchPad:
+				return that.m_InputType == m_InputType;
 			}
 		}
 		return false;
@@ -293,6 +335,37 @@ inline bool IsControlPressed( uint32 unModifiers ) { return unModifiers & MODIFI
 inline bool IsAltPressed( uint32 unModifiers ) { return unModifiers & MODIFIER_LALT || unModifiers & MODIFIER_RALT; }
 inline bool IsShiftPressed( uint32 unModifiers ) { return unModifiers & MODIFIER_LSHIFT || unModifiers & MODIFIER_RSHIFT; }
 inline bool IsWinPressed( uint32 unModifiers ) { return unModifiers & MODIFIER_LWIN || unModifiers & MODIFIER_RWIN; }
+
+// Helper for checking if shortcuts like Ctrl+C/Ctrl+V
+inline bool IsControlShortcutPressed( uint32 unModifiers )
+{
+	// Is control or command on mac pressed?
+	if ( !IsControlPressed( unModifiers ) && !( IsOSX() && IsWinPressed( unModifiers ) ) )
+		return false;
+
+	// Is alt or shift also pressed? If so, don't claim the shortcut is pressed. This is important because
+	// when things like polish keyboard layouts try to type AltGr, they end up with both Alt+Ctrl pressed.
+	// So instead of typing an accented "a", they end up first doing a "select all" followed by the accented "a",
+	// which ends up deleting all their text.
+	if ( IsAltPressed( unModifiers ) || IsShiftPressed( unModifiers ) )
+		return false;
+
+	return true;
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: check if game pad code belongs to active controller 
+//-----------------------------------------------------------------------------
+inline bool BIsGamePadCodeForController( GamePadCode eCode, EActiveControllerType eController )
+{
+	if( eCode < XK_BUTTON_LAST && eController == k_EActiveControllerType_XInput )
+		return true;
+
+	if( eCode > XK_BUTTON_LAST && eController == k_EActiveControllerType_Steam )
+		return true;
+
+	return false;
+}
 
 
 // 
@@ -331,12 +404,14 @@ public:
 	virtual bool OnCapturedKeyTyped( IUIPanel *pPanel, const KeyData_t &unichar ) = 0;
 
 	// mouse
-	virtual bool OnCapturedMouseMove( IUIPanel *pPanel ) = 0;
+	virtual bool OnCapturedMouseHover( IUIPanel *pPanel ) = 0;
+	virtual bool OnCapturedMouseMove( IUIPanel *pPanel, float flMouseX, float flMouseY ) = 0;
 	virtual bool OnCapturedMouseButtonDown( IUIPanel *pPanel, const MouseData_t &code ) = 0;
 	virtual bool OnCapturedMouseButtonUp( IUIPanel *pPanel, const MouseData_t &code ) = 0;
 	virtual bool OnCapturedMouseButtonDoubleClick( IUIPanel *pPanel, const MouseData_t &code ) = 0;
 	virtual bool OnCapturedMouseButtonTripleClick( IUIPanel *pPanel, const MouseData_t &code ) = 0;
 	virtual bool OnCapturedMouseWheel( IUIPanel *pPanel, const MouseData_t &code ) = 0;
+	virtual bool OnCapturedVRTouchPad( IUIPanel *pPanel, const VRTouchEvent_t &code ) = 0;
 
 	// gamepad
 	virtual bool OnCapturedGamePadDown( IUIPanel *pPanel, const GamePadData_t &code ) = 0;
@@ -353,17 +428,39 @@ public:
 	virtual bool OnCapturedKeyTyped( panorama::IUIPanel *pPanel, const panorama::KeyData_t &unichar ) OVERRIDE { return false; }
 
 	// mouse
-	virtual bool OnCapturedMouseMove( panorama::IUIPanel *pPanel ) OVERRIDE { return false; }
+	virtual bool OnCapturedMouseHover( panorama::IUIPanel *pPanel ) OVERRIDE { return false; }
+	virtual bool OnCapturedMouseMove( IUIPanel *pPanel, float flMouseX, float flMouseY ) OVERRIDE { return false; }
 	virtual bool OnCapturedMouseButtonDown( panorama::IUIPanel *pPanel, const panorama::MouseData_t &code ) OVERRIDE { return false; }
 	virtual bool OnCapturedMouseButtonUp( panorama::IUIPanel *pPanel, const panorama::MouseData_t &code ) OVERRIDE { return false; }
 	virtual bool OnCapturedMouseButtonDoubleClick( panorama::IUIPanel *pPanel, const panorama::MouseData_t &code ) OVERRIDE { return false; }
 	virtual bool OnCapturedMouseButtonTripleClick( panorama::IUIPanel *pPanel, const panorama::MouseData_t &code ) OVERRIDE { return false; }
 	virtual bool OnCapturedMouseWheel( panorama::IUIPanel *pPanel, const panorama::MouseData_t &code ) OVERRIDE { return false; }
+	virtual bool OnCapturedVRTouchPad( IUIPanel *pPanel, const VRTouchEvent_t &code ) OVERRIDE{ return false; }
 
 	// gamepad
 	virtual bool OnCapturedGamePadDown( panorama::IUIPanel *pPanel, const panorama::GamePadData_t &code ) OVERRIDE { return false; }
 	virtual bool OnCapturedGamePadUp( panorama::IUIPanel *pPanel, const panorama::GamePadData_t &code ) OVERRIDE { return false; }
 	virtual bool OnCapturedGamePadAnalog( panorama::IUIPanel *pPanel, const panorama::GamePadData_t &code ) OVERRIDE { return false; }
+};
+
+
+class IDragStartCallbacks: public panorama::IUIJSObject
+{
+public:
+	virtual void SetDisplayPanel( IUIPanel *pPanel ) = 0;
+	virtual IUIPanel *GetDisplayPanel() const = 0;
+
+	// Allows override of the anchor point
+	virtual void SetOffsetX( int nOffset ) = 0;
+	virtual int GetOffsetX() const = 0;
+	virtual void SetOffsetY( int nOffset ) = 0;
+	virtual int GetOffsetY() const = 0;
+
+	// By default, the drag system will remove the position property it applied before sending DragDrop().
+	// If you want to control that manually (for example to run an animation on the element being dragged),
+	// you can turn that off here
+	virtual void SetRemovePositionBeforeDrop( bool bRemovePositionBeforeDrop ) = 0;
+	virtual bool ShouldRemovePositionBeforeDrop() const = 0;
 };
 
 //
@@ -375,7 +472,8 @@ public:
 	virtual bool InputEvent( InputMessage_t &msg, bool bNewEvent = true ) = 0;
 
 	// Receive mouse move events, in window coordinate space
-	virtual void OnMouseMove( float flMouseX, float flMouseY, bool bSynthesized = false ) = 0;
+	virtual void OnMouseMove( float flMouseX, float flMouseY ) = 0;
+	virtual void OnMouseMoveSurfaceCoords( float flMouseX, float flMouseY ) = 0;
 
 	// current mouse coordinates and visibility
 	virtual void GetSurfaceMousePosition( float &x, float &y ) = 0;
@@ -389,6 +487,12 @@ public:
 	virtual bool BWasGamepadUsedThisSession() = 0;
 	virtual bool BWasSteamControllerConnectedThisSession() = 0;
 	virtual bool BWasSteamControllerUsedThisSession() = 0;
+	// Do we want to act like we have a mouse/keyboard connected? Note that some platforms don't have accurate data here
+	// but we do the best we can. If we've seen mouse/keyboard input this session, we assume that you still have it
+	// connected.
+	virtual bool BWasMouseOrKeyboardUsedThisSession() const = 0;
+
+	virtual void RereadControllerState() = 0;
 
 	// tracking of last input type
 	virtual bool BWasGamepadLastInputSource() = 0;
@@ -397,10 +501,6 @@ public:
 
 	// Get the last input source
 	virtual EPanelEventSource_t GetLastPanelEventSource() = 0;
-
-	// Keyboard / mouse info
-	virtual bool BWasKeyboardOrMouseUsedThisSession() = 0;
-	virtual bool BWasMouseMovedThisSession() = 0;
 
 	// top level OS window support
 	virtual void GotWindowFocus() = 0;
@@ -414,6 +514,7 @@ public:
 	virtual void SetInputFocus( IUIPanel *pPanel, bool bScrollParentToFit, bool bChangeContextIfNeeded ) = 0;
 	virtual bool SetInputFocusContext( IUIPanel *pPanelInContext ) = 0;
 	virtual void PopInputContext() = 0;
+	virtual void RemoveInputContext( IUIPanel *pPanel ) = 0;
 	virtual IUIPanel *GetInputFocusContext() = 0;
 	virtual IUIPanel *GetInputFocus() = 0;
 	virtual IUIPanel *GetMouseHover() = 0;
@@ -438,7 +539,53 @@ public:
 
 	// Get focus panel at time of last mouse down
 	virtual IUIPanel *GetFocusOnLastMouseDown() = 0;
+
+	// Copy any input events to target window
+	virtual void SetInputForwarding( IUIWindowInput *pWindowInputForwarding ) = 0;
+	
+	// Is a drag+drop operation in progress?
+	virtual bool BDragInProgress() = 0;
+
+	// enable/disable dragging with a specific mouse button
+	virtual void SetDragDropEnabled( MouseCode code, bool bEnabled ) = 0;
+
+	// Draw debug information regarding the top level window on the screen
+	virtual void DrawInputDebugInfo() = 0;
 };
+
+////////////////////////////////////
+// DO NOT RENUMBER - These values are used by the web
+////////////////////////////////////
+enum EAttachedHardwareDevice
+{
+	k_AttachedHardwareDevice_MouseKeyboard = 1,
+	k_AttachedHardwareDevice_SteamController = 2,
+	k_AttachedHardwareDevice_XInput = 3,
+	k_AttachedHardwareDevice_HTCVive = 4,
+	k_AttachedHardwareDevice_OculusDK1 = 5,
+	k_AttachedHardwareDevice_OculusDK2 = 6,
+	k_AttachedHardwareDevice_OculusCV1 = 7,
+	k_AttachedHardwareDevice_HTCMotionController = 8,
+	k_AttachedHardwareDevice_OculusTouchController = 9,
+
+	k_Dummy_AttachedHardwareDeviceCount,
+	k_AttachedHardwareDeviceCount = k_Dummy_AttachedHardwareDeviceCount - 1			// we're 1-indexed in this list
+};
+
+inline bool BIsVRHMDHardwareDevice( EAttachedHardwareDevice eDevice )
+{
+	return (eDevice == k_AttachedHardwareDevice_HTCVive || eDevice == k_AttachedHardwareDevice_OculusDK1 || eDevice == k_AttachedHardwareDevice_OculusDK2 || eDevice == k_AttachedHardwareDevice_OculusCV1);
+}
+
+inline bool BIsOculusVRHMDHardwareDevice( EAttachedHardwareDevice eDevice )
+{
+	return (eDevice == k_AttachedHardwareDevice_OculusDK1 || eDevice == k_AttachedHardwareDevice_OculusDK2 || eDevice == k_AttachedHardwareDevice_OculusCV1);
+}
+
+inline bool BIsViveVRHMDHardwareDevice( EAttachedHardwareDevice eDevice )
+{
+	return (eDevice == k_AttachedHardwareDevice_HTCVive);
+}
 
 
 //
@@ -469,21 +616,17 @@ public:
 	virtual void SetInputCapture( IInputCapture *pCapture ) = 0;
 	virtual void ReleaseInputCapture( IInputCapture *pCapture ) = 0;
 	virtual CUtlVector< IInputCapture * > &GetInputCapture() = 0;
+	virtual bool BGetDebugHitTesting( void ) const = 0;
+	virtual void SetDebugHitTesting( bool bDebugHitTest ) = 0;
 
 	// Checks whether gamepads are connected
 	virtual int GetNumGamepadsConnected() const = 0;
 	
 	// did any gamepad have input since we last asked
 	virtual bool BWasGamepadOrSteamControllerActive() = 0;
-	
-	// flags to tell steam controller layer which buttons to treat as mouse and not disable cursor on seeing
-	virtual void SetSteamPadButtonsToTreatAsMouse( uint64 ulButtonMask ) = 0;
 
 	// if a gamepad is connected then its friendly name
-	virtual const char *PchGamePadName() = 0;
-
-	// return true if we are emulating a gamepad using a simple joystick, so we have less input functionality available
-	virtual bool BEmulatingGamePadWithJoystick() = 0;
+	virtual const char *PchGamePadName( int iDevice ) = 0;
 
 	// helper for gamepad codes, returns values that are inside the deadzone for this joystick
 	virtual float GetDeadZoneValue( GamePadCode code ) = 0;
@@ -498,23 +641,36 @@ public:
 	// used, exists, etc.)? You probably don't want to call this directly but instead listen for ActiveControllerTypeChanged.
 	virtual EActiveControllerType GetActiveControllerType() const = 0;
 
+#if !defined(NO_STEAM)
 	// Get count of actively connected Steam controllers
 	virtual uint32 GetSteamControllerCount() const = 0;
 
 	// Get the time a steam controller was last assigned/used
 	virtual float GetLastSteamControllerActiveTime() const = 0;
+#endif
 
 	// Get the time a non-steam controller was last assigned/used
 	virtual float GetLastGamePadControllerActiveTime() const = 0;
 
+#if !defined(NO_STEAM)
 	// Get the ID of the steam controller currently sending events to the window
 	virtual int GetLastSteamControllerActiveIndex() const = 0;
+#endif
 	
 	// Pulse haptic feedback on active gamepad/steam controller if supported
 	virtual void PulseActiveControllerHaptic( IUIEngine::EHapticFeedbackPosition ePosition, IUIEngine::EHapticFeedbackStrength eStrength ) = 0;
+	
+	// Determine the correct position for haptics
+	virtual IUIEngine::EHapticFeedbackPosition GetHapticFeedbackPositionForInteraction() = 0;
+	
+	// Disables every Steam Controller except the requested index; -1 to re-enable all
+	virtual void SetControllerExclusiveEnabledIndex( int iIndex ) = 0;
 
-	// Is finger actively down on steam controller right pad?  Probably means mouse emulation in use.
+#if !defined(NO_STEAM)
+	// Is finger actively down on steam controller left/right pad?
+	virtual bool BIsFingerDownOnSteamControllerLeftPad() const = 0;
 	virtual bool BIsFingerDownOnSteamControllerRightPad() const = 0;
+#endif
 
 	// Register a file path to look for keybindings
 	virtual void RegisterKeyBindingsFile( const char *pszFilePath ) = 0;
@@ -536,6 +692,36 @@ public:
 
 	// Check if two gamepad codes are the 'same' button but on different vendor devices
 	virtual bool BIsGamePadCodeEquivalentIgnoringVendor( GamePadCode a, GamePadCode b ) = 0;
+
+	enum EControllerPowerLevel
+	{
+		ePowerLevel_Unknown,
+		ePowerLevel_Empty,
+		ePowerLevel_Low,
+		ePowerLevel_Medium,
+		ePowerLevel_Full,
+		ePowerLevel_Wired,
+	};
+
+	// get the battery level for a controller, from 0 to GetNumGamepadsConnected()
+	virtual EControllerPowerLevel GetConnectGamePadPowerLevel( int iGamePad ) = 0;
+
+	// pulse this gamepads haptics
+	virtual void PulseGamePadHaptics( int iGamePad, float flStrength, uint32 uEffectMS ) = 0;
+
+#if !defined( SOURCE2_PANORAMA )
+	// Get a list of all known attached/usable input devices. This may return different results based on the
+	// user's platform/configuration.
+	virtual CUtlVector<EAttachedHardwareDevice> GetAttachedHardwareDevices() const = 0;
+#endif
+
+	virtual void ForceActiveControllerType( EActiveControllerType uControllerType ) = 0;
+	virtual void SetVRControllerActivityTime() = 0;
+
+#ifdef SOURCE2_PANORAMA
+	virtual bool IsIMEAllowed() const = 0;
+	virtual void SetIMEAllowed( bool bAllowed ) = 0;
+#endif
 };
 
 } // namespace panorama

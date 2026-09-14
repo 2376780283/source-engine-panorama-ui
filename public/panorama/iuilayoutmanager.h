@@ -22,10 +22,10 @@ class CStyleAnimation;
 class IUILayoutFile
 {
 public:
-	virtual bool BReplaceDefines( CPanoramaSymbol symStyleFile, char *rgchBuffer, uint cubBuffer ) = 0;
+	virtual bool BReplaceDefines( char *rgchBuffer, uint cubBuffer, uint unFileOrder ) = 0;
 	virtual void BuildMatchingStyleList( CUtlVector< CascadeStyleFileInfo_t > &vecStyles, const CPanelIdentifiers &panelID, IUILayoutFile *pPreviousLayoutFile ) = 0;
 
-	virtual CPanoramaSymbol GetStyleFileSymbol( int i ) const = 0;
+	virtual void GetStyleFileSymbols( StyleFileIndex_t iFileIndex, CUtlVector< CPanoramaSymbol > &vecStyleFileSymbols ) const = 0;
 	virtual CPanoramaSymbol GetLayoutFileSymbol() const = 0;
 
 	virtual const CStyleAnimation *GetAnimation( CPanoramaSymbol symName ) = 0;

@@ -1535,6 +1535,7 @@ inline AngularImpulse RandomAngularImpulse( float minVal, float maxVal )
 //-----------------------------------------------------------------------------
 
 class RadianEuler;
+class QAngle;
 
 class Quaternion				// same data-layout as engine's vec4_t,
 {								//		which is a vec_t[4]
@@ -1562,6 +1563,9 @@ public:
 
 	vec_t* Base() { return (vec_t*)this; }
 	const vec_t* Base() const { return (vec_t*)this; }
+
+	// Panorama port (CSGO2019)
+	inline QAngle ToQAngle() const;
 
 	// array access...
 	vec_t operator[](int i) const;
@@ -1933,6 +1937,13 @@ inline QAngle RadianEuler::ToQAngle( void) const
 		y * 180.f / 3.14159265358979323846f,
 		z * 180.f / 3.14159265358979323846f,
 		x * 180.f / 3.14159265358979323846f );
+}
+
+// Panorama port (CSGO2019): Quaternion -> QAngle via RadianEuler.
+inline QAngle Quaternion::ToQAngle() const
+{
+	RadianEuler euler( *this );
+	return euler.ToQAngle();
 }
 
 

@@ -10,17 +10,18 @@
 #pragma once
 #endif
 
-#define MAX_PANORAMA_STYLE_SYMBOLS 128
+#define MAX_PANORAMA_STYLE_SYMBOLS 127
+// Special symbol for scroll offsets in animation engine
+#define STYLE_SYMBOL_SCROLL 0xFE
+#define STYLE_SYMBOL_INVALID 0xFF
 
 #include "tier0/validator.h"
 #include "utlsymbol.h"
 #include "utlvector.h"
-#ifdef SOURCE_PANORAMA_FIXME
-#include "UtlSortVector.h"
-#else
 #include "utlsortvector.h"
-#endif
 #include "utlstring.h"
+
+
 
 
 namespace panorama
@@ -32,7 +33,7 @@ namespace panorama
 	{
 	public:
 		// constructor, destructor
-		CStyleSymbol() : m_Id( 0xFF ) {}
+		CStyleSymbol() : m_Id( STYLE_SYMBOL_INVALID ) {}
 		CStyleSymbol( uint8 id ) : m_Id( id ) {}
 		CStyleSymbol( char const* pStr );
 		CStyleSymbol( char const* pStr, bool bCreateNew );
@@ -55,7 +56,7 @@ namespace panorama
 		uint8 GetID() const { return m_Id; }
 
 		// Is valid?
-		bool IsValid() const { return m_Id != 0xFF; }
+		bool IsValid() const { return m_Id != STYLE_SYMBOL_INVALID; }
 
 		// Gets the string associated with the symbol
 		char const* String() const;

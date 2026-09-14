@@ -70,6 +70,8 @@ enum
 //-----------------------------------------------------------------------------
 // Events
 //-----------------------------------------------------------------------------
+#include "tier0/platwindow.h"
+
 enum InputEventType_t
 {
 	IE_ButtonPressed = 0,	// m_nData contains a ButtonCode_t
@@ -79,14 +81,55 @@ enum InputEventType_t
 	IE_FingerDown,
 	IE_FingerUp,
 	IE_FingerMotion,
+	// SE port: CS:GO's key-repeat event (panorama's input handling distinguishes it from
+	// IE_ButtonPressed).  Appended after the existing Source Engine values so their numeric values
+	// are unchanged.
+	IE_ButtonPressedRepeating,
 	
 	IE_FirstSystemEvent = 100,
 	IE_Quit = IE_FirstSystemEvent,
 	IE_ControllerInserted,	// m_nData contains the controller ID
 	IE_ControllerUnplugged,	// m_nData contains the controller ID
+	// SE port: CS:GO's remaining system events (panorama/source2/uitoplevelwindowsource2.cpp
+	// switches on IE_Close / IE_WindowSizeChanged / IE_ActivateWindow).  Appended after the existing
+	// Source Engine values so their numeric values are unchanged.
+	IE_Close,
+	IE_WindowSizeChanged,	// m_nData contains width, m_nData2 contains height, m_nData3 = 0 if not minimized, 1 if minimized
+	IE_ActivateApp,			// Tells if any window went foreground. m_hWnd is PLAT_WINDOW_INVALID.    m_nData = 1 -> activated, 0 -> deactivated
+	IE_ActivateWindow,		// Tells if a specific window showed up or went away. m_hWindow is valid. m_nData = 1 -> activated, 0 -> deactivated
+	IE_CopyData,			// Data to be copied between applications
+
+	// SE port: CS:GO's UI event range.  panorama/source2/panoramauiengine.cpp
+	// (CPanoramaUIEngine::HandleInputEvent) switches on these, and the IME events are driven by
+	// imesource2.cpp.  CS:GO also defines IE_Close / IE_WindowSizeChanged / IE_ActivateApp /
+	// IE_ActivateWindow / IE_CopyData in the system block; add them when the engine integration (M4)
+	// starts posting them.
+	IE_FirstUIEvent = 200,
+	IE_LocateMouseClick = IE_FirstUIEvent,
+	IE_SetCursor,
+	IE_KeyTyped,
+	IE_KeyCodeTyped,
+	IE_KeyCodeReleased,
+	IE_InputLanguageChanged,
+	IE_IMESetWindow,
+	IE_IMEStartComposition,
+	IE_IMEComposition,
+	IE_IMEEndComposition,
+	IE_IMEShowCandidates,
+	IE_IMEChangeCandidates,
+	IE_IMECloseCandidates,
+	IE_IMERecomputeModes,
+	IE_OverlayEvent,
 
 	IE_FirstVguiEvent = 1000,	// Assign ranges for other systems that post user events here
 	IE_FirstAppEvent = 2000,
+
+	// If m_nType is IE_ButtonPressed, m_nData2 will contain one or more of these modifier flags
+	// (SE port: CS:GO defines them in this enum; Source Engine 2013 only had the m_nData2 comment).
+	IE_ShiftPressed		= 1,
+	IE_ControlPressed	= 2,
+	IE_AltPressed		= 4,
+	IE_GuiPressed		= 8,	// Windows key, Mac Command key, etc.
 };
 
 struct InputEvent_t
@@ -96,6 +139,9 @@ struct InputEvent_t
 	int m_nData;				// Generic 32-bit data, what it contains depends on the event
 	int m_nData2;				// Generic 32-bit data, what it contains depends on the event
 	int m_nData3;				// Generic 32-bit data, what it contains depends on the event
+
+	// SE port: CS:GO carries the destination window in the event (panorama routes input per window).
+	PlatWindow_t	m_hWnd;
 };
 
 //-----------------------------------------------------------------------------

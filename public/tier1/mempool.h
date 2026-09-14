@@ -1,4 +1,4 @@
-//===== Copyright 1996-2005, Valve Corporation, All rights reserved. ======//
+﻿//===== Copyright 1996-2005, Valve Corporation, All rights reserved. ======//
 //
 // Purpose: 
 //
@@ -121,11 +121,29 @@ private:
 	CThreadFastMutex m_mutex; // @TODO: Rework to use tslist (toml 7/6/2007)
 };
 
+// Typedef for src2 compat (CS:GO-era name)
+typedef CMemoryPoolMT CUtlMemoryPoolMT;
+
 
 //-----------------------------------------------------------------------------
 // Wrapper macro to make an allocator that returns particular typed allocations
 // and construction and destruction of objects.
 //-----------------------------------------------------------------------------
+template< class T >
+class CClassMemoryPoolMT : public CMemoryPoolMT
+{
+public:
+	CClassMemoryPoolMT(int numElements, int growMode = GROW_FAST, int nAlignment = 0 ) :
+		CMemoryPoolMT( sizeof(T), numElements, growMode, MEM_ALLOC_CLASSNAME(T), nAlignment ) {}
+
+	T*		Alloc();
+	T*		AllocZero();
+	void	Free( T *pMem );
+
+	void	Clear();
+};
+
+
 template< class T >
 class CClassMemoryPool : public CUtlMemoryPool
 {
@@ -335,6 +353,226 @@ public:
 	inline void  operator delete( void* p, int nBlockUse, const char *pFileName, int nLine ) { poolName.Free(p); }
 
 //-----------------------------------------------------------------------------
+// CUtlScratchMemoryPool
+// A memory pool which can only be added to but never freed, until *everything* is freed all at once.
+// You may optionally specify a stack-based allocation to start allocating from.
+// All allocations follow the primary allocator pattern where allocations of
+// 16 bytes or more are 16-byte aligned and smaller requests are 8-byte aligned.
+//-----------------------------------------------------------------------------
+
+#define UTL_SCRATCH_MEMORY_POOL_STATS 0
+
+struct UtlScratchMemoryPoolMark_t
+{
+	void *m_pBlock;
+	int m_nBytesFree;
+#if UTL_SCRATCH_MEMORY_POOL_STATS
+	int m_nNumAllocs;
+	int m_nBytesAllocated;
+	int m_nBytesWasted;
+#endif
+};
+
+class CUtlScratchMemoryPool
+{
+public:
+	// nBlockSize - Block size to allocate from the heap, which must be 16-byte aligned.
+	// When we overflow the block, a new block of the same size will be allocated.
+	// If you try to allocate something larger than the block size,
+	// a specific new block will be made for that allocation.
+	// pStackMem and represents an initial block to use from the stack, if desired.
+	// The size of the stack memory must match the block size,
+	// and the pointer must be 16-byte aligned (which stackalloc does for you automatically)
+	// bSearchAllBlocks controls whether just the first block is searched for allocation
+	// space or whether all current blocks are.	 If you are willing to pay extra expense
+	// on allocations and you want to fill as much pool memory as possible searching all blocks
+	// can reduce waste.  It does mean that you cannot use FreeToAllocPoint though, you
+	// can only do a full free.
+	CUtlScratchMemoryPool();
+	CUtlScratchMemoryPool( int nBlockSize, void *pExternalMem = NULL, bool bSearchAllBlocks = false );
+	~CUtlScratchMemoryPool();
+
+	void		Init( int nBlockSize, void *pExternalMem = NULL, bool bSearchAllBlocks = false );
+
+	// Allocate nSizeInBytes aligned on an nAlignment-byte boundary.
+	// Only allows up to 16-byte alignment.
+	void*		AllocAligned( int nSizeInBytes, int nAlignment );
+
+	// Choose alignment from the allocation size.
+	void* AllocNaturalAligned( int nSizeInBytes )
+	{
+		int nAlignment = 16;
+		if ( nSizeInBytes < 2 )
+		{
+			nAlignment = 1;
+		}
+		else if ( nSizeInBytes < 4 )
+		{
+			nAlignment = 2;
+		}
+		else if ( nSizeInBytes < 8 )
+		{
+			nAlignment = 4;
+		}
+		else if ( nSizeInBytes < 16 )
+		{
+			nAlignment = 8;
+		}
+		return AllocAligned( nSizeInBytes, nAlignment );
+	}
+
+	// Allocate nSizeInBytes bytes
+	void* Alloc( int nSizeInBytes )
+	{
+		// Return memory aligned for any purpose.
+		return AllocAligned( nSizeInBytes, nSizeInBytes >= 16 ? 16 : 8 );
+	}
+	// Allocate nSizeInBytes bytes, cleared to zero
+	void* AllocZero( int nSizeInBytes )
+	{
+		// Return memory aligned for any purpose.
+		void *pMemory = AllocAligned( nSizeInBytes, nSizeInBytes >= 16 ? 16 : 8 );
+		V_memset( pMemory, 0, nSizeInBytes );
+		return pMemory;
+	}
+
+	template<typename T> T *AllocType( int nElts )
+	{
+		AssertDbg( nElts <= INT_MAX / sizeof( T ) );
+		return (T*)AllocAligned( nElts * sizeof( T ), VALIGNOF( T ) );
+	}
+
+	const char *DupString( const char *pStr )
+	{
+		int nLen = V_strlen( pStr ) + 1;
+		char *pMem = AllocType<char>( nLen );
+		V_memcpy( pMem, pStr, nLen * sizeof( *pMem ) );
+		return pMem;
+	}
+
+	// Frees everything
+	void		FreeAll();
+
+	// It is sometimes possible to free the last allocation you made.
+	// These cannot be used in a search-all-blocks pool.
+	UtlScratchMemoryPoolMark_t GetCurrentAllocPoint() const;
+	void FreeToAllocPoint( UtlScratchMemoryPoolMark_t mark );
+
+#if UTL_SCRATCH_MEMORY_POOL_STATS
+	int GetNumAllocs() const
+	{
+		return m_nNumAllocs;
+	}
+	int GetBytesWasted() const
+	{
+		return m_nBytesWasted;
+	}
+	int GetBytesUnused() const
+	{
+		if ( m_bSearchAllBlocks )
+		{
+			int nFree = 0;
+			for ( MemoryBlock_t *pBlock = m_pFirstBlock; pBlock != NULL; pBlock = pBlock->m_pNext )
+			{
+				nFree += pBlock->m_nBytesFree;
+			}
+			return nFree + m_nBytesWasted;
+		}
+		else
+		{
+			return GetFirstBytesFree() + m_nBytesWasted;
+		}
+	}
+	bool HasExternalBlock() const
+	{
+		for ( MemoryBlock_t *pBlock = m_pFirstBlock; pBlock != NULL; pBlock = pBlock->m_pNext )
+		{
+			if ( pBlock->m_bSkipDeallocation )
+			{
+				return true;
+			}
+		}
+		return false;
+	}
+	int GetNumBlocks() const
+	{
+		int nCount = 0;
+		for ( MemoryBlock_t *pBlock = m_pFirstBlock; pBlock != NULL; pBlock = pBlock->m_pNext )
+		{
+			nCount++;
+		}
+		return nCount;
+	}
+	void LogStats( LoggingChannelID_t nChannel, const char *pName ) const;
+#endif
+
+protected:
+	// Needs to be 16-byte aligned
+	struct ALIGN16 MemoryBlock_t
+	{
+		MemoryBlock_t	*m_pNext;
+		int				m_nBytesFree;
+		bool			m_bSkipDeallocation;	// Used to skip the stack-based allocation
+
+		uint8 *GetAllocPtr( int nOffset )
+		{
+			// Skip the block header when figuring the block base.
+			return (uint8*)( this + 1 ) + nOffset;
+		}
+	} ALIGN16_POST;
+
+	bool IsInitialized() const
+	{
+		return m_nBlockSize != 0;
+	}
+	void *AddNewBlock( int nSizeInBytes );
+
+	int GetFirstBytesFree() const
+	{
+		return m_pFirstBlock ? m_pFirstBlock->m_nBytesFree : 0;
+	}
+
+	int GetBlockUsableBytes() const
+	{
+		return m_nBlockSize - sizeof( MemoryBlock_t );
+	}
+
+	MemoryBlock_t *m_pFirstBlock;
+	int	m_nBlockSize;
+	bool m_bSearchAllBlocks;
+#if UTL_SCRATCH_MEMORY_POOL_STATS
+	int m_nNumAllocs;
+	int m_nBytesAllocated;
+	// Includes all bytes from deeper blocks that weren't
+	// used but not the current block's free bytes.
+	int m_nBytesWasted;
+#endif
+};
+
+//-----------------------------------------------------------------------------
+// CUtlScratchMemoryPoolFixedGrowable
+// A CUtlScratchMemoryPool wrapper that provides an initial memory block.
+//-----------------------------------------------------------------------------
+template < int nBlockSize > class CUtlScratchMemoryPoolFixedGrowable : public CUtlScratchMemoryPool
+{
+	typedef CUtlScratchMemoryPool BaseClass;
+
+public:
+	CUtlScratchMemoryPoolFixedGrowable() : BaseClass( nBlockSize, m_initialAllocationMemory )
+	{
+	}
+
+private:
+	ALIGN16 uint8 m_initialAllocationMemory[nBlockSize] ALIGN16_POST;
+};
+
+
+//-----------------------------------------------------------------------------
+
+
+
+
+//-----------------------------------------------------------------------------
 
 
 template< class T >
@@ -411,6 +649,86 @@ inline void CClassMemoryPool<T>::Clear()
 	}
 
 	CUtlMemoryPool::Clear();
+}
+
+
+//-----------------------------------------------------------------------------
+// CClassMemoryPoolMT inline implementations (CS:GO-era addition)
+//-----------------------------------------------------------------------------
+template< class T >
+inline T* CClassMemoryPoolMT<T>::Alloc()
+{
+	T *pRet;
+
+	{
+	MEM_ALLOC_CREDIT_CLASS();
+	pRet = (T*)CUtlMemoryPoolMT::Alloc();
+	}
+
+	if ( pRet )
+	{
+		Construct( pRet );
+	}
+	return pRet;
+}
+
+template< class T >
+inline T* CClassMemoryPoolMT<T>::AllocZero()
+{
+	T *pRet;
+
+	{
+	MEM_ALLOC_CREDIT_CLASS();
+	pRet = (T*)CUtlMemoryPoolMT::AllocZero();
+	}
+
+	if ( pRet )
+	{
+		Construct( pRet );
+	}
+	return pRet;
+}
+
+template< class T >
+inline void CClassMemoryPoolMT<T>::Free(T *pMem)
+{
+	if ( pMem )
+	{
+		Destruct( pMem );
+	}
+
+	CUtlMemoryPoolMT::Free( pMem );
+}
+
+template< class T >
+inline void CClassMemoryPoolMT<T>::Clear()
+{
+	CUtlRBTree<void *, int> freeBlocks;
+	SetDefLessFunc( freeBlocks );
+
+	void *pCurFree = m_pHeadOfFreeList;
+	while ( pCurFree != NULL )
+	{
+		freeBlocks.Insert( pCurFree );
+		pCurFree = *((void**)pCurFree);
+	}
+
+	for( CBlob *pCur=m_BlobHead.m_pNext; pCur != &m_BlobHead; pCur=pCur->m_pNext )
+	{
+		int nElements = pCur->m_NumBytes / this->m_BlockSize;
+		T *p = ( T * ) AlignValue( pCur->m_Data, this->m_nAlignment );
+		T *pLimit = p + nElements;
+		while ( p < pLimit )
+		{
+			if ( freeBlocks.Find( p ) == freeBlocks.InvalidIndex() )
+			{
+				Destruct( p );
+			}
+			p++;
+		}
+	}
+
+	CUtlMemoryPoolMT::Clear();
 }
 
 

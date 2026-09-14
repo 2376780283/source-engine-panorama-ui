@@ -884,7 +884,11 @@ void CVideoMode_Common::SetupStartupGraphic()
         m_pBackgroundTexture = LoadVTF( buf, ( aspectRatio >= 1.6f ) ? "materials/console/background01_widescreen.vtf" : "materials/console/background01.vtf" );
         if ( !m_pBackgroundTexture )
         {
-            Error( "Can't find background image '%s'\n", material );
+            // SE port: this port runs without any retail content, so the console background is simply
+            // absent.  DrawStartupGraphic() already bails out when either texture is NULL, so a warning
+            // is enough - CS:GO's Error() would stop the engine dead on startup.
+            Warning( "Can't find background image '%s' - continuing without a startup background\n", material );
+            m_pLoadingTexture = NULL;
             return;
         }
     }
@@ -897,7 +901,8 @@ void CVideoMode_Common::SetupStartupGraphic()
     m_pLoadingTexture = LoadVTF( buf, loading );
     if ( !m_pLoadingTexture )
     {
-        Error( "Can't find background image '%s'\n", loading );
+        // SE port: as above - no content means no startup graphic, but the engine must keep running.
+        Warning( "Can't find background image '%s' - continuing without a startup graphic\n", loading );
         return;
     }
 }

@@ -39,7 +39,28 @@ extern CMatSystemSurface g_MatSystemSurface;
 
 //-----------------------------------------------------------------------------
 // Vgui input events
+//
+// SE port: CS:GO's public/inputsystem/InputEnums.h defines its own UI event block (IE_FirstUIEvent
+// based, IE_LocateMouseClick/IE_KeyTyped/IE_IMESetWindow/...) which panorama consumes, and the names
+// collide with the ones this file has always used.  The VGUI surface keeps its own numbering
+// (IE_FirstVguiEvent based), so its identifiers are renamed locally - the values are untouched, which
+// is what the engine side interprets.
 //-----------------------------------------------------------------------------
+#define IE_Close					VguiIE_Close
+#define IE_LocateMouseClick			VguiIE_LocateMouseClick
+#define IE_SetCursor				VguiIE_SetCursor
+#define IE_KeyTyped					VguiIE_KeyTyped
+#define IE_KeyCodeTyped				VguiIE_KeyCodeTyped
+#define IE_InputLanguageChanged		VguiIE_InputLanguageChanged
+#define IE_IMESetWindow				VguiIE_IMESetWindow
+#define IE_IMEStartComposition		VguiIE_IMEStartComposition
+#define IE_IMEComposition			VguiIE_IMEComposition
+#define IE_IMEEndComposition		VguiIE_IMEEndComposition
+#define IE_IMEShowCandidates		VguiIE_IMEShowCandidates
+#define IE_IMEChangeCandidates		VguiIE_IMEChangeCandidates
+#define IE_IMECloseCandidates		VguiIE_IMECloseCandidates
+#define IE_IMERecomputeModes		VguiIE_IMERecomputeModes
+
 enum VguiInputEventType_t
 {
 	IE_Close = IE_FirstVguiEvent,

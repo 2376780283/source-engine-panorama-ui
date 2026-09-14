@@ -18,6 +18,10 @@ def build(bld):
 	source = [
 		'../utils/lzma/C/LzmaDec.c',
 		'bitbuf.cpp',
+		# SE port: CS:GO's tier1/bitstring.cpp (implements CVariableBitStringBase::Resize/AllocInts/
+		# ReallocInts/FreeInts).  Source 2013 only shipped the header, so the panorama modules that
+		# use CUtlVectorFixedGrowable-style bit strings had these members unresolved at link time.
+		'bitstring.cpp',
 		'byteswap.cpp',
 		'characterset.cpp',
 		'checksum_crc.cpp',

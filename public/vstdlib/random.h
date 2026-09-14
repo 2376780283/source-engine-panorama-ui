@@ -99,6 +99,12 @@ VSTDLIB_INTERFACE float	RandomFloatExp( float flMinVal = 0.0f, float flMaxVal = 
 VSTDLIB_INTERFACE int	RandomInt( int iMinVal, int iMaxVal );
 VSTDLIB_INTERFACE float	RandomGaussianFloat( float flMean = 0.0f, float flStdDev = 1.0f );
 
+// Steam-name passthrus used by CS:GO panorama (SOURCE2 code)
+inline void        WeakRandomSeed( int iSeed ) { RandomSeed( iSeed ); }
+inline float       WeakRandomFloat( float flMinVal = 0.0f, float flMaxVal = 1.0f ) { return RandomFloat( flMinVal, flMaxVal ); }
+inline int WeakRandomInt( int iMinVal, int iMaxVal ) { return RandomInt( iMinVal, iMaxVal ); }
+inline                       int   WeakRandomIntSimple( int iMaxVal )      { return RandomInt( 0, iMaxVal ); }
+
 //-----------------------------------------------------------------------------
 // IUniformRandomStream interface for free functions
 //-----------------------------------------------------------------------------

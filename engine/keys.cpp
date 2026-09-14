@@ -17,6 +17,16 @@
 #include "inputsystem/iinputsystem.h"
 #include "cheatcodes.h"
 
+#ifdef PANORAMA_ENABLE
+// M4: the engine feeds input to the panorama UI through CPanoramaEngineHandler.
+#include "panoramaenginehandler.h"
+#include "igame.h"		// game->GetMainWindow()
+#include "console.h"		// Con_IsVisible()
+
+// SE port (bring-up aid): the file probe lives in panoramaenginehandler.cpp.
+void SE_PortUIProbe( const char *pFmt, ... );
+#endif
+
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
 
@@ -28,6 +38,9 @@ enum KeyUpTarget_t
 	KEY_UP_VGUI,
 	KEY_UP_TOOLS,
 	KEY_UP_CLIENT,
+	// SE port (CS:GO addition): panorama UI input filter, inserted before the client gets the key.
+	// NOTE: KeyInfo_t::m_nKeyUpTarget is a 3-bit field, so at most 8 targets (this is the 6th).
+	KEY_UP_PANORAMA,
 };
 
 struct KeyInfo_t
@@ -706,6 +719,29 @@ static bool FilterKey( const InputEvent_t &event, KeyUpTarget_t target, FilterKe
 
 
 //-----------------------------------------------------------------------------
+// SE port (CS:GO addition): lets the panorama UI consume the event before the game sees it.
+// CS:GO's version also consults the server-browser dialog convar and
+// g_ClientDLL->HandleBindWidgetInputCapture(); neither exists in this tree yet.
+//-----------------------------------------------------------------------------
+bool PanoramaHandleInputEvent( const InputEvent_t &event )
+{
+#ifdef PANORAMA_ENABLE
+	// No need to handle input event if the console is visible
+	if ( Con_IsVisible() )
+	{
+		return false;
+	}
+
+	InputEvent_t ev2 = event;
+	ev2.m_hWnd = (PlatWindow_t)game->GetMainWindow();
+	return PanoramaEngineHandler().ProcessUserInput( ev2 );
+#else
+	return false;
+#endif
+}
+
+
+//-----------------------------------------------------------------------------
 // Called by the system between frames for both key up and key down events
 //-----------------------------------------------------------------------------
 void Key_Event( const InputEvent_t &event )
@@ -749,8 +785,31 @@ void Key_Event( const InputEvent_t &event )
 		return;
 							 
 	// Let vgui have a whack at keys
-	if ( FilterKey( event, KEY_UP_VGUI, HandleVGuiKey ) )
+	bool bSEVguiConsumed = FilterKey( event, KEY_UP_VGUI, HandleVGuiKey );
+#ifdef PANORAMA_ENABLE
+	// SE port (bring-up aid): who eats the input?  Logs every button/key event that reaches
+	// Key_Event plus whether the VGUI filter consumed it.  engine/keys.cpp filters VGUI *before*
+	// panorama, and in this port the CS:S VGUI main menu is still up (CS:GO has no such menu),
+	// so VGUI may be swallowing everything panorama would need.
+	if ( ( event.m_nType == IE_ButtonPressed ) || ( event.m_nType == IE_ButtonReleased ) || ( event.m_nType == IE_KeyTyped ) )
+	{
+		static int s_nSEKeyProbe = 0;
+		if ( s_nSEKeyProbe < 120 )
+		{
+			++s_nSEKeyProbe;
+			SE_PortUIProbe( "KEY type=%d data=%d vguiConsumed=%d\n", event.m_nType, event.m_nData,
+				bSEVguiConsumed ? 1 : 0 );
+		}
+	}
+#endif
+	if ( bSEVguiConsumed )
 		return;
+
+#ifdef PANORAMA_ENABLE
+	// Let the panorama UI have a whack at keys (M4)
+	if ( FilterKey( event, KEY_UP_PANORAMA, PanoramaHandleInputEvent ) )
+		return;
+#endif
 
 	// Let the client have a whack at keys
 	if ( FilterKey( event, KEY_UP_CLIENT, HandleClientKey ) )

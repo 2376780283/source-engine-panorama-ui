@@ -112,6 +112,11 @@ ConVar cl_mouselook( "cl_mouselook", "1", FCVAR_ARCHIVE | FCVAR_NOT_CONNECTED, "
 
 ConVar cl_mouseenable( "cl_mouseenable", "1" );
 
+// SE port (CS:GO addition): panorama toggles this per frame from engine/panoramaenginehandler.cpp.
+// Without it registered the ConVarRef there warns "doesn't point to an existing ConVar" every frame.
+ConVar cl_mouseenable_buttons( "cl_mouseenable_buttons", "1", FCVAR_ARCHIVE,
+	"CS:GO panorama: when the UI only denies mouse movement, keep passing mouse buttons to the game." );
+
 // From other modules...
 void GetVGUICursorPos( int& x, int& y );
 void SetVGUICursorPos( int x, int y );

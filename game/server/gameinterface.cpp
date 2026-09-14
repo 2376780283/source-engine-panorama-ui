@@ -575,7 +575,7 @@ bool CServerGameDLL::DLLInit( CreateInterfaceFn appSystemFactory,
 
 	// Connected in ConnectTier1Libraries
 	if ( cvar == NULL )
-		return false;
+		{ Warning( "SE_PORT_DLLINIT fail at line 578\n" ); return false; }
 
 #ifndef _X360
 	s_SteamAPIContext.Init();
@@ -584,45 +584,45 @@ bool CServerGameDLL::DLLInit( CreateInterfaceFn appSystemFactory,
 
 	// init each (seperated for ease of debugging)
 	if ( (engine = (IVEngineServer*)appSystemFactory(INTERFACEVERSION_VENGINESERVER, NULL)) == NULL )
-		return false;
+		{ Warning( "SE_PORT_DLLINIT fail at line 587\n" ); return false; }
 	if ( (g_pVoiceServer = (IVoiceServer*)appSystemFactory(INTERFACEVERSION_VOICESERVER, NULL)) == NULL )
-		return false;
+		{ Warning( "SE_PORT_DLLINIT fail at line 589\n" ); return false; }
 	if ( (networkstringtable = (INetworkStringTableContainer *)appSystemFactory(INTERFACENAME_NETWORKSTRINGTABLESERVER,NULL)) == NULL )
-		return false;
+		{ Warning( "SE_PORT_DLLINIT fail at line 591\n" ); return false; }
 	if ( (staticpropmgr = (IStaticPropMgrServer *)appSystemFactory(INTERFACEVERSION_STATICPROPMGR_SERVER,NULL)) == NULL )
-		return false;
+		{ Warning( "SE_PORT_DLLINIT fail at line 593\n" ); return false; }
 	if ( (random = (IUniformRandomStream *)appSystemFactory(VENGINE_SERVER_RANDOM_INTERFACE_VERSION, NULL)) == NULL )
-		return false;
+		{ Warning( "SE_PORT_DLLINIT fail at line 595\n" ); return false; }
 	if ( (enginesound = (IEngineSound *)appSystemFactory(IENGINESOUND_SERVER_INTERFACE_VERSION, NULL)) == NULL )
-		return false;
+		{ Warning( "SE_PORT_DLLINIT fail at line 597\n" ); return false; }
 	if ( (::partition = (ISpatialPartition *)appSystemFactory(INTERFACEVERSION_SPATIALPARTITION, NULL)) == NULL )
-		return false;
+		{ Warning( "SE_PORT_DLLINIT fail at line 599\n" ); return false; }
 	if ( (modelinfo = (IVModelInfo *)appSystemFactory(VMODELINFO_SERVER_INTERFACE_VERSION, NULL)) == NULL )
-		return false;
+		{ Warning( "SE_PORT_DLLINIT fail at line 601\n" ); return false; }
 	if ( (enginetrace = (IEngineTrace *)appSystemFactory(INTERFACEVERSION_ENGINETRACE_SERVER,NULL)) == NULL )
-		return false;
+		{ Warning( "SE_PORT_DLLINIT fail at line 603\n" ); return false; }
 	if ( (filesystem = (IFileSystem *)fileSystemFactory(FILESYSTEM_INTERFACE_VERSION,NULL)) == NULL )
-		return false;
+		{ Warning( "SE_PORT_DLLINIT fail at line 605\n" ); return false; }
 	if ( (gameeventmanager = (IGameEventManager2 *)appSystemFactory(INTERFACEVERSION_GAMEEVENTSMANAGER2,NULL)) == NULL )
-		return false;
+		{ Warning( "SE_PORT_DLLINIT fail at line 607\n" ); return false; }
 	if ( (datacache = (IDataCache*)appSystemFactory(DATACACHE_INTERFACE_VERSION, NULL )) == NULL )
-		return false;
+		{ Warning( "SE_PORT_DLLINIT fail at line 609\n" ); return false; }
 	if ( (soundemitterbase = (ISoundEmitterSystemBase *)appSystemFactory(SOUNDEMITTERSYSTEM_INTERFACE_VERSION, NULL)) == NULL )
-		return false;
+		{ Warning( "SE_PORT_DLLINIT fail at line 611\n" ); return false; }
 #ifndef _XBOX
 	if ( (gamestatsuploader = (IUploadGameStats *)appSystemFactory( INTERFACEVERSION_UPLOADGAMESTATS, NULL )) == NULL )
-		return false;
+		{ Warning( "SE_PORT_DLLINIT fail at line 614\n" ); return false; }
 #endif
 	if ( !mdlcache )
-		return false;
+		{ Warning( "SE_PORT_DLLINIT fail at line 617\n" ); return false; }
 	if ( (serverpluginhelpers = (IServerPluginHelpers *)appSystemFactory(INTERFACEVERSION_ISERVERPLUGINHELPERS, NULL)) == NULL )
-		return false;
+		{ Warning( "SE_PORT_DLLINIT fail at line 619\n" ); return false; }
 	if ( (scenefilecache = (ISceneFileCache *)appSystemFactory( SCENE_FILE_CACHE_INTERFACE_VERSION, NULL )) == NULL )
-		return false;
+		{ Warning( "SE_PORT_DLLINIT fail at line 621\n" ); return false; }
 	if ( IsX360() && (xboxsystem = (IXboxSystem *)appSystemFactory( XBOXSYSTEM_INTERFACE_VERSION, NULL )) == NULL )
-		return false;
+		{ Warning( "SE_PORT_DLLINIT fail at line 623\n" ); return false; }
 	if ( IsX360() && (matchmaking = (IMatchmaking *)appSystemFactory( VENGINE_MATCHMAKING_VERSION, NULL )) == NULL )
-		return false;
+		{ Warning( "SE_PORT_DLLINIT fail at line 625\n" ); return false; }
 
 	// If not running dedicated, grab the engine vgui interface
 	if ( !engine->IsDedicatedServer() )
@@ -635,7 +635,7 @@ bool CServerGameDLL::DLLInit( CreateInterfaceFn appSystemFactory,
 
 	// Yes, both the client and game .dlls will try to Connect, the soundemittersystem.dll will handle this gracefully
 	if ( !soundemitterbase->Connect( appSystemFactory ) )
-		return false;
+		{ Warning( "SE_PORT_DLLINIT fail at line 638\n" ); return false; }
 
 	// cache the globals
 	gpGlobals = pGlobals;
@@ -660,12 +660,12 @@ bool CServerGameDLL::DLLInit( CreateInterfaceFn appSystemFactory,
 	// Initialize the particle system
 	if ( !g_pParticleSystemMgr->Init( g_pParticleSystemQuery ) )
 	{
-		return false;
+		{ Warning( "SE_PORT_DLLINIT fail at line 663\n" ); return false; }
 	}
 
 	sv_cheats = g_pCVar->FindVar( "sv_cheats" );
 	if ( !sv_cheats )
-		return false;
+		{ Warning( "SE_PORT_DLLINIT fail at line 668\n" ); return false; }
 
 	g_pcv_commentary = g_pCVar->FindVar( "commentary" );
 	g_pcv_ThreadMode = g_pCVar->FindVar( "host_thread_mode" );
@@ -708,20 +708,20 @@ bool CServerGameDLL::DLLInit( CreateInterfaceFn appSystemFactory,
 #endif
 
 	if ( !IGameSystem::InitAllSystems() )
-		return false;
+		{ Warning( "SE_PORT_DLLINIT fail at line 711\n" ); return false; }
 
 #if defined( REPLAY_ENABLED )
 	if ( gameeventmanager->LoadEventsFromFile( "resource/replayevents.res" ) <= 0 )
 	{
 		Warning( "\n*\n* replayevents.res MISSING.\n*\n\n" );
-		return false;
+		{ Warning( "SE_PORT_DLLINIT fail at line 717\n" ); return false; }
 	}
 #endif
 
 	// Due to dependencies, these are not autogamesystems
 	if ( !ModelSoundsCacheInit() )
 	{
-		return false;
+		{ Warning( "SE_PORT_DLLINIT fail at line 724\n" ); return false; }
 	}
 
 	InvalidateQueryCache();

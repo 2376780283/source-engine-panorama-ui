@@ -1,0 +1,42 @@
+"GameInfo"
+{
+	game		"Panorama Test"
+	title		"Panorama Test"
+	type		singleplayer_only
+
+	// No content of its own: this mod only exists to bring the hosted panorama UI up inside Source
+	// Engine 2013 and to mount retail CS:GO content next to it (see mods/panorama_test/README.md).
+	nomodels	1
+	nohimodel	1
+	nocrosshair	1
+	hidden_maps
+	{
+		"test_speakers"		1
+		"test_hardware"		1
+	}
+
+	FileSystem
+	{
+		//
+		// The mod's own content is mounted first (its panorama/layout/test.xml is what -panoramatest
+		// loads), followed by the "cstrike" game directory that sits next to it in the test install.
+		//
+		// Why mount cstrike at all: the game DLLs of this era expect the retail content set (materials,
+		// shaders, resource/*.res, HUD layouts).  Without it the client crashes during its own
+		// initialization, so for smoke tests the local cstrike content is mounted read-only here.  This
+		// only references content that is already in the install - nothing is copied or required from
+		// any Steam install.
+		//
+		// The engine still loads its modules from the install's bin/ (this mod has no bin/ of its own),
+		// which is what makes -game panorama run the ported engine/client instead of retail ones.
+		//
+		// No SteamAppId on purpose: this port runs against the stub steam_api, so there is nothing to
+		// mount from Steam and the engine would only warn about it.
+		//
+		SearchPaths
+		{
+			Game				|gameinfo_path|.
+			Game				cstrike
+		}
+	}
+}

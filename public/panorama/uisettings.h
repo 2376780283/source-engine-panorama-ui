@@ -24,8 +24,10 @@ public:
 	virtual void UpdateGamepadMappingHints( const char *pszConnectedMappings ) = 0;
 	virtual bool BAllowOSModalDialog() = 0;
 
-	virtual void GetDefaultAudioDevice( CUtlString &strDevice ) = 0;
+	virtual void GetDefaultAudioDevice( CUtlString &strDevice, CUtlString &strPort, CUtlString &strProfile ) = 0;
 	virtual void SetDefaultAudioDevice( const char *pchDevice ) = 0;
+	virtual void SetDefaultAudioPort( const char *pchPort ) = 0;
+	virtual void SetDefaultAudioProfile( const char *pchProfile ) = 0;
 
 	// if unset then the default audio device is used for voice output
 	virtual void GetDefaultVoiceDevice( CUtlString &strDevice ) = 0;
@@ -37,12 +39,14 @@ public:
 	virtual ETextInputHandlerType_t GetActiveTextInputHandlerType() const = 0;
 	virtual void SetDefaultTextInputHandlerType( ETextInputHandlerType_t eType ) = 0;
 
+	virtual unsigned int /* CTextInputDualTouch::EDualtouchSuggestionMode */ GetOnScreenKeyboardSuggestionMode() const = 0;
+	virtual void SetOnScreenKeyboardSuggestionMode( unsigned int /* CTextInputDualTouch::EDualtouchSuggestionMode */ eSuggestionMode ) = 0;
+
 	virtual ELanguage GetDefaultInputLanguage() const = 0;
 	virtual void SetDefaultInputLanguage( ELanguage ) = 0;
 
-	// should we show the screen saver?
-	virtual bool GetScreenSaverEnabled() = 0;
-	virtual void SetScreenSaverEnabled( bool bEnabled ) = 0;
+	virtual int GetDualTouchTutorialCompletionCount() const = 0;
+	virtual void OnDualTouchTutorialCompleted() = 0;
 };
 
 } // namespace panorama

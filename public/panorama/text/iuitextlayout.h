@@ -5,15 +5,13 @@
 
 #ifndef IUITEXTLAYOUT_H
 #define IUITEXTLAYOUT_H
-
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include "mathlib/mathlib.h"
 #include "mathlib/vector2d.h"
 #include "tier1/utlvector.h"
 #include "panorama/panoramatypes.h"
+#include "panorama/text/uitexttypes.h"
 
 namespace panorama
 {
@@ -34,10 +32,22 @@ public:
 	virtual void SetUnderline( uint32 unCharStartIndex, uint32 unCharEndIndex, bool bUnderline ) = 0;
 	virtual void SetStrikethrough( uint32 unCharStartIndex, uint32 unCharEndIndex, bool bStrikethrough ) = 0;
 	virtual void SetInlineObject( uint32 unCharIndex, float flWidth, float flHeight ) = 0;
-	virtual void MarkColorRangeForMeasurement( uint32 unCharStartIndex, uint32 unCharEndIndex ) = 0;
+	virtual void MarkColorRangeForMeasurement( uint32 unCharStartIndex, uint32 unCharEndIndex, int iColorIndex ) = 0;
 
 	// Gets the size required to fully draw the text layout
 	virtual void GetRequiredSize( float &flWidth, float &flHeight ) = 0;
+
+    // Return the font ABC widths for the first character of the layout text.
+    // Some layouts may not be able to return this information.
+    virtual bool GetCharABCWidths( float *pA, float *pB, float *pC ) = 0;
+
+    // Return the kerning between the first and second characters of the layout text.
+    // Return value is the spacing adjustment when positioning the second
+    // character after the first.
+    // Some layouts may not be able to return this information.
+    virtual bool GetCharKerning( float *pAdjust, float *pAdvance ) = 0;
+    
+	virtual bool BDraw( CUtlVector<UITextOpacityMaskDataRange_t> &drawRanges, const UITextFormatProperties_t *pFormatProps, int cFormatProps, IUITextTextureStorage *pStorage, float flHeight, void *pRenderContext ) = 0;
 
 	// Hit tests a point against the text layout.  
 	// unHitRunLength returns the character index hit
@@ -62,6 +72,9 @@ public:
 
 	// Determines a vector of rects enclosing a range of text, normally used for getting selection highlight regions
 	virtual void GetCharacterRangeCoordinates( uint32 unCharStartIndex, uint32 unCharEndIndex, CUtlVector<HitTestRegionRect_t> &vecRangeRegionRects ) = 0;
+
+	virtual bool Resize( float flMaxWidth, float flMaxHeight ) { return false; }
+
 };
 
 } // namespace panorama

@@ -1,0 +1,4 @@
+# Large binary artifacts are fetched by scripts/dev/fetch_v8_deps.ps1
+# and are intentionally NOT stored in git (v8_monolith.lib alone is ~424 MB).
+lib/
+icu/

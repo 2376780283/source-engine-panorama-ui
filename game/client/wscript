@@ -74,6 +74,10 @@ def build(bld):
 		libs += ['USER32']
 
 	source += game["sources"] + ['../../public/tier0/memoverride.cpp']
+
+	# SE port: webm main menu background (Media Foundation, stock VGUI client - no panorama involved)
+	if bld.env.GAMES == 'cstrike':
+		source += [ 'cstrike/se_background_video.cpp' ]
 	includes += game["includes"]
 	defines = game["defines"]
 
