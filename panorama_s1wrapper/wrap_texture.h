@@ -47,7 +47,7 @@ struct S1Wrapper_SetTextureDataCmd_t
 	CUtlString m_textureName;
 #endif
 
-	void ReleaseResources();
+	void ReleaseResources( const char *pSite = "cmd" );
 };
 
 // S1Wrapper_Texture_t struct
@@ -134,6 +134,11 @@ private:
 
 	// Panorama procedural textures
 	CPanoramaProceduralRegen *m_pRegenerator;
+
+	// SE port: CS:GO installed the regenerator with SetTextureRegenerator( pRegen, /*bReleaseExisting=*/false ).
+	// SE 2013's SetTextureRegenerator() always Releases the previous regenerator, and the previous one is
+	// this very object, so re-installing it ran DeleteTextureBits() in the middle of an upload.
+	bool m_bRegeneratorInstalled;
 
 	// Update commands
 	CTSQueue< S1Wrapper_SetTextureDataCmd_t > *m_pSetTextureDataCmds;

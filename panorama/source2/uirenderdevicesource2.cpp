@@ -571,28 +571,36 @@ bool CSource2DoubleBufferedYUV420Texture::BUpdateTextureDataInternal( STexture &
 		dataDesc.m_nImageFormat = IMAGE_FORMAT_I8;
 		dataDesc.m_nNumMipLevels = 1;
 
-		SPixelDataBuffer *pDstBuffer = nullptr;
+		// SE port fix: hand the S1 wrapper tightly packed plane data and let *it* own a copy (it copies
+		// synchronously inside AsyncSetTextureData()).  The old code lent the wrapper a pooled buffer
+		// through a recycle delegate; the wrapper's pending upload command and the regenerator's copy
+		// of that command both looked like owners of the buffer, so a buffer could go back into this
+		// pool twice and the destructor below then freed the same pointer twice - that heap corruption
+		// is what killed the process a few frames into the main menu background movie.
+		void *pPackedY = nullptr;
+		if ( (int)unStrideY == nYWidth )
 		{
-			// hold this mutex when modifying m_YBuffers
-			AUTO_LOCK( CSource2DoubleBufferedYUV420Texture::s_bufferPoolMutex );
-			if ( m_YBuffers.IsEmpty() )
+			pPackedY = pYBuffer;
+		}
+		else
+		{
+			pPackedY = malloc( unYBuffersByteCount );
+			if ( pPackedY )
 			{
-				pDstBuffer = CreatePixelDataBuffer( unYBuffersByteCount );
-			}
-			else
-			{
-				pDstBuffer = m_YBuffers.Tail();
-				m_YBuffers.Remove( m_YBuffers.Count() - 1 );
+				CopyMemory3D( pPackedY, pYBuffer,
+					dataDesc.m_nWidth, dataDesc.m_nHeight, 1,
+					unStrideY, unStrideY * dataDesc.m_nHeight,
+					dataDesc.m_nWidth, dataDesc.m_nWidth * dataDesc.m_nHeight );
 			}
 		}
-		CopyMemory3D( pDstBuffer->bufferData, pYBuffer,
-			dataDesc.m_nWidth, dataDesc.m_nHeight, 1,
-			unStrideY, unStrideY * dataDesc.m_nHeight,
-			dataDesc.m_nWidth, dataDesc.m_nWidth * dataDesc.m_nHeight );
 
-		AddRef(); // Corresponding release is Async in RecycleYBuffer
-		DataRecycleDelegate_t recycleDelegate( this, &CSource2DoubleBufferedYUV420Texture::RecycleYBuffer );
-		g_pRenderDevice->AsyncSetTextureData( texture.hRenderTextureY, &dataDesc, pDstBuffer->bufferData, unYBuffersByteCount, false, -1, NULL, 0, &recycleDelegate );
+		if ( pPackedY )
+		{
+			g_pRenderDevice->AsyncSetTextureData( texture.hRenderTextureY, &dataDesc, pPackedY, unYBuffersByteCount, false, -1, NULL, 0, NULL );
+
+			if ( pPackedY != pYBuffer )
+				free( pPackedY );
+		}
 	}
 
 	if ( !texture.hRenderTextureU.IsValid() )
@@ -623,28 +631,32 @@ bool CSource2DoubleBufferedYUV420Texture::BUpdateTextureDataInternal( STexture &
 		dataDesc.m_nImageFormat = IMAGE_FORMAT_I8;
 		dataDesc.m_nNumMipLevels = 1;
 
-		SPixelDataBuffer *pDstBuffer = nullptr;
+		// SE port fix: same as the luminance plane above - the wrapper makes its own copy, so no pooled
+		// buffer (and no recycle delegate that could hand it back twice) is needed.
+		void *pPackedU = nullptr;
+		if ( (int)unStrideU == nUVWidth )
 		{
-			// hold this mutex when modifying m_UVBuffers
-			AUTO_LOCK( CSource2DoubleBufferedYUV420Texture::s_bufferPoolMutex );
-			if ( m_UVBuffers.IsEmpty() )
+			pPackedU = pUBuffer;
+		}
+		else
+		{
+			pPackedU = malloc( unUVBuffersByteCount );
+			if ( pPackedU )
 			{
-				pDstBuffer = CreatePixelDataBuffer( unUVBuffersByteCount );
-			}
-			else
-			{
-				pDstBuffer = m_UVBuffers.Tail();
-				m_UVBuffers.Remove( m_UVBuffers.Count() - 1 );
+				CopyMemory3D( pPackedU, pUBuffer,
+					dataDesc.m_nWidth, dataDesc.m_nHeight, 1,
+					unStrideU, unStrideU * dataDesc.m_nHeight,
+					dataDesc.m_nWidth, dataDesc.m_nWidth * dataDesc.m_nHeight );
 			}
 		}
-		CopyMemory3D( pDstBuffer->bufferData, pUBuffer,
-			dataDesc.m_nWidth, dataDesc.m_nHeight, 1,
-			unStrideU, unStrideU * dataDesc.m_nHeight,
-			dataDesc.m_nWidth, dataDesc.m_nWidth * dataDesc.m_nHeight );
 
-		AddRef(); // Corresponding release is Async in RecycleUVBuffer
-		DataRecycleDelegate_t recycleDelegate( this, &CSource2DoubleBufferedYUV420Texture::RecycleUVBuffer );
-		g_pRenderDevice->AsyncSetTextureData( texture.hRenderTextureU, &dataDesc, pDstBuffer->bufferData, unUVBuffersByteCount, false, -1, NULL, 0, &recycleDelegate );
+		if ( pPackedU )
+		{
+			g_pRenderDevice->AsyncSetTextureData( texture.hRenderTextureU, &dataDesc, pPackedU, unUVBuffersByteCount, false, -1, NULL, 0, NULL );
+
+			if ( pPackedU != pUBuffer )
+				free( pPackedU );
+		}
 	}
 
 	if ( !texture.hRenderTextureV.IsValid() )
@@ -675,28 +687,32 @@ bool CSource2DoubleBufferedYUV420Texture::BUpdateTextureDataInternal( STexture &
 		dataDesc.m_nImageFormat = IMAGE_FORMAT_I8;
 		dataDesc.m_nNumMipLevels = 1;
 
-		SPixelDataBuffer *pDstBuffer = nullptr;
+		// SE port fix: same as the luminance plane above - the wrapper makes its own copy, so no pooled
+		// buffer (and no recycle delegate that could hand it back twice) is needed.
+		void *pPackedV = nullptr;
+		if ( (int)unStrideV == nUVWidth )
 		{
-			// hold this mutex when modifying m_UVBuffers
-			AUTO_LOCK( CSource2DoubleBufferedYUV420Texture::s_bufferPoolMutex );
-			if ( m_UVBuffers.IsEmpty() )
+			pPackedV = pVBuffer;
+		}
+		else
+		{
+			pPackedV = malloc( unUVBuffersByteCount );
+			if ( pPackedV )
 			{
-				pDstBuffer = CreatePixelDataBuffer( unUVBuffersByteCount );
-			}
-			else
-			{
-				pDstBuffer = m_UVBuffers.Tail();
-				m_UVBuffers.Remove( m_UVBuffers.Count() - 1 );
+				CopyMemory3D( pPackedV, pVBuffer,
+					dataDesc.m_nWidth, dataDesc.m_nHeight, 1,
+					unStrideV, unStrideV * dataDesc.m_nHeight,
+					dataDesc.m_nWidth, dataDesc.m_nWidth * dataDesc.m_nHeight );
 			}
 		}
-		CopyMemory3D( pDstBuffer->bufferData, pVBuffer,
-			dataDesc.m_nWidth, dataDesc.m_nHeight, 1,
-			unStrideV, unStrideV * dataDesc.m_nHeight,
-			dataDesc.m_nWidth, dataDesc.m_nWidth * dataDesc.m_nHeight );
 
-		AddRef(); // Corresponding release is Async in RecycleUVBuffer
-		DataRecycleDelegate_t recycleDelegate( this, &CSource2DoubleBufferedYUV420Texture::RecycleUVBuffer );
-		g_pRenderDevice->AsyncSetTextureData( texture.hRenderTextureV, &dataDesc, pDstBuffer->bufferData, unUVBuffersByteCount, false, -1, NULL, 0, &recycleDelegate );
+		if ( pPackedV )
+		{
+			g_pRenderDevice->AsyncSetTextureData( texture.hRenderTextureV, &dataDesc, pPackedV, unUVBuffersByteCount, false, -1, NULL, 0, NULL );
+
+			if ( pPackedV != pVBuffer )
+				free( pPackedV );
+		}
 	}
 
 	Assert( ( texture.hRenderTextureY.IsValid() && texture.hRenderTextureY.IsLoaded() ) && 

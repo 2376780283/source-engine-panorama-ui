@@ -88,6 +88,9 @@ def build(bld):
 		'seport/se_image_codecs.cpp',
 		# seport/: the software implementation of the cairo subset svgloader.cpp draws with.
 		'seport/se_cairo_shim/se_cairo_shim.cpp',
+		# SE port: Media Foundation implementation of the libvideo player API that
+		# panorama/data/panoramavideoplayer.cpp calls (video/video_mf/mf_video_player.cpp).
+		'../video/video_mf/mf_video_player.cpp',
 		# seport/: the interface globals CS:GO's interfaces/interfaces.cpp provides.
 		'seport/se_interfaces.cpp',
 		# Batch 8: Source 2 UI engine + renderer (panorama.vpc "Source 2" folder).  CS:GO compiles these
@@ -175,10 +178,14 @@ def build(bld):
 		'PANORAMA_ENABLE',
 		'STEAM_API_NODLL',
 		# CS:GO's video player is created through CreateVideoPlayer()/DeleteVideoPlayer() from the
-		# prebuilt video.lib.  SE's video module exposes the IVideoServices interface instead, so the
-		# video *player* is disabled for now: data/panoramavideoplayer.cpp only guards the two calls
-		# with this define and fails gracefully everywhere else (m_pVideoPlayer stays NULL).
-		'PANORAMA_DISABLE_VIDEO',
+		# prebuilt video.lib (Valve binary, no source in the SDK).  video/video_mf/mf_video_player.cpp
+		# implements that API on top of Windows Media Foundation (which decodes WebM/VP8/VP9 on
+		# Windows 10+), so the movie panel - the CS:GO main menu background video - works again.
+		# 'PANORAMA_DISABLE_VIDEO',  <- SE port: now implemented, see video/video_mf/
+		# SE port: common/video/ivideoplayer.h declares the player entry points as DLL imports (Valve
+		# ships them in a prebuilt video.lib).  With this define they are plain functions, matching
+		# video/video_mf/mf_video_player.cpp which implements them in-tree.
+		'SE_VIDEO_STATIC',
 		# SE-era adaptions: SE tier0/platform.h already provides these helpers
 		'SE_PLATFORM_HAS_CONSTRUCT_HELPERS',
 		# The text backend: DirectWrite layout + CPU rasterisation of glyph masks.  Switches

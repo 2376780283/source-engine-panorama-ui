@@ -179,7 +179,6 @@ BEGIN_VS_SHADER( panoramafancy_dx9, "Help for panorama" )
 			ITexture *pTexture = NULL;
 
 			int texType = pAttr->GetValue( ATTR_D_TEXTURETYPE );
-
 			// SE port (bring-up aid): what does the fancy shader actually get for a solid colour fill?
 			{
 				static int s_nSEFancyShaderLogged = 0;
@@ -199,6 +198,26 @@ BEGIN_VS_SHADER( panoramafancy_dx9, "Help for panorama" )
 			// CShaderSystem::BindTexture (access at address 0), which killed the game as soon as the CS:GO
 			// menu painted.  The textures are simply not bound below, so the sampler reads the D3D default;
 			// the colours come from the pixel shader's own combo state.
+			//
+			// SE port fix: every extra texture slot used to be left unbound, which is fine for a solid colour
+			// fill but wrong for the shader paths that sample them.  The movie background is the clearest
+			// case: D_TEXTURETYPE == YUV samples g_tTexture0/1/2 for the Y/U/V planes, and with samplers 1
+			// and 2 never bound the video came out black even though the frames were decoded and uploaded.
+			// Bind with the same pointer plausibility test the Texture0 path uses.
+			auto SE_BindAttrTexture = [ & ]( RenderAttrTexture_t nAttr, Sampler_t nSampler )
+			{
+				ITexture *pAttrTexture = NULL;
+				pAttr->GetValue( &pAttrTexture, nAttr );
+				if ( !pAttrTexture )
+					return;
+
+				const uintp pTexBits = ( uintp )pAttrTexture;
+				if ( pTexBits >= 0x10000 && pTexBits < 0x7FFF0000 && ( pTexBits & 3 ) == 0 )
+				{
+					BindTexture( nSampler, pAttrTexture );
+				}
+			};
+
 			if ( texType )
 			{
 				pAttr->GetValue( &pTexture, ATTR_Texture0 );
@@ -222,15 +241,13 @@ BEGIN_VS_SHADER( panoramafancy_dx9, "Help for panorama" )
 					// SE port: bind the texture.  D3D9's samplers read white while nothing is bound, and not
 					// binding is exactly what turned the whole CS:GO menu into a white screen once the image
 					// resources were unpacked into the mod.
-					//
-					// The pointer still has to be checked: an image this port cannot decode (the .vsvg icons,
-					// see the note further down) leaves an attribute that no longer points at a live texture,
-					// and binding one of those crashed inside CShaderSystem::BindTexture with access at a
-					// value that was a float bit pattern (0x8B000000).  Only bind what can be a real object.
-					uintp pTexBits = (uintp)pTexture;
-					if ( pTexBits >= 0x10000 && pTexBits < 0x7FFF0000 && ( pTexBits & 3 ) == 0 )
+					SE_BindAttrTexture( ATTR_Texture0, SHADER_SAMPLER0 );
+
+					if ( texType == 3 )
 					{
-						BindTexture( SHADER_SAMPLER0, pTexture );
+						// YUV420 video: the U and V planes live in texture slots 1 and 2.
+						SE_BindAttrTexture( ATTR_Texture1, SHADER_SAMPLER1 );
+						SE_BindAttrTexture( ATTR_Texture2, SHADER_SAMPLER2 );
 					}
 
 					if ( texType == 4 )
@@ -248,7 +265,10 @@ BEGIN_VS_SHADER( panoramafancy_dx9, "Help for panorama" )
 
 			if ( pAttr->GetValue( ATTR_D_GRADIENT_COMPLEX ) )
 			{
-				// SE port: see the note above - the extra texture slots are not bound here.
+				// SE port fix: the complex gradient path samples g_tTexture3 (the generated 1024x1 gradient
+				// ramp), which also used to be left unbound - gradients then read whatever texture D3D still
+				// had on that sampler.
+				SE_BindAttrTexture( ATTR_Texture3, SHADER_SAMPLER3 );
 			}
 
 			Vector4D vTopCornerRad, vBtmCornerRad;

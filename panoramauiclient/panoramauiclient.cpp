@@ -1,4 +1,4 @@
-//====== Copyright ï¿?2014-2015, Valve Corporation, All rights reserved. =======
+//====== Copyright ï¿½?2014-2015, Valve Corporation, All rights reserved. =======
 //
 // Purpose: IPanoramaUIClient app system implementation
 //
@@ -65,6 +65,11 @@ CPanoramaUIClient *g_pPanoramaUIClientImpl = &s_PanoramaUIClient;
 // It is fill in by CPanoramaUIClient::Connect() below.
 IPanoramaUIEngine *g_pPanoramaUIEngine = NULL;
 EXPOSE_SINGLE_INTERFACE_GLOBALVAR( CPanoramaUIClient, IPanoramaUIClient, PANORAMAUI_CLIENT_INTERFACE_VERSION, s_PanoramaUIClient )
+
+// SE port (2026-09-14): the main-menu background movie entry point (se_background_movie.cpp) is
+// exported for engine.dll, which hosts the menu but links no panorama library.  It is compiled into
+// this module's source list rather than the panorama static library: a dllexport inside a static lib
+// has no effect, because an unreferenced object is never pulled into the link.
 
 // Trivial thunk class to virtualize access to a CDebugger.
 class CPanoramaClientDebugger : public IPanoramaClientDebugger

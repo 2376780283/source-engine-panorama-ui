@@ -38,6 +38,9 @@ def build(bld):
 		'panoramauiclient.cpp',
 		'../panorama_s1wrapper/utlstringbuilder.cpp',
 		'../panorama_s1wrapper/wrap_misc.cpp',
+		# SE port: CS:GO creates its main-menu background movie from the game-client panel class
+		# (csgo_mainmenu.cpp::LoadBackgroundMovie); this is that code, exported for engine.dll.
+		'se_background_movie.cpp',
 		# '../thirdparty/JSON_parser/JSON_parser.c',   # not present in this tree
 	]
 
@@ -128,7 +131,11 @@ def build(bld):
 	]
 
 	if bld.env.DEST_OS == 'win32':
-		libs += ['USER32', 'GDI32', 'SHELL32', 'SHLWAPI', 'ADVAPI32', 'WS2_32', 'OLE32', 'WINMM', 'DBGHELP', 'USERENV']
+		# mfplat/mfreadwrite/mfuuid: Media Foundation, used by video/video_mf/mf_video_player.cpp
+		# (the SE port's implementation of the libvideo player API that panorama calls for its
+		# <Movie> panels - the CS:GO main menu background video).
+		libs += ['USER32', 'GDI32', 'SHELL32', 'SHLWAPI', 'ADVAPI32', 'WS2_32', 'OLE32', 'WINMM', 'DBGHELP', 'USERENV',
+			'mfplat', 'mfreadwrite', 'mfuuid']
 
 	bld.shlib(
 		source   = source,

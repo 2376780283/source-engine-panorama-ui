@@ -416,30 +416,6 @@ void CRenderContext::CtxDraw( RenderPrimitiveType_t type, int nFirstVertex, int 
 	UpdateMesh( pMesh );
 
 	pMesh->Draw();
-
-	// SE port (bring-up aid): read one pixel back from just inside the quad we submitted.  This tells
-	// "the draw landed on the back buffer" (then something later in the frame paints over it) apart from
-	// "the draw never reached D3D at all" - which the counters alone cannot distinguish.
-	{
-		static int s_nSEReadbackProbe = 0;
-		if ( s_nSEReadbackProbe < 4 && m_pBaseVB && m_nVertCount >= 3 )
-		{
-			s_nSEReadbackProbe++;
-
-			int nVX = 0, nVY = 0, nVW = 0, nVH = 0;
-			m_pMatRenderContext->GetViewport( nVX, nVY, nVW, nVH );
-
-			// the vertices are already in clip space (-1..1); map the first one back to a pixel and step
-			// a few pixels inside the quad
-			const Vector4D *pVerts = (const Vector4D *)m_pBaseVB;
-			int nPixelX = nVX + (int)( ( pVerts[0].x * 0.5f + 0.5f ) * (float)nVW ) + 4;
-			int nPixelY = nVY + (int)( ( 0.5f - pVerts[0].y * 0.5f ) * (float)nVH ) + 4;
-
-			unsigned char rgba[4] = { 0, 0, 0, 0 };
-			m_pMatRenderContext->ReadPixels( nPixelX, nPixelY, 1, 1, rgba, IMAGE_FORMAT_RGBA8888 );
-
-		}
-	}
 }
 
 void CRenderContext::SetCullMode( RenderCullMode_t eCullMode )

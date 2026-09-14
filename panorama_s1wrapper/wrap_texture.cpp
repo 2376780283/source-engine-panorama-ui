@@ -1,4 +1,4 @@
-#include "wrap_texture.h"
+﻿#include "wrap_texture.h"
 
 #include "materialsystem/imaterialsystem.h"
 #include "materialsystem/itexture.h"
@@ -28,6 +28,107 @@
 #else
 #define WrapTextureLog(...)
 #endif
+
+//-----------------------------------------------------------------------------
+// SE port bring-up probe (same file the engine/movie probes write).  The movie plane upload is
+// diagnostics-hostile: whatever goes wrong here corrupts the heap and the process dies somewhere
+// else entirely, so the sizes involved have to be recorded while they are still known.
+//-----------------------------------------------------------------------------
+#ifndef SE_TEX_PROBE
+#define SE_TEX_PROBE 1
+#endif
+
+#if SE_TEX_PROBE
+#include <stdio.h>
+#include <stdarg.h>
+static void SE_TexProbe( const char *pFmt, ... )
+{
+	FILE *fp = fopen( "D:\\cstrike\\se_ui_probe.txt", "a" );
+	if ( !fp )
+		return;
+	va_list args;
+	va_start( args, pFmt );
+	vfprintf( fp, pFmt, args );
+	va_end( args );
+	fflush( fp );
+	fclose( fp );
+}
+#else
+#define SE_TexProbe( ... ) ( ( void )0 )
+#endif
+
+//-----------------------------------------------------------------------------
+// SE port bring-up diagnostic: bisect the texture upload.  D:\cstrike\se_tex_mode.txt holds one
+// digit, read once per process:
+//   0 (or absent) = normal
+//   1             = skip the src1 download (the regenerator and materialsystem are never entered)
+//   2             = do the download but never write the backing store copy
+//   3             = do everything but never free the queued data (leak it, so a bad pointer or a
+//                   broken heap cannot be reported by the free path)
+//   4             = never queue the upload at all (the src1 texture keeps its previous contents)
+//-----------------------------------------------------------------------------
+static int SE_TexMode()
+{
+	static int s_nMode = -1;
+	if ( s_nMode < 0 )
+	{
+		s_nMode = 0;
+		FILE *fp = fopen( "D:\\cstrike\\se_tex_mode.txt", "r" );
+		if ( fp )
+		{
+			int nRead = 0;
+			if ( fscanf( fp, "%d", &nRead ) == 1 && nRead >= 0 && nRead <= 4 )
+				s_nMode = nRead;
+			fclose( fp );
+		}
+	}
+	return s_nMode;
+}
+
+//-----------------------------------------------------------------------------
+// The queued data buffers belong to this module, so the release path must be able to survive a
+// command whose pointer is not what we think it is - otherwise the diagnostic itself is the crash.
+// Whatever happens in here is reported and the buffer is simply not freed.
+//-----------------------------------------------------------------------------
+static bool SE_TexTryFree( void *pData, int nExpectedSize, const char *pTextureName, const S1Wrapper_SetTextureDataCmd_t *pCmd, const char *pSite )
+{
+#if SE_TEX_PROBE
+	__try
+	{
+		if ( !pData )
+			return true;
+
+		if ( SE_TexMode() != 3 )
+		{
+			const unsigned nGuard = *( unsigned * )( ( unsigned char * )pData + nExpectedSize );
+			if ( nGuard != 0x5EA5EA5E )
+				SE_TexProbe( "TEX GUARD BROKEN '%s' ptr=%p size=%d guard=%08X sub %d,%d %dx%d fmt=%d\n",
+					pTextureName ? pTextureName : "?", pData, nExpectedSize, nGuard,
+					pCmd ? pCmd->m_subRect.x : -1, pCmd ? pCmd->m_subRect.y : -1,
+					pCmd ? pCmd->m_subRect.width : -1, pCmd ? pCmd->m_subRect.height : -1,
+					pCmd ? (int)pCmd->m_nFmt : -1 );
+
+			free( pData );
+		}
+		return true;
+	}
+	__except( EXCEPTION_EXECUTE_HANDLER )
+	{
+		SE_TexProbe( "TEX FREE FAULTED site=%s '%s' ptr=%p size=%d code=%08X sub %d,%d %dx%d fmt=%d (leaked, no free)\n",
+			pSite ? pSite : "?", pTextureName ? pTextureName : "?", pData, nExpectedSize, GetExceptionCode(),
+			pCmd ? pCmd->m_subRect.x : -1, pCmd ? pCmd->m_subRect.y : -1,
+			pCmd ? pCmd->m_subRect.width : -1, pCmd ? pCmd->m_subRect.height : -1,
+			pCmd ? (int)pCmd->m_nFmt : -1 );
+		return false;
+	}
+#else
+	( void )pTextureName;
+	( void )pCmd;
+	( void )pSite;
+	free( pData );
+	return true;
+#endif
+}
 
 bool ConvertDDS( void * pDDS, int nDDS, CUtlBuffer &bufOutput, int &width, int &height, ImageFormat &fmt );
 
@@ -302,7 +403,7 @@ JobStatus_t CCreateWrapperTextureFromCommonFormatsJob::DoExecute()
 //
 //==================================================================================================
 
-void S1Wrapper_SetTextureDataCmd_t::ReleaseResources()
+void S1Wrapper_SetTextureDataCmd_t::ReleaseResources( const char *pSite )
 {
 	if ( m_pVTFFromFile )
 	{
@@ -318,8 +419,14 @@ void S1Wrapper_SetTextureDataCmd_t::ReleaseResources()
 		}
 		else
 		{
+			// SE port: probe guard so an overflow of *this* allocation is distinguishable from somebody
+			// else trashing the heap and this free merely being the one that noticed.  The free itself is
+			// fault tolerant so a command with a garbage pointer cannot take the whole process down.
+			// (m_textureName only exists in the detailed logging build, so it is not passed here - the
+			// subrect/format/size carried by the command identify the plane well enough.)
+			SE_TexTryFree( m_pData, m_nDataSize, nullptr, this, pSite );
+
 			WrapTextureLog( m_textureName.String(), 0, 0, "S1Wrapper_SetTextureDataCmd_t free", m_nDataSize, m_pData );
-			free( m_pData );
 		}
 		m_pData = nullptr;
 	}
@@ -332,6 +439,12 @@ public:
 	{
 		m_pBackingStore = nullptr;
 		m_nBackingStoreSize = 0;
+		// SE port fix: these describe the destination and were never initialised, while
+		// UpdateSubRect() compares the incoming subrect against them.
+		m_nWidth = 0;
+		m_nHeight = 0;
+		m_nDepth = 0;
+		m_nFmt = IMAGE_FORMAT_UNKNOWN;
 	}
 
 	~CPanoramaProceduralRegen()
@@ -437,13 +550,73 @@ public:
 		const Rect3D_t* pSubRect = &params.m_subRect;
 		char* pBits = (char*)params.m_pData;
 
-		if ( ( pSubRect->width * pSubRect->height * pSubRect->depth ) > ( m_nWidth*m_nHeight*m_nDepth ) )
+		if ( !pBits || pSubRect->width <= 0 || pSubRect->height <= 0 )
 		{
-			Error( "Subrect > texture\n" );
+			m_params.m_pData = nullptr;
+			return;
+		}
+
+		// SE port fix: the subrect below describes the *caller's* data (for the main menu background
+		// movie that is a 1280x720 frame), while the S1 texture behind this wrapper can be a
+		// different size: FillTextureDesc() pads to a power of two when the device reports no
+		// non-pow2 support, and CTexture::ComputeActualSize() can reduce the texture further by the
+		// picmip level its name resolves to.  The copies below write whole rows into the destination,
+		// so an oversized subrect wrote straight past the end of the scratch VTF / backing store
+		// allocation - that heap corruption is what killed the process a few frames into the movie.
+		// Clamp to the destination instead (this used to be a fatal Error("Subrect > texture"), which
+		// could only ever fire once the damage was already done).
+		int nCopyWidth = pSubRect->width;
+		int nCopyHeight = pSubRect->height;
+		if ( m_nWidth > 0 && m_nHeight > 0 )
+		{
+			if ( pSubRect->x + nCopyWidth > m_nWidth )
+				nCopyWidth = MAX( m_nWidth - pSubRect->x, 0 );
+			if ( pSubRect->y + nCopyHeight > m_nHeight )
+				nCopyHeight = MAX( m_nHeight - pSubRect->y, 0 );
+		}
+
+		if ( ( nCopyWidth != pSubRect->width ) || ( nCopyHeight != pSubRect->height ) )
+		{
+			// probed/warned a few times so the mismatch stays visible while the port is brought up
+			static int s_nSETexSizeWarnings = 0;
+			if ( s_nSETexSizeWarnings < 4 )
+			{
+				++s_nSETexSizeWarnings;
+				SE_TexProbe( "TEX clamp %dx%d src %d,%d -> copy %dx%d (S1 texture %dx%d fmt=%d dataSize=%d)\n",
+					pSubRect->width, pSubRect->height, pSubRect->x, pSubRect->y,
+					nCopyWidth, nCopyHeight, m_nWidth, m_nHeight, (int)m_nFmt, params.m_nDataSize );
+				Warning( "Panorama subrect %dx%d does not fit the %dx%d S1 texture - clamped\n",
+					pSubRect->width, pSubRect->height, m_nWidth, m_nHeight );
+			}
+		}
+
+		if ( ( nCopyWidth <= 0 ) || ( nCopyHeight <= 0 ) )
+		{
+			m_params.m_pData = nullptr;
+			return;
 		}
 
 		for ( int z = 0; z < m_nDepth; ++z )
 		{
+			// SE port fix: also bound the row copy by the destination row stride
+			if ( m_pBackingStore && ( nCopyWidth > (int)( ImageLoader::SizeInBytes( m_nFmt ) * m_nWidth ) ) )
+				nCopyWidth = ImageLoader::SizeInBytes( m_nFmt ) * m_nWidth;
+			if ( pVTFTexture && ( nCopyWidth > (int)pVTFTexture->RowSizeInBytes( 0 ) ) )
+				nCopyWidth = pVTFTexture->RowSizeInBytes( 0 );
+
+			{
+				static int s_nSETexCopyProbes = 0;
+				if ( s_nSETexCopyProbes < 6 )
+				{
+					++s_nSETexCopyProbes;
+					SE_TexProbe( "TEX copy depth=%d %d rows x %d bytes srcRow=%d -> backingRow=%d(=%d) vtfRow=%d(=%d)\n",
+						m_nDepth, nCopyHeight, nCopyWidth, params.m_nDataSize / MAX( pSubRect->height, 1 ),
+						m_pBackingStore ? (int)( ImageLoader::SizeInBytes( m_nFmt ) * m_nWidth ) : 0, m_nBackingStoreSize,
+						pVTFTexture ? (int)pVTFTexture->RowSizeInBytes( 0 ) : 0,
+						pVTFTexture ? (int)pVTFTexture->ComputeTotalSize() : 0 );
+				}
+			}
+
 			int nSrcBytesPerRow = params.m_nDataSize / pSubRect->height;
 			int nBackingBytesPerRow;
 			if ( ( m_nFmt == IMAGE_FORMAT_DXT1_RUNTIME ) || (m_nFmt == IMAGE_FORMAT_DXT5_RUNTIME) || (m_nFmt == IMAGE_FORMAT_DXT3_RUNTIME) )
@@ -466,7 +639,7 @@ public:
 			{
 				nBackingBytesPerRow = ImageLoader::SizeInBytes(m_nFmt) * m_nWidth;
 			}
-			bool bSetBackingStore = true;
+bool bSetBackingStore = ( SE_TexMode() != 2 );
 			bool bSetVTFTexture = ( pVTFTexture != nullptr );
 
 			CPixelWriter pixelWriter1, pixelWriter2;
@@ -486,7 +659,7 @@ public:
 			{
 				pixelWriter2.Seek( pSubRect->x, pSubRect->y );
 				CopyMemory3D( pixelWriter2.GetCurrentPixel(), pBits,
-					nSrcBytesPerRow, pSubRect->height, 1,
+					nCopyWidth, nCopyHeight, 1,
 					nSrcBytesPerRow, 0,
 					nBackingBytesPerRow, 0 );
 				bSetBackingStore = false;
@@ -496,7 +669,7 @@ public:
 			{
 				pixelWriter1.Seek( pSubRect->x, pSubRect->y );
 				CopyMemory3D( pixelWriter1.GetCurrentPixel(), pBits,
-					nSrcBytesPerRow, pSubRect->height, 1,
+					nCopyWidth, nCopyHeight, 1,
 					nSrcBytesPerRow, 0,
 					pVTFTexture->RowSizeInBytes( 0 ), 0 );
 				bSetVTFTexture = false;
@@ -512,9 +685,9 @@ public:
 				int topx = pSubRect->x;
 				int topy = pSubRect->y;
 
-				for ( int y = topy; y < topy + pSubRect->height; ++y )
+				for ( int y = topy; y < topy + nCopyHeight; ++y )
 				{
-					for ( int x = topx; x < topx + pSubRect->width; ++x )
+					for ( int x = topx; x < topx + nCopyWidth; ++x )
 					{
 						int r, g, b, a;						
 						pixelReader.Seek( x - topx, y - topy );
@@ -620,6 +793,20 @@ public:
 			{
 				// If we have data this is a normal download for a subrect or all of the texture(eg png)
 
+				// SE port bring-up probe: the sizes the two sides of the copy actually use.
+				static int s_nSETexRegenProbes = 0;
+				if ( ( s_nSETexRegenProbes < 6 ) && pVTFTexture )
+				{
+					++s_nSETexRegenProbes;
+					SE_TexProbe( "TEX regen '%s' vtf %dx%dx%d fmt=%d row0=%d total=%d | cmd sub %d,%d %dx%d depth=%d fmt=%d dataSize=%d | backingSize=%d"
+								 " | cached %dx%dx%d fmt=%d\n",
+						pTexture ? pTexture->GetName() : "?", pVTFTexture->Width(), pVTFTexture->Height(), pVTFTexture->Depth(),
+						(int)pVTFTexture->Format(), pVTFTexture->RowSizeInBytes( 0 ), pVTFTexture->ComputeTotalSize(),
+						m_params.m_subRect.x, m_params.m_subRect.y, m_params.m_subRect.width, m_params.m_subRect.height,
+						m_params.m_subRect.depth, (int)m_params.m_nFmt, m_params.m_nDataSize, m_nBackingStoreSize,
+						m_nWidth, m_nHeight, m_nDepth, (int)m_nFmt );
+				}
+
 				if ( !m_pBackingStore )
 				{
 					m_nBackingStoreSize = pVTFTexture->ComputeTotalSize();
@@ -665,8 +852,22 @@ public:
 
 	void DeleteTextureBits()
 	{
-		m_params.ReleaseResources();
-		
+		// SE port fix: two owners for one buffer was the whole problem here.
+		//   * m_params.m_pVTFFromFile is *owned* by the regenerator - CS:GO's VTF-from-file path never
+		//     releases the command, the regenerator destroyes the VTF instead.
+		//   * m_params.m_pData / m_DataRecycleDelegate are *borrowed* from the command that is being
+		//     uploaded (UploadTextureData copies the command into m_params for the duration of the
+		//     download); that command releases them, so releasing them here as well freed the same
+		//     buffer twice.  The probe trace showed it plainly: site=regen and site=upload on one pointer,
+		//     and the second release faulted inside the heap (a 900KB block is decommitted on free).
+		if ( m_params.m_pVTFFromFile )
+		{
+			DestroyVTFTexture( m_params.m_pVTFFromFile );
+			m_params.m_pVTFFromFile = nullptr;
+		}
+		m_params.m_pData = nullptr;
+		m_params.m_DataRecycleDelegate.Clear();
+
 		if ( m_pBackingStore )
 		{
 			free( m_pBackingStore );
@@ -732,6 +933,7 @@ S1Wrapper_Texture_t::S1Wrapper_Texture_t()
 	m_pTexture( nullptr ),
 	m_nUniqueId( UINT16_MAX ),
 	m_pRegenerator( nullptr ),
+	m_bRegeneratorInstalled( false ),
 	m_bRenderTargetWithDepth( false ),
 	m_completionCallback( nullptr ),
 	m_pCompletionCallbackContext( nullptr ),
@@ -770,7 +972,7 @@ void S1Wrapper_Texture_t::Destroy()
 		S1Wrapper_SetTextureDataCmd_t cmd;
 		while ( m_pSetTextureDataCmds->PopItem( &cmd ) )
 		{
-			cmd.ReleaseResources();
+			cmd.ReleaseResources( "destroy" );
 		}
 		delete m_pSetTextureDataCmds;
 		m_pSetTextureDataCmds = nullptr;
@@ -947,12 +1149,17 @@ void S1Wrapper_Texture_t::SetToErrorTexture()
 {
 	Assert( !m_pTexture );
 	m_pTexture = sm_pErrorTexture;
+	// SE port: the shared error texture must never carry our regenerator
+	m_bRegeneratorInstalled = false;
 	FillTextureDesc( m_pTexture->GetActualWidth(), m_pTexture->GetActualHeight(), m_pTexture->GetImageFormat() );
 }
 
 //-----------------------------------------------------------------------------
 void S1Wrapper_Texture_t::CreateS1Texture()
 {
+	// SE port: a freshly created src1 texture has no regenerator installed on it yet
+	m_bRegeneratorInstalled = false;
+
 	if ( m_nFlags & TEXTUREFLAGS_PROCEDURAL )
 	{
 		ImageFormat nFmt = m_textureDesc.m_nImageFormat;
@@ -1009,7 +1216,7 @@ void S1Wrapper_Texture_t::CreateS1Texture()
 		S1Wrapper_SetTextureDataCmd_t cmd;
 		while ( m_pSetTextureDataCmds->PopItem( &cmd ) )
 		{
-			cmd.ReleaseResources();
+			cmd.ReleaseResources( "noS1Texture" );
 		}
 	}
 	else
@@ -1025,6 +1232,10 @@ void S1Wrapper_Texture_t::CreateS1Texture()
 //-----------------------------------------------------------------------------
 void S1Wrapper_Texture_t::SetTextureData( IVTFTexture* pVTF, ImageFormat fmt, const void *pData, int nDataSize, Rect3D_t const *pSubRect, const CUtlDelegate< void( const void * )> *pDataRecycleDelegate )
 {
+	// SE port bring-up diagnostic (see SE_TexMode): hand nothing to the upload queue at all
+	if ( SE_TexMode() == 4 )
+		return;
+
 	// Create a SetTextureData command and add it to the list
 	// The data will actually get uploaded on the render thread
 
@@ -1045,8 +1256,10 @@ void S1Wrapper_Texture_t::SetTextureData( IVTFTexture* pVTF, ImageFormat fmt, co
 		}
 		else
 		{
-			cmd.m_pData = malloc( nDataSize );
+			// SE port: allocate a guard word after the payload (see ReleaseResources())
+			cmd.m_pData = malloc( nDataSize + 8 );
 			memcpy( cmd.m_pData, pData, nDataSize );
+			*( unsigned * )( ( unsigned char * )cmd.m_pData + nDataSize ) = 0x5EA5EA5E;
 			WrapTextureLog( m_textureName.String(), m_textureDesc.m_nWidth, m_textureDesc.m_nHeight, "S1Wrapper_SetTextureDataCmd_t alloc", nDataSize, cmd.m_pData );
 		}
 		cmd.m_nDataSize = nDataSize;
@@ -1061,7 +1274,7 @@ void S1Wrapper_Texture_t::SetTextureData( IVTFTexture* pVTF, ImageFormat fmt, co
 			while ( m_pSetTextureDataCmds->PopItem( &cmdToDelete ) )
 			{
 				// Free data allocated in SetTextureData
-				cmdToDelete.ReleaseResources();
+				cmdToDelete.ReleaseResources( "purge" );
 			}
 		}
 	}
@@ -1098,9 +1311,16 @@ void S1Wrapper_Texture_t::UploadTextureData()
 		{
 			//Msg( ">>>Set Proc Regen %p for texture  %s:%p  subRect %d, %d, %dx%d\n", pRegen, pTexture->GetName(), pTexture, pSubRect->x, pSubRect->y, pSubRect->width, pSubRect->height );
 
-			// SE port: SE 2013's SetTextureRegenerator() takes no "bReleaseExisting" argument
-			// (CS:GO added it).  TODO: verify the release semantics when a regenerator is replaced.
-			m_pTexture->SetTextureRegenerator( m_pRegenerator );
+			// SE port fix: CS:GO calls SetTextureRegenerator( pRegen, /*bReleaseExisting=*/false ) here; SE
+			// 2013's version has no such argument and always Releases the previously installed regenerator.
+			// The previously installed regenerator is this very object, so re-installing it on every frame
+			// ran DeleteTextureBits() in the middle of the upload and released m_params.m_pData - the buffer
+			// the command below still owns.  Install it once and leave it alone.
+			if ( !m_bRegeneratorInstalled )
+			{
+				m_pTexture->SetTextureRegenerator( m_pRegenerator );
+				m_bRegeneratorInstalled = true;
+			}
 
 			Rect_t updateRect;
 			updateRect.x = cmd.m_subRect.x;
@@ -1113,7 +1333,8 @@ void S1Wrapper_Texture_t::UploadTextureData()
 			// TODO: query the shader API once the wrapper has access to it; assume the device is ready.
 			if ( true )
 			{
-				m_pTexture->Download( &updateRect );
+				if ( SE_TexMode() != 1 )
+					m_pTexture->Download( &updateRect );
 			}
 			else
 			{
@@ -1121,15 +1342,32 @@ void S1Wrapper_Texture_t::UploadTextureData()
 				m_pRegenerator->UpdateBackingStore( m_pTexture );
 			}
 
+			// SE port fix: m_pRegenerator->m_params is a *copy* of cmd and therefore aliases the same
+			// data pointer / recycle delegate.  RegenerateTextureBits() normally clears that pointer
+			// when it consumes the frame, but when the download path above did not reach it (no
+			// download at this point in the frame, device not ready, texture not procedural, ...) the
+			// regenerator kept ownership of the caller's data and released it a second time in
+			// DeleteTextureBits() - that double release is what put a dangling pointer into the movie
+			// player's plane pool and corrupted the heap.  The command below owns the data now.
+			m_pRegenerator->m_params.m_pData = nullptr;
+			m_pRegenerator->m_params.m_DataRecycleDelegate.Clear();
+
 			// Free data allocated in SetTextureData
-			cmd.ReleaseResources();
+			cmd.ReleaseResources( "upload" );
 		}
 		else
 		{
 			//Msg( ">>>Set VTF Regen %p for texture  %s:%p\n", pRegen, pTexture->GetName(), pTexture );
 
-			// SE port: SE 2013's SetTextureRegenerator() takes no "bReleaseExisting" argument.
-			m_pTexture->SetTextureRegenerator( m_pRegenerator );
+			// SE port fix: same reason as above - SE 2013's SetTextureRegenerator() Releases the previous
+			// regenerator unconditionally, and the previous one is this object.  Here that Release would
+			// even destroy the VTF the command just handed over (the regenerator owns it) before the
+			// download below gets to use it.
+			if ( !m_bRegeneratorInstalled )
+			{
+				m_pTexture->SetTextureRegenerator( m_pRegenerator );
+				m_bRegeneratorInstalled = true;
+			}
 			m_pTexture->Download();
 		}
 	}

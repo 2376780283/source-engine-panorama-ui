@@ -11,6 +11,12 @@
 
 #ifdef LIBVIDEO_DLL_EXPORT
 #define LIBVIDEO_INTERFACE	DLL_EXPORT
+#elif defined( SE_VIDEO_STATIC )
+// SE port: the player API is implemented inside this tree (video/video_mf/mf_video_player.cpp on
+// top of Media Foundation) instead of Valve's prebuilt video.lib, so the entry points are plain
+// functions rather than DLL imports.  panorama/wscript defines SE_VIDEO_STATIC for every TU that
+// includes this header.
+#define LIBVIDEO_INTERFACE
 #else
 #define LIBVIDEO_INTERFACE	DLL_IMPORT
 #endif

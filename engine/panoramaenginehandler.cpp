@@ -65,6 +65,7 @@
 #include "vgui/ipanel.h"	// vgui::ipanel()->SetVisible
 #include <vgui_controls/Controls.h>	// vgui::ipanel() lives here
 #include <vgui/ISurface.h>	// vgui::surface()->IsCursorLocked/IsCursorVisible (probe)
+#include "seport/se_background_movie.h"	// SE_PortLoadMainMenuBackgroundMovie (background webm)
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include <tier0/memdbgon.h>
@@ -679,6 +680,46 @@ void CPanoramaEngineHandler::PanoramaRunFrame(int nSlot)
 					SE_PortUIProbe( "SE vgui gameui panel %s (panorama menu %s)\n",
 						bWantHidden ? "hidden" : "shown", m_pMenuWindow ? "exists" : "absent" );
 				}
+			}
+		}
+	}
+
+	// SE port of game/client/cstrike15/panorama/csgo_mainmenu.cpp::CCSGO_MainMenu::LoadBackgroundMovie
+	// (panorama background webm, 2026-09-14):
+	// mainmenu.xml only *declares* the reusable snippet "MainMenuMovieSnippet" and leaves
+	// MainMenuMovieParent empty - in CS:GO the game-client class instantiates it.  This tree has no
+	// cstrike15 client, so '#MainMenuMovie' never existed, and mainmenu.js::_SetBackgroundMovie()
+	// bailed out on its IsValid() check: no movie panel, no webm, no background.
+	// Step 1 (here): instantiate the snippet.  Step 2: the layout's script reads
+	// ui_mainmenu_bkgnd_movie and calls SetMovie/SetSound/Play - it already ran (before the panel
+	// existed), so call it once more explicitly.
+	{
+		static int s_nSEBackgroundMovie = 0;	// 0 = not tried yet
+		if ( s_nSEBackgroundMovie == 0 && s_pSEProbeMenuRoot && m_pUIEngine )
+		{
+			panorama::IUIPanel *pMovieParent = s_pSEProbeMenuRoot->FindChildInLayoutFile( "MainMenuMovieParent" );
+			if ( pMovieParent )
+			{
+				s_nSEBackgroundMovie = 1;
+
+				// The snippet instantiation + SetMovie/Play live in the panorama module (it knows the movie
+				// control types); engine.dll deliberately links no panorama library, so the helper is
+				// resolved out of panoramauiclient.dll's export table.
+				typedef bool ( *SEPortLoadMovieFn )( panorama::IUIPanel *, const char * );
+				static SEPortLoadMovieFn s_pfnSELoadMovie = NULL;
+				static bool s_bSEBridgeResolved = false;
+				if ( !s_bSEBridgeResolved )
+				{
+					s_bSEBridgeResolved = true;
+					HMODULE hPanoramaModule = GetModuleHandleA( "panoramauiclient.dll" );
+					if ( hPanoramaModule )
+						s_pfnSELoadMovie = (SEPortLoadMovieFn)GetProcAddress( hPanoramaModule, "SE_PortLoadMainMenuBackgroundMovie" );
+					SE_PortUIProbe( "SE movie bridge: module=%p fn=%p\n", hPanoramaModule, s_pfnSELoadMovie );
+				}
+
+				const char *pchMovie = CommandLine()->ParmValue( "-se_background_movie", "anubis720" );
+				bool bStarted = ( s_pfnSELoadMovie != NULL ) && s_pfnSELoadMovie( s_pSEProbeMenuRoot, pchMovie );
+				SE_PortUIProbe( "SE background movie: load('%s') -> %d\n", pchMovie, bStarted ? 1 : 0 );
 			}
 		}
 	}
