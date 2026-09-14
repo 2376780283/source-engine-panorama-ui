@@ -253,6 +253,10 @@ def build(bld):
 		'controls/tooltip.cpp',
 		'controls/verticalscrolllist.cpp',
 		'controls/vumeter.cpp',
+		# SE port: CRenderPanel was deferred with the rest of batch 3 ("renderpanel follows in later
+		# batches"); it is needed now by the game-client panels ported under
+		# panorama/seport/gameclient (CSGOBackbufferImagePanel derives from it).
+		'controls/source2/renderpanel.cpp',
 		# Batch 4: the debug overlay (panorama_client.vpc - everything except console.cpp,
 		# which the vpc itself has commented out with //APS)
 		'controls/debug/debugautocomplete.cpp',

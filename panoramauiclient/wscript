@@ -41,6 +41,11 @@ def build(bld):
 		# SE port: CS:GO creates its main-menu background movie from the game-client panel class
 		# (csgo_mainmenu.cpp::LoadBackgroundMovie); this is that code, exported for engine.dll.
 		'se_background_movie.cpp',
+		# SE port: the game-client panorama panel classes that CS:GO's layouts use.  They live under
+		# panorama/seport/gameclient/ (mirroring CS:GO's game/client/... layout) but are compiled here,
+		# because REGISTER_PANEL2D_FACTORY in a static library object is never pulled into the link.
+		'../panorama/seport/gameclient/csgo_blurtarget.cpp',
+		'../panorama/seport/gameclient/csgo_backbufferimage.cpp',
 		# '../thirdparty/JSON_parser/JSON_parser.c',   # not present in this tree
 	]
 
