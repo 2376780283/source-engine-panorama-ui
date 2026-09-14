@@ -3476,9 +3476,70 @@ const Tier1FullHTMLEntity_t g_Tier1_FullHTMLEntities[] =
 #endif
 
 
+//-----------------------------------------------------------------------------
+// SE port: size of the string V_BasicHtmlEntityEncode() would produce, terminator excluded.
+// Mirrors the replacement tables of the encoder below (no whitespace pass - the query form and the
+// 4-argument call both use the default bPreserveWhitespace == false).
+//-----------------------------------------------------------------------------
+static int V_BasicHtmlEntityEncodeLength( char const *pIn, const int nInSize )
+{
+	int iOutput = 0;
+	for ( int iInput = 0; iInput < nInSize; ++iInput )
+	{
+		bool bReplacementDone = false;
+		for ( int i = 0; g_BasicHTMLEntities[ i ].uCharCode != 0; ++i )
+		{
+			if ( pIn[ iInput ] == g_BasicHTMLEntities[ i ].uCharCode )
+			{
+				iOutput += g_BasicHTMLEntities[ i ].nEntityLength;
+				bReplacementDone = true;
+				break;
+			}
+		}
+
+		if ( !bReplacementDone )
+		{
+			++iOutput;
+		}
+	}
+	return iOutput;
+}
+
+//-----------------------------------------------------------------------------
+// SE port: the measure-then-encode form CS:GO's panorama code uses.  The 4-argument call and the
+// bPreserveWhitespace form both land in the overload below; this one only exists because CS:GO passes
+// the required size back through the 5th parameter:
+//     V_BasicHtmlEntityEncode( NULL, 0, pchIn, nLen, &nRequiredBytes );
+// Before this overload existed the call bound to the bPreserveWhitespace version - the int* converted
+// to "true" and the NULL destination was written through (crash in the terminator write below).
+//-----------------------------------------------------------------------------
+bool V_BasicHtmlEntityEncode( char *pDest, const int nDestSize, char const *pIn, const int nInSize, int *pnRequiredBytes )
+{
+	// +1 for the terminator: callers allocate exactly this and then pass it back as nDestSize
+	const int nRequired = V_BasicHtmlEntityEncodeLength( pIn, nInSize ) + 1;
+	if ( pnRequiredBytes )
+	{
+		*pnRequiredBytes = nRequired;
+	}
+
+	if ( !pDest )
+	{
+		return true;			// measure-only call, nothing to write
+	}
+
+	return V_BasicHtmlEntityEncode( pDest, nDestSize, pIn, nInSize, false );
+}
+
 bool V_BasicHtmlEntityEncode( char *pDest, const int nDestSize, char const *pIn, const int nInSize, bool bPreserveWhitespace /*= false*/ )
 {
 	Assert( nDestSize == 0 || pDest != NULL );
+	if ( !pDest )
+	{
+		// SE port: measure-only callers use the int* overload above; never write a terminator through
+		// a NULL destination (this is what an uninitialised "size query" used to do).
+		return true;
+	}
+
 	int iOutput = 0;
 	for ( int iInput = 0; iInput < nInSize; ++iInput )
 	{

@@ -868,6 +868,17 @@ inline void V_wcscat( INOUT_Z_CAP(cchDest) wchar_t *dest, const wchar_t *src, in
 // Returns false if there was not enough room in pDest to encode the entire source string, otherwise true
 bool V_BasicHtmlEntityEncode( OUT_Z_CAP( nDestSize ) char *pDest, const int nDestSize, char const *pIn, const int nInSize, bool bPreserveWhitespace = false );
 
+// SE port: "how much room do I need" form, used by CS:GO's panorama code
+// (panorama/uiengine.cpp::JSHTMLEscape, panorama/localization/localize.cpp):
+//     V_BasicHtmlEntityEncode( NULL, 0, pchIn, nLen, &nRequiredBytes );   // measure
+//     pBuf = malloc( nRequiredBytes );
+//     V_BasicHtmlEntityEncode( pBuf, nRequiredBytes, pchIn, nLen );       // encode
+// Source 2013 spends the 5th parameter on bPreserveWhitespace instead, so the query form gets this
+// overload (an int* argument binds to it exactly; it deliberately has no default value, otherwise a
+// 4-argument call would be ambiguous).  *pnRequiredBytes receives the encoded size *including* the
+// terminator - exactly what the caller has to allocate.  A NULL pDest encodes nothing.
+bool V_BasicHtmlEntityEncode( char *pDest, const int nDestSize, char const *pIn, const int nInSize, int *pnRequiredBytes );
+
 // Decode a string with htmlentities HTML -- this should handle all special chars, not just the ones Q_BasicHtmlEntityEncode uses.
 //
 // Returns false if there was not enough room in pDest to decode the entire source string, otherwise true
