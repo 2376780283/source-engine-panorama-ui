@@ -841,7 +841,10 @@ static float *SEBuildCoverage( const SEArray<SEEdge> &edges, int nWidth, int nHe
 
 	const double flSubSampleStep = 1.0 / (double)SE_SUBSAMPLES;
 
-	for ( int nSub = 0; nSub < SE_SUBSAMPLES; ++nSub )
+	// One sub-scanline per (pixel row x sub-sample): sampling only SE_SUBSAMPLES scan lines in
+	// total would leave every row but the first one of the shape empty.
+	const int nSubScanlines = nRegionH * SE_SUBSAMPLES;
+	for ( int nSub = 0; nSub < nSubScanlines; ++nSub )
 	{
 		double flY = (double)nRegionY + ( (double)nSub + 0.5 ) * flSubSampleStep;
 		if ( flY < flMinY || flY > flMaxY )
