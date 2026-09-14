@@ -46,12 +46,23 @@ def build(bld):
 		# because REGISTER_PANEL2D_FACTORY in a static library object is never pulled into the link.
 		'../panorama/seport/gameclient/csgo_blurtarget.cpp',
 		'../panorama/seport/gameclient/csgo_backbufferimage.cpp',
+		# SE port: the batch-A "host layer" of CS:GO's game/client/panorama (see
+		# docs/panorama_stage2_plan.md).  They are listed for the same reason as the panel classes
+		# above: a REGISTER_PANEL2D/_FACTORY in a static library object is never pulled into the link.
+		'../panorama/seport/gameclient/panorama/se_gameclient_globals.cpp',
+		'../panorama/seport/gameclient/panorama/ui_symbols.cpp',
+		'../panorama/seport/gameclient/panorama/ui_custom_layout.cpp',
+		'../panorama/seport/gameclient/panorama/ui_js_panel.cpp',
+		'../panorama/seport/gameclient/panorama/ui_root.cpp',
 		# '../thirdparty/JSON_parser/JSON_parser.c',   # not present in this tree
 	]
 
 	includes = [
 		'.',
 		'../panorama',              # panorama/uipanel.h, stdafx_client.h (CS:GO's private framework headers)
+		# SE port: the game-client layer (game/client/panorama equivalents) is included so that the
+		# ported sources keep CS:GO's own spelling, e.g. #include "panorama/ui_root.h".
+		'../panorama/seport/gameclient',
 		'..',
 		# The lightweight Source2 interfaces from panorama_s1wrapper must win over ../public
 		# (same order as panorama/wscript): public/rendersystem/irenderdevice.h would otherwise
@@ -93,6 +104,10 @@ def build(bld):
 		# inside #ifndef PANORAMA_EXPORTS (that define is for the panorama framework itself).
 		'STEAM_API_NODLL',
 		'_CLIENT',
+		# SE port: match CS:GO's cstrike15 build configuration.  The ported game-client sources branch on
+		# this (ui_root.cpp: CSTRIKE15 there are the CS:GO paths - colorblind-mode class, TrunkOnly,
+		# FireGameEvent by event name - as opposed to the Dota paths).
+		'CSTRIKE15',
 		# SE-era adaption (SE tier0/platform.h already provides the construct helpers)
 		'SE_PLATFORM_HAS_CONSTRUCT_HELPERS',
 	]
