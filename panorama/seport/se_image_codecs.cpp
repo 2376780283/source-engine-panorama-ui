@@ -10,13 +10,15 @@
 //                                             is not; the in-tree loader also includes the header
 //                                             as "jpeglib/jpeglib.h", a path that does not exist)
 //   ConvertPNGToRGBA                       -> common/pngloader.cpp + libpng   (same situation)
-//   ConvertSVGToRGBA                       -> common/svg/svgloader.cpp + parsifal + cairo
-//                                             (neither parsifal.lib/pcre.lib nor cairo exist here)
+//
+// SVG needs no replacement: common/svg/svgloader.cpp (CS:GO's loader) is compiled into the panorama
+// framework as-is, on top of the in-tree parsifal rewrite and the cairo subset implemented by
+// panorama/seport/se_cairo_shim/, so ConvertSVGToRGBA() is the real one.  The stub that used to live
+// in this file returned false and left every .svg icon in the UI blank.
 //
 // SE does vendor stb_image / stb_image_resize (thirdparty/stb), so the JPEG/PNG decoders and the
-// bilinear resizer are implemented here on top of those, while SVG conversion is stubbed out until a
-// vector backend is chosen.  The public declarations in common/jpegloader.h, common/pngloader.h and
-// common/svg/svgloader.h are honoured unchanged, so callers are unaffected.
+// bilinear resizer are implemented here on top of those.  The public declarations in
+// common/jpegloader.h and common/pngloader.h are honoured unchanged, so callers are unaffected.
 //
 // ============//
 #include "tier0/platform.h"
@@ -25,7 +27,6 @@
 
 #include "jpegloader.h"
 #include "pngloader.h"
-#include "svg/svgloader.h"
 
 #include <stdlib.h>
 
@@ -169,21 +170,9 @@ bool BResizeImageRGBA( CUtlBuffer &bufRGBA, int nWidth, int nHeight, int &nNewWi
 //-----------------------------------------------------------------------------
 // Purpose: Convert SVG data to raw RGBA.
 //
-// PARKED: CS:GO feeds SVG through parsifal (XML) + cairo (rasterizer).  Neither exists in this tree
-// (SEE the parsifal shim in panorama/thirdparty/libparsifal-0.8.3/, which is an XML reader only and
-// has no rasterizer).  Returning false makes the image loaders fall back to the placeholder path, so
-// layouts render without their SVG icons until a vector backend is ported.
+// This is CS:GO's ConvertSVGToRGBA(), in common/svg/svgloader.cpp - which is compiled into this
+// framework library, so no implementation belongs here.  It parses the SVG with parsifal (the
+// in-tree rewrite the layout loader also uses) and rasterises it through
+// panorama/seport/se_cairo_shim/, producing premultiplied ARGB32 that the loader then
+// unpremultiplies in place.
 //-----------------------------------------------------------------------------
-bool ConvertSVGToRGBA( const byte *pubSVGData, int cubSVGData, CUtlBuffer &bufOutput, int &width, int &height,
-					   float fScaleFactor, const SvgAttributeOverrides_t *pAttributeOverrides )
-{
-	NOTE_UNUSED( pubSVGData );
-	NOTE_UNUSED( cubSVGData );
-	NOTE_UNUSED( bufOutput );
-	NOTE_UNUSED( fScaleFactor );
-	NOTE_UNUSED( pAttributeOverrides );
-
-	width = 0;
-	height = 0;
-	return false;
-}

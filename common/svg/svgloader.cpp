@@ -12,6 +12,11 @@
 
 #include "cairo.h"
 
+// SE port: CS:GO builds this file with a precompiled header that already has Color in it, and
+// svghelpers.h only forward declares the class, so include it explicitly here (StopElement holds
+// a Color by value and calls its r()/g()/b() accessors).
+#include "color.h"
+
 #define SVG_PATH_SEGMENT_LARGE_ARC_FLAG	(1<<0)
 #define SVG_PATH_SEGMENT_SWEEP_FLAG		(1<<1)
 

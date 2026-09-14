@@ -78,9 +78,16 @@ def build(bld):
 		'../common/language.cpp',
 		'../common/timeutils.cpp',
 		'../common/svg/svghelpers.cpp',
+		# CS:GO's SVG loader, verbatim: it parses SVG with parsifal (thirdparty/libparsifal-0.8.3
+		# above) and rasterises with cairo.  seport/se_cairo_shim/ provides that rasteriser, so
+		# this is the real ConvertSVGToRGBA the image loaders call (seport/se_image_codecs.cpp
+		# used to stub it out).
+		'../common/svg/svgloader.cpp',
 		# seport/: SE-side replacements for CS:GO pieces whose external dependencies are absent from this
-		# tree (stb_image based JPEG/PNG decode + resizer, SVG stub).  See the file header for details.
+		# tree (stb_image based JPEG/PNG decode + resizer).  See the file header for details.
 		'seport/se_image_codecs.cpp',
+		# seport/: the software implementation of the cairo subset svgloader.cpp draws with.
+		'seport/se_cairo_shim/se_cairo_shim.cpp',
 		# seport/: the interface globals CS:GO's interfaces/interfaces.cpp provides.
 		'seport/se_interfaces.cpp',
 		# Batch 8: Source 2 UI engine + renderer (panorama.vpc "Source 2" folder).  CS:GO compiles these
@@ -138,6 +145,7 @@ def build(bld):
 		'../common',
 		'../gcsdk',             # gcsdk/enumutils.h (common/currencyamount.cpp)
 		'seport/pcre_shim',     # pcrecpp.h / pcre/pcrecpp.h for controls/debug/debuglayout.cpp
+		'seport/se_cairo_shim', # cairo.h for ../common/svg/svgloader.cpp (the SE port's cairo subset)
 		'../thirdparty',        # stb/stb_image.h, stb/stb_image_resize.h (seport/se_image_codecs.cpp)
 		'../thirdparty/protobuf-2.6.1/src',   # google/protobuf/descriptor.h, text_format.h (renderer/uirenderengine.cpp)
 		'../gcsdk/steamextra',  # tier1/tsmempool.h (CThreadSafeClassMemoryPool) - CS:GO's own build got this via its text PCH
