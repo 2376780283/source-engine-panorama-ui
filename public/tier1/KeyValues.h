@@ -153,7 +153,12 @@ public:
 	// NOTE: GetFirstSubKey/GetNextKey will iterate keys AND values. Use the functions 
 	// below if you want to iterate over just the keys or just the values.
 	//
-	KeyValues *GetFirstSubKey() { return m_pSub; }	// returns the first subkey in the list
+	// SE port: CS:GO declares GetFirstSubKey() const as well (same m_pSub member), and the ported
+	// game-client files iterate a const KeyValues*, so this accessor carries the const qualifier too
+	// (callers are unaffected: a const member is callable on non-const objects).  CS:GO's
+	// `KeyValues *GetNextKey() const` is deliberately *not* mirrored - this tree already has a
+	// different const form (returning const KeyValues*) and the two differ only in return type.
+	KeyValues *GetFirstSubKey() const { return m_pSub; }	// returns the first subkey in the list
 	KeyValues *GetNextKey() { return m_pPeer; }		// returns the next subkey
 	const KeyValues *GetNextKey() const { return m_pPeer; }		// returns the next subkey
 

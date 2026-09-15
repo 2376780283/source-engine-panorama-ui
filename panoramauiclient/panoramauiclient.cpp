@@ -47,6 +47,8 @@
 // SE port (temporary bring-up probe): the process exits silently while the UI engine is being set up,
 // and Warning() output is lost with it, so these probes append straight to a file.
 #include "panorama/panoramatypes.h"
+// SE port (batch E): installs the cstrike15 UI component JS bindings (the "UiToolkitAPI" global).
+#include "se_uicomponents.h"
 // SE port (temporary bring-up probe): the process exits silently while the UI engine is being set up,
 // and Warning() output is lost with it, so these probes append straight to a file.
 
@@ -268,6 +270,11 @@ panorama::IUIEngine *CPanoramaUIClient::SetupUIEngine( const char *pszLanguage, 
 	// Startup subsystems and make UIEngine ready for real use
 	CPanoramaUISettings::Get().SetUILanguage( pszLanguage );
 	pUIEngine->StartupSubsystems( &CPanoramaUISettings::Get(), hWindow );
+
+	// SE port (batch E): publish the UI component JavaScript bindings.  CS:GO does the equivalent from
+	// game/client/cstrike15/gameui/gameui_interface.cpp::CGameUI::Initialize, right after the panorama
+	// engine is connected and before any layout runs.
+	SE_PortInstallUiComponentBindings();
 
     return pUIEngine;
 }

@@ -2405,6 +2405,9 @@ class V8_EXPORT Value : public Data {
   // ------------------------------------------------------------------
   Local<String> ToString() const;
   Local<Object> ToObject() const;
+  // SE port shim: v8 6.x Value::ToNumber() (current context).  CS:GO's cstrike15 uicomponents call it
+  // as callbackInfo[0]->ToNumber()->Value().
+  Local<Number> ToNumber() const;
   int32_t Int32Value() const;
   uint32_t Uint32Value() const;
   bool BooleanValue() const;
@@ -10715,6 +10718,10 @@ inline v8::Local<v8::String> v8::Value::ToString() const {
 
 inline v8::Local<v8::Object> v8::Value::ToObject() const {
   return ToObject(Isolate::GetCurrent()->GetCurrentContext()).ToLocalChecked();
+}
+
+inline v8::Local<v8::Number> v8::Value::ToNumber() const {
+  return ToNumber(Isolate::GetCurrent()->GetCurrentContext()).ToLocalChecked();
 }
 
 inline int32_t v8::Value::Int32Value() const {

@@ -3595,6 +3595,116 @@ bool V_BasicHtmlEntityEncode( char *pDest, const int nDestSize, char const *pIn,
 }
 
 
+//-----------------------------------------------------------------------------
+// SE port: wide-character form of the encoder above, for CS:GO's
+// game/client/cstrike15/gameui/gameui_util.cpp::GameUI_MakeStringSafe (ported in batch E as
+// panorama/seport/gameclient/se_gameui_util.cpp).  CS:GO has both char and wchar_t overloads of
+// V_BasicHtmlEntityEncode - Source 2013 only the char ones.  Same tables and same semantics, only the
+// element type of the buffers differs; the entity strings themselves stay ASCII and are widened on
+// output.  nDestSize counts wchar_t elements, like CS:GO's caller expects.
+//-----------------------------------------------------------------------------
+static int V_BasicHtmlEntityEncodeLength( wchar_t const *pIn, const int nInSize )
+{
+	int iOutput = 0;
+	for ( int iInput = 0; iInput < nInSize; ++iInput )
+	{
+		bool bReplacementDone = false;
+		for ( int i = 0; g_BasicHTMLEntities[ i ].uCharCode != 0; ++i )
+		{
+			if ( pIn[ iInput ] == (wchar_t)g_BasicHTMLEntities[ i ].uCharCode )
+			{
+				iOutput += g_BasicHTMLEntities[ i ].nEntityLength;
+				bReplacementDone = true;
+				break;
+			}
+		}
+
+		if ( !bReplacementDone )
+		{
+			++iOutput;
+		}
+	}
+	return iOutput;
+}
+
+bool V_BasicHtmlEntityEncode( wchar_t *pDest, const int nDestSize, wchar_t const *pIn, const int nInSize, int *pnRequiredBytes )
+{
+	const int nRequired = V_BasicHtmlEntityEncodeLength( pIn, nInSize ) + 1;
+	if ( pnRequiredBytes )
+	{
+		*pnRequiredBytes = nRequired;
+	}
+
+	if ( !pDest )
+	{
+		return true;
+	}
+
+	return V_BasicHtmlEntityEncode( pDest, nDestSize, pIn, nInSize, false );
+}
+
+bool V_BasicHtmlEntityEncode( wchar_t *pDest, const int nDestSize, wchar_t const *pIn, const int nInSize, bool bPreserveWhitespace /*= false*/ )
+{
+	Assert( nDestSize == 0 || pDest != NULL );
+	if ( !pDest )
+	{
+		return true;
+	}
+
+	int iOutput = 0;
+	for ( int iInput = 0; iInput < nInSize; ++iInput )
+	{
+		bool bReplacementDone = false;
+		// See if the current char matches any of the basic entities
+		for ( int i = 0; g_BasicHTMLEntities[ i ].uCharCode != 0; ++i )
+		{
+			if ( pIn[ iInput ] == (wchar_t)g_BasicHTMLEntities[ i ].uCharCode )
+			{
+				bReplacementDone = true;
+				for ( int j = 0; j < g_BasicHTMLEntities[ i ].nEntityLength; ++j )
+				{
+					if ( iOutput >= nDestSize - 1 )
+					{
+						pDest[ nDestSize - 1 ] = 0;
+						return false;
+					}
+					pDest[ iOutput++ ] = (wchar_t)g_BasicHTMLEntities[ i ].pchEntity[ j ];
+				}
+			}
+		}
+
+		if ( bPreserveWhitespace && !bReplacementDone )
+		{
+			for ( int i = 0; g_WhitespaceEntities[ i ].uCharCode != 0; ++i )
+			{
+				if ( pIn[ iInput ] == (wchar_t)g_WhitespaceEntities[ i ].uCharCode )
+				{
+					bReplacementDone = true;
+					for ( int j = 0; j < g_WhitespaceEntities[ i ].nEntityLength; ++j )
+					{
+						if ( iOutput >= nDestSize - 1 )
+						{
+							pDest[ nDestSize - 1 ] = 0;
+							return false;
+						}
+						pDest[ iOutput++ ] = (wchar_t)g_WhitespaceEntities[ i ].pchEntity[ j ];
+					}
+				}
+			}
+		}
+
+		if ( !bReplacementDone )
+		{
+			pDest[ iOutput++ ] = pIn[ iInput ];
+		}
+	}
+
+	// Null terminate the output
+	pDest[ iOutput ] = 0;
+	return true;
+}
+
+
 bool V_HtmlEntityDecodeToUTF8( char *pDest, const int nDestSize, char const *pIn, const int nInSize )
 {
 	Assert( nDestSize == 0 || pDest != NULL );
