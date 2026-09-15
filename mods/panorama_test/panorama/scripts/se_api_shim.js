@@ -320,6 +320,20 @@
 	// "false" is the conservative answer: the loadout button is disabled, nothing else changes.
 	seDefine("LoadoutAPI.IsLoadoutAllowed", function () { return false; });
 
+	// Same failure one level deeper: mainmenu.js::_UpdateUnlockCompAlert() builds
+	//
+	//     var bHide = GameInterfaceAPI.GetSettingString( ... ) === '1' ||
+	//                 MyPersonaAPI.HasPrestige() ||
+	//                 MyPersonaAPI.GetCurrentLevel() !== 2;
+	//     alert.SetHasClass( 'hidden', bHide );
+	//
+	// With HasPrestige() a truthy placeholder the "||" returns that object (not a bool) and
+	// SetHasClass() throws - so both of these have to answer their real type: false and 2 make the
+	// expression a plain "false" and the alert stays visible (which is the pre-unlock state CS:GO
+	// shows on a fresh account).
+	seDefine("MyPersonaAPI.HasPrestige", function () { return false; });
+	seDefine("MyPersonaAPI.GetCurrentLevel", function () { return 2; });
+
 	// NOTE: deliberately *not* answered here (they stay truthy placeholders, which is the branch the
 	// CS:GO menu wants when it is not connected to Steam):
 	//   MyPersonaAPI.IsInventoryValid() / IsConnectedToGC()  - "false" makes

@@ -96,6 +96,11 @@ def build(bld):
 		'../panorama/seport/gameclient/panorama/ui_context_menu_manager.cpp',
 		'../panorama/seport/gameclient/panorama/context_menus/ui_context_menu_base.cpp',
 		'../panorama/seport/gameclient/panorama/context_menus/ui_context_menu_custom_layout.cpp',
+		# SE port: stand-ins for the game-client panel classes this port does not implement (ItemImage,
+		# ItemPreviewPanel, ItemPreviewSlider/ColorSlider/Debug, CSGOAvatarImage, CSGOChat).  Without a
+		# registered type the layout loader substitutes a plain Panel and every JS call into them throws,
+		# which aborts the calling script.  See the note at the top of seport_panel_stubs.h.
+		'../panorama/seport/gameclient/seport_panel_stubs.cpp',
 		# '../thirdparty/JSON_parser/JSON_parser.c',   # not present in this tree
 	]
 
