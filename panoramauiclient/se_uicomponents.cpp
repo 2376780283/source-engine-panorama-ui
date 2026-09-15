@@ -41,4 +41,44 @@ void SE_PortInstallUiComponentBindings()
 	pUiToolkit->InstallPanoramaBindings();
 
 	Msg( "SE port: installed the UiToolkitAPI JS bindings (CUiComponent_UiToolkit)\n" );
+
+	// SE port: the other two things CS:GO's CGameUI::CreateGameSpecificUI() does before any layout runs -
+	// load the game's localization and register the panorama keybindings.
+	//
+	// Without the localization every "#token" in the CS:GO layouts resolves to nothing (each one logs
+	// "**** Unable to localize ..."), which is a large part of why the menu looks empty even when it
+	// loads.  The token files ship with this content:
+	//     <mod>/resource/csgo_english.txt     -> BLoadLocalizationFile( "csgo" )
+	//     <mod>/resource/cstrike_english.txt  -> BLoadLocalizationFile( "cstrike" )
+	// (the prefix is resolved against the mod's resource dir and the current language).
+	if ( panorama::UILocalize() )
+	{
+		// These are CS:GO's own calls (CGameUI::CreateGameSpecificUI).  They resolve the prefix against
+		// the {localization} named path of the mod's panorama/panorama.cfg and the current UI language,
+		// i.e. "<dir>/<prefix>_<language>.txt".  A prefix that walks out of {localization} does NOT
+		// work: CLocalization::ConstructLocalizationFilePath() runs the composed path through
+		// V_FixupPathName(), which collapses the ".." segments instead of resolving them.
+		//
+		// This content's cfg (Valve's own) points {localization} at <mod>/panorama/localization, so the
+		// mod's resource/csgo_english.txt + cstrike_english.txt have to be present there as well for
+		// the tokens to resolve.  See build/_stage_loc.ps1.
+		const char *pchLocDir = panorama::UIEngine() ? panorama::UIEngine()->GetLocalPathForNamedPath( "{localization}" ) : "<no engine>";
+
+		const bool bCsgo = panorama::UILocalize()->BLoadLocalizationFile( "csgo" );
+		const bool bCstrike = panorama::UILocalize()->BLoadLocalizationFile( "cstrike" );
+
+		Msg( "SE port: localization loaded (csgo=%d cstrike=%d, {localization}='%s')\n",
+			(int)bCsgo, (int)bCstrike, pchLocDir ? pchLocDir : "<null>" );
+	}
+	else
+	{
+		Warning( "SE port: no CLocalize, the layout tokens will not resolve\n" );
+	}
+
+	// CS:GO's CGameUI::CreateGameSpecificUI() registers this file; the shipped content has it.
+	if ( panorama::UIInputEngine() )
+	{
+		panorama::UIInputEngine()->RegisterKeyBindingsFile( "file://{resources}/csgo_keybinds.cfg" );
+		Msg( "SE port: registered file://{resources}/csgo_keybinds.cfg\n" );
+	}
 }

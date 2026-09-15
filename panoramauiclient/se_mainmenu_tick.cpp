@@ -30,26 +30,9 @@ extern "C" __declspec( dllexport ) bool SE_PortMainMenuTick()
 	CCSGO_MainMenu *pMainMenu = CCSGO_MainMenu::GetInstance();
 	if ( !pMainMenu )
 	{
-		// SE port (bring-up probe): the engine ticks this every frame, so a log entry here says the
-		// instance is missing even though the layout instantiated <CSGOMainMenu>.
-		static int s_nSENoInstanceLogged = 0;
-		if ( ++s_nSENoInstanceLogged % 240 == 1 )
-		{
-			Msg( "SE port: SE_PortMainMenuTick: CCSGO_MainMenu::GetInstance() == NULL (call #%d)\n", s_nSENoInstanceLogged );
-		}
+		// The layout has to instantiate <CSGOMainMenu> for the class to exist.  When it does not (a test
+		// layout, an older content pack) the engine falls back to its own background-movie bridge.
 		return false;
-	}
-
-	// SE port (bring-up probe, one shot): report that the class is driving the menu and that CUI_Root
-	// found the popup / tooltip / context-menu managers the layout declares - that is what UiToolkitAPI
-	// and the panel event handlers resolve through (CUI_Root::GetRootForWindow).
-	static bool s_bSEProbeLogged = false;
-	if ( !s_bSEProbeLogged )
-	{
-		s_bSEProbeLogged = true;
-		Msg( "SE port: CCSGO_MainMenu is live - popupManager=%p tooltipManager=%p contextMenuManager=%p\n",
-			(void *)pMainMenu->GetPopupManager(), (void *)pMainMenu->GetTooltipManager(),
-			(void *)pMainMenu->GetContextMenuManager() );
 	}
 
 	pMainMenu->Update();

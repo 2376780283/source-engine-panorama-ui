@@ -87,9 +87,16 @@ using namespace panorama;
 ConVar s_convarPanoramaECOMode( "@panorama_ECO_mode", "1", FCVAR_NONE, "0 - disable, 1 - default, 2 - force always ON" );
 
 // SE port: the layout the hosted menu view loads.  "panorama_menu <layout>" retargets this at run time.
+// It is base_mainmenu.xml (not mainmenu.xml!) because CS:GO's structure is
+//     view -> base_mainmenu.xml -> <CSGOMainMenu> -> (CCSGO_MainMenu loads) mainmenu.xml
+// and CCSGO_MainMenu::CCSGO_MainMenu() does RequireLoadLayout("mainmenu.xml") itself.  Handing
+// mainmenu.xml to the *view* would make the class load the very layout it is being created from; the
+// nested panel then gets discarded and the menu never appears at all (the class exists, so there is no
+// "panel type not implemented" message either - the screen is simply empty).  Passing mainmenu.xml is
+// still accepted and translated - see SE_PortNormalizeMenuLayout() in CreatePanoramaMenuView().
 // NOTE: outside of the DEVELOPMENT_ONLY block below - that block is compiled out of release builds, which
 // is exactly the build this port runs as.
-ConVar panorama_menu_layout( "panorama_menu_layout", "file://{resources}/layout/mainmenu.xml", FCVAR_NONE,
+ConVar panorama_menu_layout( "panorama_menu_layout", "file://{resources}/layout/base_mainmenu.xml", FCVAR_NONE,
 	"Panorama layout loaded by the panorama_menu view" );
 
 #if ( PLATFORM_WINDOWS && DEVELOPMENT_ONLY )
@@ -416,6 +423,10 @@ void SE_PortUIProbe( const char *pFmt, ... )
 	if ( !fp )
 		return;
 
+	// Seconds since the engine started, so this file can be lined up with the screenshots the test
+	// harness takes.
+	fprintf( fp, "[%8.2f] ", Plat_FloatTime() );
+
 	va_list args;
 	va_start( args, pFmt );
 	vfprintf( fp, pFmt, args );
@@ -456,6 +467,38 @@ void SE_PortDumpPanelTree( panorama::IUIPanel *pPanel, int nDepth )
 // SE port: the CS:GO main menu view.  See the note in the header - the markup comes out of the
 // retail panorama/code.pbin pack.
 //-----------------------------------------------------------------------------
+//-----------------------------------------------------------------------------
+// SE port: translate layout names handed to the hosted menu view.
+//
+//   "mainmenu.xml" is CS:GO's *inner* menu layout - CCSGO_MainMenu::CCSGO_MainMenu() loads it itself -
+//   while the view has to load base_mainmenu.xml (which contains <CSGOMainMenu>).  Passing mainmenu.xml
+//   to the view makes the class load the very layout it is being created from: the nested panel is then
+//   discarded and the menu never appears, without any warning (the panel type *is* registered, so there
+//   is no "not implemented" message either - the screen is simply empty).  Old command lines keep
+//   working because the name is translated here.
+//
+//   Returns the replacement name, or NULL when nothing has to change.
+//-----------------------------------------------------------------------------
+static const char *SE_PortNormalizeMenuLayout( const char *pchLayout )
+{
+	static char s_rgchNormalized[ 256 ];
+
+	const char *pchFound = V_strstr( pchLayout, "mainmenu.xml" );
+	if ( !pchFound )
+		return NULL;
+
+	// only when "mainmenu.xml" is the file name itself (not e.g. "mymainmenu.xml" or "foo_mainmenu.xml")
+	if ( pchFound != pchLayout && pchFound[ -1 ] != '/' && pchFound[ -1 ] != '\\' )
+		return NULL;
+
+	const int nPrefix = (int)( pchFound - pchLayout );
+	V_strncpy( s_rgchNormalized, pchLayout, Min( nPrefix + 1, (int)V_ARRAYSIZE( s_rgchNormalized ) ) );
+	s_rgchNormalized[ nPrefix ] = '\0';
+	V_strncat( s_rgchNormalized, "base_mainmenu.xml", V_ARRAYSIZE( s_rgchNormalized ) );
+	return s_rgchNormalized;
+}
+
+
 bool CPanoramaEngineHandler::CreatePanoramaMenuView()
 {
 	if ( m_pMenuWindow )
@@ -498,7 +541,18 @@ bool CPanoramaEngineHandler::CreatePanoramaMenuView()
 	// script of every layout instead, which covers all of those contexts.
 
 	// This is what CS:GO's CCSGOMainMenu loads (game/client/cstrike15/panorama/csgo_mainmenu.cpp).
+	// NOTE: the layout has to be the *view* layout (base_mainmenu.xml = <Panel class="WindowRoot">
+	// containing <CSGOMainMenu>), because the CSGOMainMenu panel class itself loads mainmenu.xml.
 	const char *pMenuLayout = panorama_menu_layout.GetString();
+	const char *pchTranslated = SE_PortNormalizeMenuLayout( pMenuLayout );
+	if ( pchTranslated )
+	{
+		Msg( "SE port: menu layout '%s' -> '%s' (CCSGO_MainMenu loads mainmenu.xml itself; the view loads "
+			"base_mainmenu.xml)\n", pMenuLayout, pchTranslated );
+		panorama_menu_layout.SetValue( pchTranslated );
+		pMenuLayout = panorama_menu_layout.GetString();
+	}
+
 	if ( !pMenuPanel->UIPanel()->BLoadLayout( pMenuLayout ) )
 	{
 		Warning( "panorama: could not load %s - see the layout/style parsing errors above (every panel type"
@@ -788,6 +842,7 @@ void CPanoramaEngineHandler::PanoramaRunFrame(int nSlot)
 			SE_PortUIProbe( "MENUTREE-AFTER-LAYOUT (frame %d, back buffer %dx%d):\n", s_nSEProbeFrame, nWd, nHt );
 			SE_PortDumpPanelTree( s_pSEProbeMenuRoot, 0 );
 		}
+
 	}
 }
 
