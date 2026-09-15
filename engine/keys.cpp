@@ -22,9 +22,6 @@
 #include "panoramaenginehandler.h"
 #include "igame.h"		// game->GetMainWindow()
 #include "console.h"		// Con_IsVisible()
-
-// SE port (bring-up aid): the file probe lives in panoramaenginehandler.cpp.
-void SE_PortUIProbe( const char *pFmt, ... );
 #endif
 
 // memdbgon must be the last include file in a .cpp file!!!
@@ -674,6 +671,32 @@ static bool HandleEngineKey( const InputEvent_t &event )
 
 
 //-----------------------------------------------------------------------------
+// SE port (task A, from CS:GO): recognises "the magical escape key" in all of its event flavours.
+// CS:GO routes Esc differently from every other key (the client gets the first crack at it, VGUI the
+// last) and needs to spot it before the VGUI filter runs - see Key_Event below.
+//-----------------------------------------------------------------------------
+#ifndef SWDS
+static bool IsESC( const InputEvent_t &event )
+{
+	switch ( event.m_nType )
+	{
+	case IE_ButtonPressed:
+	case IE_ButtonReleased:
+	case IE_ButtonDoubleClicked:
+	case IE_KeyCodeTyped:
+		return ( (ButtonCode_t)event.m_nData == KEY_ESCAPE );
+
+	case IE_KeyTyped:
+		// ASCII Escape character
+		return ( event.m_nData == 27 );
+	}
+
+	return false;
+}
+#endif // !SWDS
+
+
+//-----------------------------------------------------------------------------
 // Helper function to make sure key down/key up events go to the right places
 //-----------------------------------------------------------------------------
 #ifndef SWDS
@@ -734,7 +757,22 @@ bool PanoramaHandleInputEvent( const InputEvent_t &event )
 
 	InputEvent_t ev2 = event;
 	ev2.m_hWnd = (PlatWindow_t)game->GetMainWindow();
-	return PanoramaEngineHandler().ProcessUserInput( ev2 );
+	if ( PanoramaEngineHandler().ProcessUserInput( ev2 ) )
+	{
+		return true;
+	}
+
+	// SE port (task A follow-up): the escape key reached the hosted panorama UI and nothing there consumed
+	// it.  CS:GO's GameUI (= the panorama client UI there) is what turns "escape" into "close the top
+	// popup / cancel the current panel"; this fork has no panorama GameUI yet, so the port does it from the
+	// panorama module - see SE_PortHandlePanoramaEscape().  Everything else is left alone so a plain CS:S
+	// install keeps its old behaviour.
+	if ( IsESC( event ) )
+	{
+		return SE_PortHandlePanoramaEscape();
+	}
+
+	return false;
 #else
 	return false;
 #endif
@@ -784,36 +822,44 @@ void Key_Event( const InputEvent_t &event )
 	if ( FilterKey( event, KEY_UP_TOOLS, HandleToolKey ) )
 		return;
 							 
-	// Let vgui have a whack at keys
-	bool bSEVguiConsumed = FilterKey( event, KEY_UP_VGUI, HandleVGuiKey );
-#ifdef PANORAMA_ENABLE
-	// SE port (bring-up aid): who eats the input?  Logs every button/key event that reaches
-	// Key_Event plus whether the VGUI filter consumed it.  engine/keys.cpp filters VGUI *before*
-	// panorama, and in this port the CS:S VGUI main menu is still up (CS:GO has no such menu),
-	// so VGUI may be swallowing everything panorama would need.
-	if ( ( event.m_nType == IE_ButtonPressed ) || ( event.m_nType == IE_ButtonReleased ) || ( event.m_nType == IE_KeyTyped ) )
+	// SE port (task A, CS:GO's escape/backquote special case - see CS:GO 2019 engine/keys.cpp):
+	//
+	//  * the VGUI filter must NOT see ESC on this first pass.  This pass is what turned Esc into
+	//    "gameui_activate" (CEngineVGui::Key_Event) and opened the CS:S VGUI2 main menu on top of the
+	//    hosted panorama UI.  Esc is handled at the bottom of this function instead, after the client and
+	//    the panorama UI had their whack at it - CS:GO's order.
+	//  * KEY_BACKQUOTE is hardcoded so that '~' always reaches VGUI first and can always close the console
+	//    again, no matter what toggleconsole happens to be bound to.
+	bool bSEVguiConsumed = false;
+	if ( !IsESC( event ) && !( ( event.m_nType == IE_ButtonPressed ) && ( code == KEY_BACKQUOTE ) ) )
 	{
-		static int s_nSEKeyProbe = 0;
-		if ( s_nSEKeyProbe < 120 )
-		{
-			++s_nSEKeyProbe;
-			SE_PortUIProbe( "KEY type=%d data=%d vguiConsumed=%d\n", event.m_nType, event.m_nData,
-				bSEVguiConsumed ? 1 : 0 );
-		}
+		// Let vgui have a whack at keys
+		bSEVguiConsumed = FilterKey( event, KEY_UP_VGUI, HandleVGuiKey );
 	}
-#endif
 	if ( bSEVguiConsumed )
 		return;
 
 #ifdef PANORAMA_ENABLE
-	// Let the panorama UI have a whack at keys (M4)
-	if ( FilterKey( event, KEY_UP_PANORAMA, PanoramaHandleInputEvent ) )
+	// Let the panorama UI have a whack at keys (M4).  Esc skips this pass too - it gets its turn after the
+	// client, exactly like CS:GO.
+	if ( !IsESC( event ) && FilterKey( event, KEY_UP_PANORAMA, PanoramaHandleInputEvent ) )
 		return;
 #endif
 
 	// Let the client have a whack at keys
 	if ( FilterKey( event, KEY_UP_CLIENT, HandleClientKey ) )
 		return;
+
+	if ( IsESC( event ) )
+	{
+#ifdef PANORAMA_ENABLE
+		if ( FilterKey( event, KEY_UP_PANORAMA, PanoramaHandleInputEvent ) )
+			return;
+#endif
+		// Let vgui have a whack at keys
+		if ( FilterKey( event, KEY_UP_VGUI, HandleVGuiKey ) )
+			return;
+	}
 
 	// Finally, let the engine deal. Here's where keybindings occur.
 	FilterKey( event, KEY_UP_ENGINE, HandleEngineKey );

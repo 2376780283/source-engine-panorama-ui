@@ -215,6 +215,45 @@ CPanoramaEngineHandler &PanoramaEngineHandler()
 }
 
 //-----------------------------------------------------------------------------
+// SE port (task A, console/escape routing): is the hosted panorama UI layer (the CS:GO main menu) up?
+//
+// CS:GO's engine never needs to ask this: its GameUI *is* the panorama UI, so "gameui_activate" shows the
+// panorama menu and the VGUI console is not a child of it.  This fork still ships the CS:S VGUI2 main menu
+// as the game UI, so the three places that used to reach for it unconditionally - CEngineVGui::ShowConsole()
+// ("ActivateGameUI()" made '~' pop the CS:S menu open), CEngineVGui::ActivateGameUI() (what Esc calls) and
+// CEngineVGui::IsConsoleVisible() - ask this first.  See engine/keys.cpp::IsESC() for the matching change to
+// the key filter order.
+//-----------------------------------------------------------------------------
+bool SE_PortIsPanoramaMenuActive()
+{
+	return PanoramaEngineHandler().HasPanoramaMenuView();
+}
+
+//-----------------------------------------------------------------------------
+// SE port (task A follow-up): hand the escape key to the hosted panorama UI.
+//
+// The panorama-side implementation lives in panoramauiclient.dll (panoramauiclient/se_escape.cpp): it
+// closes a visible popup, or dispatches the panel "Cancelled" event the content listens for.  CS:GO keeps
+// this in its GameUI, which is the panorama client UI there; this fork has no such GameUI yet ("task B"),
+// so the engine forwards the key instead.  Same GetProcAddress bridge as SE_PortMainMenuTick below.
+//-----------------------------------------------------------------------------
+bool SE_PortHandlePanoramaEscape()
+{
+	typedef bool ( *SEPortEscapeFn )();
+	static SEPortEscapeFn s_pfnSEEscape = NULL;
+	static bool s_bSEEscapeResolved = false;
+	if ( !s_bSEEscapeResolved )
+	{
+		s_bSEEscapeResolved = true;
+		HMODULE hPanoramaModule = GetModuleHandleA( "panoramauiclient.dll" );
+		if ( hPanoramaModule )
+			s_pfnSEEscape = (SEPortEscapeFn)GetProcAddress( hPanoramaModule, "SE_PortPanoramaEscapePressed" );
+	}
+
+	return ( s_pfnSEEscape != NULL ) && s_pfnSEEscape();
+}
+
+//-----------------------------------------------------------------------------
 // LessFunc for rendering view order
 //-----------------------------------------------------------------------------
 bool CPanoramaEngineHandler::ViewPriorityOrder( CPanoramaEngineHandler::ViewEntry_t const &lhs, CPanoramaEngineHandler::ViewEntry_t const &rhs, void *pCtx )
@@ -818,32 +857,6 @@ void CPanoramaEngineHandler::PanoramaRunFrame(int nSlot)
 	}
 
 	RunFrame();
-
-	// SE port (bring-up aid): once layout/animation have run, dump the menu tree again.  This is the
-	// dump that has real sizes in it (the one in CreatePanoramaMenuView is all zeros).
-	if ( m_pMenuWindow )
-	{
-		static int s_nSEProbeFrame = 0;
-		++s_nSEProbeFrame;
-		if ( s_nSEProbeFrame == 120 && s_pSEProbeMenuRoot )
-		{
-			s_nSEProbeDumpLines = 0;
-
-			// The window's logical size is what the panels lay out against; the surface size is the
-			// physical back buffer and the scale factor is the mapping between them.  CS:GO creates
-			// the window with the back buffer size and then sets scale = height/1080, so the layout
-			// space always ends up 1080 high.
-			panorama::IUIWindow *pWindow = m_pMenuWindow;
-			SE_PortUIProbe( "WINDOW surface=%ux%u window=%ux%u scale=%.4f backbuffer=%dx%d\n",
-				pWindow->GetSurfaceWidth(), pWindow->GetSurfaceHeight(),
-				pWindow->GetWindowWidth(), pWindow->GetWindowHeight(),
-				pWindow->GetWindowScaleFactor(), nWd, nHt );
-
-			SE_PortUIProbe( "MENUTREE-AFTER-LAYOUT (frame %d, back buffer %dx%d):\n", s_nSEProbeFrame, nWd, nHt );
-			SE_PortDumpPanelTree( s_pSEProbeMenuRoot, 0 );
-		}
-
-	}
 }
 
 
@@ -1297,42 +1310,6 @@ bool CPanoramaEngineHandler::ProcessUserInput( const InputEvent_t &inputEvent )
 		else
 #endif
 			result = g_pPanoramaUIClient->HandleInputEvent(updatedEvent, m_vecWindowInputOrder, false);
-	}
-
-	// SE port (bring-up aid): record whether the panorama UI ever receives input, and whether it
-	// consumed it.  A completely absent INPUT line means the event never reached panorama (VGUI in
-	// engine/keys.cpp::Key_Event filters input before panorama and may have eaten it);
-	// an "order=0" means no hosted window can be hit.
-	if ( ( inputEvent.m_nType == IE_ButtonPressed ) || ( inputEvent.m_nType == IE_ButtonReleased ) ||
-		 ( inputEvent.m_nType == IE_ButtonDoubleClicked ) || ( inputEvent.m_nType == IE_KeyTyped ) ||
-		 ( inputEvent.m_nType == IE_KeyCodeTyped ) || ( inputEvent.m_nType == IE_KeyCodeReleased ) ||
-		 ( inputEvent.m_nType == IE_LocateMouseClick ) )
-	{
-		static int s_nSEInputProbe = 0;
-		if ( s_nSEInputProbe < 200 )
-		{
-			++s_nSEInputProbe;
-			SE_PortUIProbe( "INPUT type=%d data=%d d2=%d d3=%d consumed=%d order=%d\n",
-				inputEvent.m_nType, inputEvent.m_nData, inputEvent.m_nData2, inputEvent.m_nData3,
-				result ? 1 : 0, m_vecWindowInputOrder.Count() );
-		}
-	}
-
-	// SE port (bring-up aid): does the input system even feed panorama absolute mouse positions?
-	// Panorama hit-tests with the cursor position carried by IE_LocateMouseClick (converted from the
-	// MOUSE_XY analog event); if the cursor is locked and the mouse is in raw mode, no such event is
-	// ever produced and every click is "received but not consumed".
-	if ( inputEvent.m_nType == IE_AnalogValueChanged && (AnalogCode_t)inputEvent.m_nData == MOUSE_XY )
-	{
-		static int s_nSEMouseProbe = 0;
-		if ( s_nSEMouseProbe < 30 )
-		{
-			++s_nSEMouseProbe;
-			SE_PortUIProbe( "MOUSEXY -> (%d,%d) consumed=%d order=%d cursorLocked=%d cursorVisible=%d\n",
-				updatedEvent.m_nData, updatedEvent.m_nData2, result ? 1 : 0, m_vecWindowInputOrder.Count(),
-				( vgui::surface() && vgui::surface()->IsCursorLocked() ) ? 1 : 0,
-				( vgui::surface() && vgui::surface()->IsCursorVisible() ) ? 1 : 0 );
-		}
 	}
 
 	// Don't eat this key if we didn't use it, and it happens to be the console toggle key

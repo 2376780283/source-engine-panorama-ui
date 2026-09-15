@@ -79,6 +79,10 @@ def build(bld):
 		'../panorama/seport/gameclient/cstrike15/panorama/csgo_mainmenu.cpp',
 		# ... and the frame hook the engine uses to tick it (no panorama library on the engine side).
 		'se_mainmenu_tick.cpp',
+		# SE port (task A follow-up): what escape does when the hosted panorama UI owns the screen (close the
+		# top popup / dispatch the content's "Cancelled" panel event).  Exported to engine/keys.cpp through
+		# engine/panoramaenginehandler.cpp, same GetProcAddress pattern as the tick above.
+		'se_escape.cpp',
 		# SE port: batch E (JS component framework) - CS:GO's cstrike15 uicomponents, which is what
 		# publishes the "UiToolkitAPI" global to the panorama JavaScript (popups/tooltips/context menus/
 		# deny-input + the JS callback plumbing).  See docs/panorama_stage2_plan.md.
