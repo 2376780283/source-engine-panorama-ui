@@ -3542,9 +3542,11 @@ void CSource2Surface::DrawTextRegionRange( CSource2CompositionLayer *pLayer, flo
 	fancyQuadDraw.m_pQuadBrush = &FancyBrush;
 	fancyQuadDraw.m_flTextureWidth = maskRange.m_flTextureWidth;
 	fancyQuadDraw.m_flTextureHeight = maskRange.m_flTextureHeight;
-	// SE port (diagnostic): route the text mask through the fancy shader's RGBA texture variant instead
-	// of the alpha-texture one.
-	fancyQuadDraw.m_bIsAlphaTexture = false;
+	// CS:GO's original: text masks are 8-bit alpha textures, so the fancy shader must take its coverage
+	// from the texture's alpha instead of its RGB.  (The port used to force this to false as a bring-up
+	// diagnostic, which drew every glyph with the RGBA path and made the whole UI's text look thin, dark
+	// and squashed.)
+	fancyQuadDraw.m_bIsAlphaTexture = true;
 	fancyQuadDraw.m_bRawCoords = true;
 	fancyQuadDraw.m_bClipToLayer = true;
 	fancyQuadDraw.m_pVMatrix = pLayer->AccessPushedMatrix();

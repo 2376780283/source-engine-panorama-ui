@@ -3277,18 +3277,11 @@ bool CMaterialSystem::UpdatePanoramaAlphaTexture( ITexture *pTexture, int xOffse
 	CPanoramaAlphaRegen *pRegen = s_MapPanoramaAlphaRegen[ iRegen ];
 	pRegen->WriteRect( xOffset, yOffset, nWidth, nHeight, pImageData );
 
-	// Upload exactly like vguimatsurface does for its font atlas (CMatSystemTexture::SetSubTextureRGBAEx):
-	// a *partial* download.  The atlas lives in D3DPOOL_DEFAULT (this tree only uses managed textures
-	// when mat_dxlevel < 90 or mat_managedtextures is set), and for such a texture the full download path
-	// produces nothing, while the partial one blits through a system-memory scratch surface and
-	// UpdateSurface - which is what actually gets the bits onto the device.
-	Rect_t rect;
-	rect.x = xOffset;
-	rect.y = yOffset;
-	rect.width = nWidth;
-	rect.height = nHeight;
-	pTexture->Download( &rect );
-	return true;
+	// SE port: push the whole atlas with IShaderAPI::TexImage2D.  The per-rect ITexture::Download() path
+	// that this used to use only ever moved a small slab of the atlas to the device (measured: one call
+	// with subRect=(0,43 608x6) for a 606x45 mask), which is what made every glyph render as horizontal
+	// stripes.  CS:GO's font atlas goes to the device the same way (see the note in wrap_texture.h).
+	return SEUploadPanoramaAlphaAtlas( pTexture, pRegen->Bits(), pRegen->Width(), pRegen->Height() );
 }
 
 void CMaterialSystem::AddTextureAlias( const char *pAlias, const char *pRealName )

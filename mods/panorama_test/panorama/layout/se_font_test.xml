@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+	SE port: font/text rendering smoke layout.
+
+	Loaded with `+panorama_menu se_font_test.xml` (the panorama_menu command maps a bare name to
+	file://{resources}/layout/<name>).  One Label per style so a single screenshot shows whether glyphs are
+	rasterised at the right size, whether kerning/advance is sane, and whether CJK falls back at all.
+-->
+<root>
+	<Panel style="width: 100%; height: 100%; flow-children: down; background-color: #101010ff;">
+
+		<Label style="font-size: 72px; color: #ffffffff; margin: 12px;"
+			   text="Hamburgefonstiv 0123456789" />
+
+		<Label style="font-size: 48px; color: #ffd54fff; margin: 12px;"
+			   text="Stratum2 48px ABC abc" />
+
+		<Label style="font-size: 32px; color: #4fc3f7ff; margin: 12px;"
+			   text="notosans 32px 中文字体测试 日本語テスト" />
+
+		<Label style="font-size: 20px; color: #81c784ff; margin: 12px;"
+			   text="Small 20px: The quick brown fox jumps over the lazy dog." />
+
+		<Label style="font-size: 12px; color: #e57373ff; margin: 12px;"
+			   text="Tiny 12px: the quick brown fox" />
+
+		<Label style="font-size: 32px; color: #ffffffff; margin: 12px;"
+			   text="UPPER first line&#10;second line" />
+	</Panel>
+</root>
