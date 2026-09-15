@@ -652,22 +652,36 @@ void CPanoramaEngineHandler::PanoramaRunFrame(int nSlot)
 		}
 	}
 
-	// SE port (dev switch, **default off**): -se_panorama_menu_only
-	// The CS:S VGUI main menu is drawn on top of the hosted panorama UI, and engine/keys.cpp lets
-	// VGUI filter input *before* panorama (CS:GO's order, but CS:GO has no VGUI menu), so the VGUI
-	// main menu swallows every click/key press and the panorama UI can never be used.  Hiding the
-	// gameui root panel while a panorama menu view exists is what CS:GO's structure amounts to.
+	// SE port: "the panorama menu is the menu" - DEFAULT ON since 2026-09-15 (user decision A).
+	//
+	// WHY: engine/keys.cpp filters VGUI *before* panorama (CS:GO's own order - harmless there because
+	// CS:GO has no VGUI main menu), and this fork still ships the CS:S VGUI main menu.  While that menu
+	// is up, HandleVGuiKey() returns true for every mouse/key event, Key_Event() returns early and the
+	// hosted panorama UI never sees a button event at all.  Measured with the same click test on the
+	// real mainmenu.xml (2026-09-15):
+	//     VGUI gameui visible : KEY ... vguiConsumed=1 on every click, 0 x "INPUT type=0", 0 x onactivate
+	//     VGUI gameui hidden  : vguiConsumed=0, 7 x "INPUT type=0 ... consumed=1", and
+	//                           RadioButton#MainMenuNavBarInventory/Settings - onactivate fired
+	// So the panorama HitTest was never the problem - the CS:S VGUI layer above it was.
+	//
+	// Behaviour: while a panorama menu view ('+panorama_menu') exists, hide the VGUI gameui root panel.
+	// This is what CS:GO's structure amounts to (it has no VGUI menu to hide).
+	//   -se_keep_vgui_menu     : opt out, keep the CS:S VGUI menu visible/clickable as before
+	//   -se_panorama_menu_only : the original explicit switch; still honoured (and now a no-op)
 	// NOTE: EngineVGui()->HideGameUI() cannot be used here: at the main menu (a background level) it
 	// deliberately does not hide anything (engine/vgui_baseui_interface.cpp).
 	{
-		static int s_nSEMenuOnly = -1;
+		static int s_nSEHideGameUI = -1;
 		static bool s_bSEGameUIHidden = false;
-		if ( s_nSEMenuOnly == -1 )
+		if ( s_nSEHideGameUI == -1 )
 		{
-			s_nSEMenuOnly = CommandLine()->FindParm( "-se_panorama_menu_only" ) ? 1 : 0;
-			SE_PortUIProbe( "SE panorama-menu-only switch: %s\n", s_nSEMenuOnly ? "ON" : "off" );
+			s_nSEHideGameUI = CommandLine()->FindParm( "-se_keep_vgui_menu" ) ? 0 : 1;
+			SE_PortUIProbe( "SE vgui-menu handling: %s%s\n",
+				s_nSEHideGameUI ? "hide the gameui panel while a panorama menu exists (default)"
+				                : "keep the gameui panel (-se_keep_vgui_menu)",
+				CommandLine()->FindParm( "-se_panorama_menu_only" ) ? " [-se_panorama_menu_only also passed]" : "" );
 		}
-		if ( s_nSEMenuOnly )
+		if ( s_nSEHideGameUI )
 		{
 			bool bWantHidden = ( m_pMenuWindow != NULL );
 			if ( bWantHidden != s_bSEGameUIHidden )

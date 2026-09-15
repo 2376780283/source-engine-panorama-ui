@@ -312,6 +312,14 @@
 	seDefine("InventoryAPI.GetInventoryStructureJSON", function () { return "{}"; });
 	seDefine("LoadoutAPI.GetLoadoutSlotNames", function () { return "[]"; });
 
+	// APIs whose result is passed straight into a C++ binding that insists on a bool: the placeholder
+	// object would be coerced by V8 to "" and the binding throws
+	// ("V8ParamToPanoramaType expected bool type to convert, but got something else ([])"), which
+	// aborts the whole script.  Observed in mainmenu_inventory.js:727
+	// (elInvLoadoutBtn.enabled = LoadoutAPI.IsLoadoutAllowed()).
+	// "false" is the conservative answer: the loadout button is disabled, nothing else changes.
+	seDefine("LoadoutAPI.IsLoadoutAllowed", function () { return false; });
+
 	// NOTE: deliberately *not* answered here (they stay truthy placeholders, which is the branch the
 	// CS:GO menu wants when it is not connected to Steam):
 	//   MyPersonaAPI.IsInventoryValid() / IsConnectedToGC()  - "false" makes
