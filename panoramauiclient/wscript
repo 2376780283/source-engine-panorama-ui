@@ -54,6 +54,16 @@ def build(bld):
 		'../panorama/seport/gameclient/panorama/ui_custom_layout.cpp',
 		'../panorama/seport/gameclient/panorama/ui_js_panel.cpp',
 		'../panorama/seport/gameclient/panorama/ui_root.cpp',
+		# SE port: batch B (tooltip) - the framework-side manager + tooltip panel family, plus the two
+		# CS:GO (cstrike15) skins the layouts actually name.
+		'../panorama/seport/gameclient/panorama/ui_tooltip_manager.cpp',
+		'../panorama/seport/gameclient/panorama/tooltips/ui_tooltip_base.cpp',
+		'../panorama/seport/gameclient/panorama/tooltips/ui_tooltip_text.cpp',
+		'../panorama/seport/gameclient/panorama/tooltips/ui_tooltip_title_text.cpp',
+		'../panorama/seport/gameclient/panorama/tooltips/ui_tooltip_title_image_text.cpp',
+		'../panorama/seport/gameclient/panorama/tooltips/ui_tooltip_custom_layout.cpp',
+		'../panorama/seport/gameclient/cstrike15/panorama/csgo_tooltippanel.cpp',
+		'../panorama/seport/gameclient/cstrike15/panorama/csgo_ui_tooltip_manager.cpp',
 		# '../thirdparty/JSON_parser/JSON_parser.c',   # not present in this tree
 	]
 
@@ -63,6 +73,10 @@ def build(bld):
 		# SE port: the game-client layer (game/client/panorama equivalents) is included so that the
 		# ported sources keep CS:GO's own spelling, e.g. #include "panorama/ui_root.h".
 		'../panorama/seport/gameclient',
+		# ... and the cstrike15 half, so #include "panorama/csgo_tooltippanel.h" keeps CS:GO's spelling
+		# (the compiler searches both, exactly like CS:GO's two include dirs game/client/panorama and
+		# game/client/cstrike15).
+		'../panorama/seport/gameclient/cstrike15',
 		'..',
 		# The lightweight Source2 interfaces from panorama_s1wrapper must win over ../public
 		# (same order as panorama/wscript): public/rendersystem/irenderdevice.h would otherwise
