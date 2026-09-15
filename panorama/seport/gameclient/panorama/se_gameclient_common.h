@@ -41,6 +41,10 @@
 // se_gameclient_globals.cpp.
 void SE_PortYldWaitOneFrame();
 
+// SE port: CPanel2D::SetupJavascriptObjectTemplate() implementations in the ported game-client files use
+// RegisterJSMethod()/PANORAMA_DELEGATE(); in CS:GO those arrive through the cbase.h chain.
+#include "panorama/uijsregistration.h"
+
 #include "v8.h"
 
 // CS:GO's cbase.h chain provides FStrEq via game/client/cdll_util.h (ui_root.cpp uses it for event

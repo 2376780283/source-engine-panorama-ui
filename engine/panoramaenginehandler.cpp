@@ -698,6 +698,31 @@ void CPanoramaEngineHandler::PanoramaRunFrame(int nSlot)
 		}
 	}
 
+	// SE port (batch E): tick the ported CS:GO main menu panel class.  CS:GO does this from
+	// CGameUI::RunFrame(); this tree has no gameui module, so the class is ticked here.  The panel class
+	// drives the menu state machine (main menu <-> pause menu), the background movie, the vanity panel
+	// and the "deny game input" lock.  engine.dll links no panorama library, so the tick is resolved out
+	// of panoramauiclient.dll's export table (same pattern as the movie bridge below).
+	//
+	// Its return value says whether the class exists: that requires mainmenu.xml to instantiate
+	// <CSGOMainMenu>, and when it does the movie bridge below is not needed (and must not run, it would
+	// load the movie snippet a second time).
+	bool bSEMainMenuTickHandled = false;
+	{
+		typedef bool ( *SEPortMainMenuTickFn )();
+		static SEPortMainMenuTickFn s_pfnSETick = NULL;
+		static bool s_bSETickResolved = false;
+		if ( !s_bSETickResolved )
+		{
+			s_bSETickResolved = true;
+			HMODULE hPanoramaModule = GetModuleHandleA( "panoramauiclient.dll" );
+			if ( hPanoramaModule )
+				s_pfnSETick = (SEPortMainMenuTickFn)GetProcAddress( hPanoramaModule, "SE_PortMainMenuTick" );
+			SE_PortUIProbe( "SE main menu tick bridge: fn=%p\n", s_pfnSETick );
+		}
+		bSEMainMenuTickHandled = ( s_pfnSETick != NULL ) && s_pfnSETick();
+	}
+
 	// SE port of game/client/cstrike15/panorama/csgo_mainmenu.cpp::CCSGO_MainMenu::LoadBackgroundMovie
 	// (panorama background webm, 2026-09-14):
 	// mainmenu.xml only *declares* the reusable snippet "MainMenuMovieSnippet" and leaves
@@ -709,7 +734,7 @@ void CPanoramaEngineHandler::PanoramaRunFrame(int nSlot)
 	// existed), so call it once more explicitly.
 	{
 		static int s_nSEBackgroundMovie = 0;	// 0 = not tried yet
-		if ( s_nSEBackgroundMovie == 0 && s_pSEProbeMenuRoot && m_pUIEngine )
+		if ( !bSEMainMenuTickHandled && s_nSEBackgroundMovie == 0 && s_pSEProbeMenuRoot && m_pUIEngine )
 		{
 			panorama::IUIPanel *pMovieParent = s_pSEProbeMenuRoot->FindChildInLayoutFile( "MainMenuMovieParent" );
 			if ( pMovieParent )
