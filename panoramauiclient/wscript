@@ -64,6 +64,21 @@ def build(bld):
 		'../panorama/seport/gameclient/panorama/tooltips/ui_tooltip_custom_layout.cpp',
 		'../panorama/seport/gameclient/cstrike15/panorama/csgo_tooltippanel.cpp',
 		'../panorama/seport/gameclient/cstrike15/panorama/csgo_ui_tooltip_manager.cpp',
+		# SE port: batch C (popup) - the framework-side manager + popup panel family, plus CS:GO's
+		# (cstrike15) popup skins that the layouts name (#CSGOPopupManager / global popups).
+		'../panorama/seport/gameclient/panorama/ui_popup_manager.cpp',
+		'../panorama/seport/gameclient/panorama/ui_popup.cpp',
+		'../panorama/seport/gameclient/panorama/popups/ui_popup_generic.cpp',
+		'../panorama/seport/gameclient/panorama/popups/ui_popup_generic_text_entry.cpp',
+		'../panorama/seport/gameclient/panorama/popups/ui_popup_custom_layout.cpp',
+		'../panorama/seport/gameclient/cstrike15/panorama/csgo_popup_manager.cpp',
+		'../panorama/seport/gameclient/cstrike15/panorama/csgo_globalpopups.cpp',
+		# SE port: batch D (context menu) - the manager the layouts name (#ContextMenuManager is in
+		# mainmenu.xml) plus the context menu panel family.  csgo_globalpopups.cpp (batch C) already
+		# includes panorama/ui_context_menu_manager.h, so the two batches are compiled together.
+		'../panorama/seport/gameclient/panorama/ui_context_menu_manager.cpp',
+		'../panorama/seport/gameclient/panorama/context_menus/ui_context_menu_base.cpp',
+		'../panorama/seport/gameclient/panorama/context_menus/ui_context_menu_custom_layout.cpp',
 		# '../thirdparty/JSON_parser/JSON_parser.c',   # not present in this tree
 	]
 
