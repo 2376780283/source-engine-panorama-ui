@@ -5918,6 +5918,15 @@ void CMeshMgr::RenderPassWithVertexAndIndexBuffers( void )
 
 				Assert( m_nFirstIndex >= 0 );
 
+				// SE port (bring-up aid): the mesh render pass is the last gate before D3D sees the draw.
+				{
+					static int s_nSEMeshPassProbe = 0;
+					if ( s_nSEMeshPassProbe < 8 )
+					{
+						s_nSEMeshPassProbe++;
+					}
+				}
+
 #ifdef CHECK_INDICES
 				// g_pLastVertex - this is the current vertex buffer
 				// g_pLastColorMesh - this is the curent color mesh, if there is one.

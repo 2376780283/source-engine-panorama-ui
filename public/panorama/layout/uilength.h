@@ -84,7 +84,7 @@ public:
 	void ConvertToPercent( float flTotalLength )
 	{
 		if ( m_eType == k_EUILengthLength )
-			Set( m_flValue / flTotalLength * 100.0, k_EUILengthPercent );
+			Set( m_flValue / flTotalLength * 100.0f, k_EUILengthPercent );
 		else
 			Assert( m_eType == k_EUILengthPercent || m_eType == k_EUILengthUnset );
 	}
@@ -93,7 +93,7 @@ public:
 	{
 		float flRet = m_flValue;
 		if ( m_eType == k_EUILengthPercent )
-			flRet = m_flValue * flTotalLength / 100.0;
+			flRet = m_flValue * flTotalLength / 100.0f;
 		else
 			Assert( m_eType == k_EUILengthLength );
 
@@ -133,6 +133,8 @@ public:
 		return !(*this == rhs);
 	}
 
+	static const CUILength &ZeroLength();
+	static const CUILength &OneHundredPercent();
 
 private:
 	float m_flValue;

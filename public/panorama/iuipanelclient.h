@@ -50,6 +50,12 @@ public:
 	// Paint the panels contents
 	virtual void Paint() = 0;
 
+	// Paint the panel contents in a given area. Called instead of 
+	virtual void PaintArea( const PanoramaRect_t &rectPaintArea ) = 0;
+
+	// Called on the first frame that this panel skipped painting because it was not visible
+	virtual void StoppedPainting() = 0;
+
 	// override to change how this panel is measured
 	virtual void OnContentSizeTraverse( float *pflContentWidth, float *pflContentHeight, float flMaxWidth, float flMaxHeight, bool bFinalDimensions ) = 0;
 
@@ -71,6 +77,7 @@ public:
 	virtual bool OnMouseWheel( const MouseData_t &code ) = 0;
 	virtual void OnMouseMove( float flMouseX, float flMouseY ) = 0;
 	virtual bool OnClick( IUIPanel *pPanel, const MouseData_t &code ) = 0;
+	virtual bool OnVRTouchPad( const VRTouchEvent_t &code ) = 0;
 
 	// Override to make a panel allow new panel event symbols in XML
 	virtual bool BIsClientPanelEvent( CPanoramaSymbol symProperty ) = 0;
@@ -129,7 +136,7 @@ public:
 	virtual EMouseCursors GetMouseCursor() = 0;
 
 	// Callback when UI scale factor changes, which may affect panel contents sizing/layout
-	virtual void OnUIScaleFactorChanged( float flScaleFactor ) = 0;
+	virtual void OnUIScaleFactorChanged( const Vector &vOldScaleFactor, const Vector &vNewScaleFactor ) = 0;
 
 	// Called to ask us to setup object template for Javascript, you can implement this in a child class and then call
 	// the base method (so all the normal panel2d stuff gets exposed), plus call the various RegisterJS helpers yourself
@@ -149,6 +156,20 @@ public:
 	virtual IUIPanel *OnGetDefaultInputFocus() = 0;
 
 	virtual void GetPositionWithinAncestor( CPanel2D *pAncestor, float *pflX, float *pflY ) = 0;
+	
+	// Override knowledge about if this panel can scroll
+	virtual bool BCanCustomScrollUp() const = 0;
+	virtual bool BCanCustomScrollDown() const = 0;
+	virtual bool BCanCustomScrollLeft() const = 0;
+	virtual bool BCanCustomScrollRight() const = 0;
+
+	virtual bool BCustomCanDragScroll() const = 0;
+	virtual bool BCustomScrollInProgress() = 0;
+
+	// Called before/after the layout of this panel is reloaded. This is only used for
+	// development/debugging purposes
+	virtual void OnLayoutReloading() = 0;
+	virtual void OnLayoutReloaded() = 0;
 
 #ifdef DBGFLAG_VALIDATE
 	virtual void ValidateClientPanel( CValidator &validator, const tchar *pchName ) = 0;
@@ -162,7 +183,7 @@ public:
 	virtual IUIPanel* UIPanel() = 0;
 	virtual IUIPanelClient* ClientPtr() = 0;
 
-	virtual void Normalize( bool bImmediateThumbUpdate = false ) = 0;
+	virtual void Normalize( bool bImmediateThumbUpdate = false, bool bUpdateLayout = true ) = 0;
 
 	virtual void SetRangeMinMax( float flRangeMin, float flRangeMax ) = 0;
 
@@ -184,8 +205,19 @@ public:
 	// Get scroll window position
 	virtual float GetScrollWindowPosition() = 0;
 
+	// Get scroll window position, accounting for a scroll in progress
+	virtual float GetInterpolatedScrollWindowPosition() = 0;
+
 	// Return true if the user is manually dragging the scrollbar with the mouse
 	virtual bool BLastMoveImmediate() = 0;
+
+	virtual EAnimationTimingFunction GetTransitionTimingFunction() = 0;
+	virtual double GetTransitionDuration() = 0;
+	virtual void GetTransitionControlPoints( Vector2D (&vecPoints)[4] ) = 0;
+
+	virtual bool OnDragScrollStart() = 0;
+	virtual bool OnDragScrollMouseMove( int nLastPosition, int nCurrentPosition ) = 0;
+	virtual bool OnDragScrollEnd( int nLastPosition, float flVelocity ) = 0;
 };
 
 }

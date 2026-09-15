@@ -1,0 +1,8 @@
+﻿TREE D:\CSGO2019\public\rendersystem  ->  d:\source-engine\public\rendersystem  (12 files)
+TREE D:\CSGO2019\public\resourcesystem  ->  d:\source-engine\public\resourcesystem  (3 files)
+TREE D:\CSGO2019\public\resourcefile  ->  d:\source-engine\public\resourcefile  (11 files)
+FILE D:\CSGO2019\public\iimemanager.h  ->  d:\source-engine\public\iimemanager.h
+FILE D:\CSGO2019\common\enumutils_panorama.h  ->  d:\source-engine\common\enumutils_panorama.h
+FILE D:\CSGO2019\public\gcsdk\enumutils.h  ->  d:\source-engine\public\gcsdk\enumutils.h
+FILE D:\CSGO2019\public\gcsdk\enumutils.h  ->  d:\source-engine\common\enumutils.h
+V8 mirror external/v8/include -> thirdparty/v8/include

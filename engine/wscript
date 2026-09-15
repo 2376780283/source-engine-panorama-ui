@@ -238,6 +238,11 @@ def build(bld):
 			'rpt_engine.cpp',
 			'cl_steamauth.cpp',
 			'cdll_engine_int.cpp',
+			# M4: panorama hosting.  CPanoramaEngineHandler drives the panorama UI client module (the
+			# engine links no panorama library - sys_dll2.cpp grabs IPanoramaUIClient/IPanoramaUIEngine
+			# from panoramauiclient.dll's factory), and panorama_globals_se.cpp defines those globals.
+			'panoramaenginehandler.cpp',
+			'panorama_globals_se.cpp',
 			'cl_main.cpp',
 			'cl_demo.cpp',
 			'cl_demoaction.cpp',
@@ -346,6 +351,20 @@ def build(bld):
 
 	includes = [
 		'.',
+		# M4: panorama hosting (CPanoramaEngineHandler).  The lightweight Source2 interfaces from
+		# panorama_s1wrapper must win over ../public - same ordering rule as the panorama wscripts.
+		'../panorama',
+		'../panorama_s1wrapper',
+		# NOTE: ../panorama_s1wrapper/tier1 is deliberately NOT added here: it carries CS:GO-era
+		# overrides of utlmap.h/utlrbtree.h that the panorama modules need (they force-include it from
+		# stdafx.h), but they would shadow the engine's own public/tier1/utlmap.h and break it
+		# (C2061 CompareOperands_t).
+		'../panorama/steamextra/common',
+		'../panorama/steamextra/public',
+		'../public/panorama',
+		'../external/v8/include',
+		'../external/v8',
+		'../external',
 		'../public',
 		'../public/tier0',
 		'../public/tier1',
@@ -355,7 +374,27 @@ def build(bld):
 		'audio/',
 	]
 
+	# M4: the engine hosts the panorama UI client module - CPanoramaEngineHandler, the Panorama* engine
+	# service entry points and the input/IME routing all sit behind this define (CS:GO's engine does
+	# the same; the dedicated server build stays without panorama).
+	#
+	# The engine runs the Source2-style panorama through the Source 1 wrapper, so it carries the same
+	# define set as the panorama modules themselves: SOURCE2_PANORAMA (panorama public headers then
+	# take their Source2 branches instead of pulling Source2-only audio/openvr headers),
+	# PANORAMA_USE_S1WRAPPER (wrapper render interfaces) and SE_TIER1_FIXEDGROWABLE (panoramatypes.h
+	# defers to Source Engine's tier1 CUtlVectorFixedGrowable).
 	defines = []
+	if not bld.env.DEDICATED:
+		defines += [
+			'PANORAMA_ENABLE',
+			'SOURCE2_PANORAMA',
+			'SOURCE2_PANORAMA_FIXME',
+			'PANORAMA_USE_S1WRAPPER',
+			'SE_TIER1_FIXEDGROWABLE',
+			# panorama/panoramatypes.h supplies its own ConstructOneArg/TwoArg unless SE's tier0 already
+			# provides them (tier0/platform.h does).
+			'SE_PLATFORM_HAS_CONSTRUCT_HELPERS',
+		]
 
 	libs = ['tier0','vgui_controls','dmxloader','tier1','tier2','tier3','bitmap','vstdlib','appframework','datamodel','vtf','mathlib','steam_api','matsys_controls','BZ2','SDL2','JPEG','ZLIB','OPENAL','CURL' ]
 

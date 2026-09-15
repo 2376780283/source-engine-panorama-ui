@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+	SE port test layout.
+
+	The hosted panorama UI loads this through file://{resources}/layout/test.xml, which the panorama
+	file system maps to <mod>/panorama/layout/test.xml (see panorama/input/uiinput.cpp).  It is
+	deliberately self-contained: inline styles only, no images, no fonts and no .css - so it renders
+	even though this port has no CS:GO page content, no materials and (for now) no text services.
+-->
+<root>
+	<Panel style="width: 100%; height: 100%; flow-children: down; background-color: #ff00ffff;">
+		<Panel style="width: 360px; height: 220px; margin: 40px; background-color: #00ff00ff;" />
+	</Panel>
+</root>

@@ -38,6 +38,13 @@ public:
 	virtual bool OnMouseButtonTripleClick( const MouseData_t &code );
 	virtual bool OnMouseButtonUp( const MouseData_t &code );
 
+#ifdef DBGFLAG_VALIDATE
+	virtual void ValidateClientPanel( CValidator &validator, const tchar *pchName ) OVERRIDE
+	{
+		VALIDATE_SCOPE();
+		ValidateObj( m_scheduledScrollRepeat );
+	}
+#endif
 private:
 	void DispatchScrollEvent();
 	void MouseButtonDown();	

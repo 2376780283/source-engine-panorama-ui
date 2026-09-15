@@ -1241,6 +1241,13 @@ public:
 	// Gets the texture 
 	IDirect3DBaseTexture* GetD3DTexture( ShaderAPITextureHandle_t hTexture );
 
+	// SE port (CS:GO addition): IShaderAPI::GetD3DTexturePtr - see public/shaderapi/ishaderapi.h
+	virtual void *GetD3DTexturePtr( ShaderAPITextureHandle_t hTexture );
+
+	// SE port (CS:GO addition): IShaderAPI::GetOS{Vertex,Pixel}Shader - see public/shaderapi/ishaderapi.h
+	virtual void *GetOSVertexShader( const char *pszName, int nIndex );
+	virtual void *GetOSPixelShader( const char *pszName, int nIndex );
+
 
 	virtual bool ShouldWriteDepthToDestAlpha( void ) const;
 
@@ -3908,6 +3915,17 @@ void CShaderAPIDx8::DrawMesh( CMeshBase *pMesh )
 
 	m_pRenderMesh = pMesh;
 	VertexFormat_t vertexFormat = m_pRenderMesh->GetVertexFormat();
+
+	// SE port (bring-up aid): does the panorama material's mesh draw reach the shader API at all?
+	if ( m_pMaterial && Q_stristr( m_pMaterial->GetName(), "panorama" ) )
+	{
+		static int s_nSEDrawMeshProbe = 0;
+		if ( s_nSEDrawMeshProbe < 6 )
+		{
+			s_nSEDrawMeshProbe++;
+		}
+	}
+
 	SetVertexDecl( vertexFormat, m_pRenderMesh->HasColorMesh(), m_pRenderMesh->HasFlexMesh(), m_pMaterial->IsUsingVertexID() );
 	CommitStateChanges();
 	Assert( m_pRenderMesh && m_pMaterial );
@@ -6691,6 +6709,34 @@ void CShaderAPIDx8::InvalidateDelayedShaderConstants( void )
 //-----------------------------------------------------------------------------
 
 //-----------------------------------------------------------------------------
+// SE port (CS:GO addition): IShaderAPI::GetD3DTexturePtr, the accessor
+// IMaterialSystem::GetPanormaTexturePtr (materialsystem/cmaterialsystem.cpp) uses to hand panorama
+// the D3D texture behind an ITexture.  Source Engine 2013 already exposes CShaderAPIDx8::GetD3DTexture.
+//-----------------------------------------------------------------------------
+inline void *CShaderAPIDx8::GetD3DTexturePtr( ShaderAPITextureHandle_t hTexture )
+{
+	return (void *)CShaderAPIDx8::GetD3DTexture( hTexture );
+}
+
+//-----------------------------------------------------------------------------
+// SE port (CS:GO addition): IShaderAPI::GetOS{Vertex,Pixel}Shader.  Bodies are CS:GO's
+// (materialsystem/shaderapidx9/shaderapidx8.cpp): create the shader - which compiles/loads it from the
+// stdshader DLL - and return the D3D object for the requested dynamic combo.  The panorama renderer is
+// the only caller today (panorama/source2/renderer/source2surface.cpp, "panorama_vs30"/"panorama_ps30").
+//-----------------------------------------------------------------------------
+void *CShaderAPIDx8::GetOSVertexShader( const char *pszName, int nIndex )
+{
+	VertexShader_t vs = ShaderManager()->CreateVertexShader( pszName, 0 );
+	return ShaderManager()->GetVertexShader( vs, nIndex );
+}
+
+void *CShaderAPIDx8::GetOSPixelShader( const char *pszName, int nIndex )
+{
+	PixelShader_t ps = ShaderManager()->CreatePixelShader( pszName, 0 );
+	return ShaderManager()->GetPixelShader( ps, nIndex );
+}
+
+//-----------------------------------------------------------------------------
 // Gets the texture associated with a texture state...
 //-----------------------------------------------------------------------------
 
@@ -8117,6 +8163,19 @@ bool CShaderAPIDx8::TexLock( int level, int cubeFaceID, int xOffset, int yOffset
 	LOCK_SHADERAPI();
 
 	Assert( m_ModifyTextureLockedLevel < 0 );
+
+	// SE port (bring-up aid): TexLock returned false without ever reaching LockTexture for the
+	// panorama text atlas - see which of the early-outs below is responsible.
+	{
+		static int s_nSETexLockProbe = 0;
+		if ( s_nSETexLockProbe < 6 )
+		{
+			s_nSETexLockProbe++;
+
+			ShaderAPITextureHandle_t hProbe = GetModifyTextureHandle();
+			bool bValid = m_Textures.IsValidIndex( hProbe );
+		}
+	}
 
 	ShaderAPITextureHandle_t hTexture = GetModifyTextureHandle();
 	if ( !m_Textures.IsValidIndex( hTexture ) )
@@ -9874,6 +9933,20 @@ void CShaderAPIDx8::BeginPass( StateSnapshot_t snapshot )
 void CShaderAPIDx8::RenderPass( int nPass, int nPassCount )
 {
 	if ( IsDeactivated() )
+		return;
+
+	// SE port (bring-up aid): is the pass reaching D3D, or is it being dropped here?
+	{
+		static int s_nSEPassProbe = 0;
+		if ( s_nSEPassProbe < 8 )
+		{
+			s_nSEPassProbe++;
+		}
+	}
+
+	// SE port: ResetRenderState() clears m_nCurrentSnapshot, so a pass can arrive before the next
+	// BeginPass() re-establishes a snapshot.  There is nothing valid to render in that case.
+	if ( m_nCurrentSnapshot < 0 )
 		return;
 
 	Assert( m_nCurrentSnapshot != -1 );
@@ -12785,7 +12858,18 @@ void CShaderAPIDx8::GetDX9LightState( LightState_t *state ) const
 #endif	
 	
 	state->m_nNumLights = m_DynamicState.m_NumLights;
-	state->m_bStaticLightVertex = m_pRenderMesh->HasColorMesh();
+
+	// SE port: the light state can be queried from the shader's dynamic draw path before a render
+	// mesh is bound.  Release builds compiled the Assert() away and dereferenced NULL here.
+	if ( m_pRenderMesh )
+	{
+		state->m_bStaticLightVertex = m_pRenderMesh->HasColorMesh();
+	}
+	else
+	{
+		state->m_bStaticLightVertex = false;
+	}
+
 	state->m_bStaticLightTexel = false; // For now
 }
 

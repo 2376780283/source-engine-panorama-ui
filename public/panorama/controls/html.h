@@ -6,11 +6,12 @@
 #ifndef PANORAMA_HTML_H
 #define PANORAMA_HTML_H
 
-#ifdef _WIN32
+#if defined(_WIN32) || defined(SOURCE2_PANORAMA)
 #pragma once
 #endif
 
 #include "panel2d.h"
+#include "scrollbar.h"
 #include "tier1/utlmap.h"
 #include "tier1/utlstring.h"
 #include "../uievent.h"
@@ -67,8 +68,8 @@ DECLARE_PANEL_EVENT1( HTMLLoadPage, const char * )
 DECLARE_PANEL_EVENT2( HTMLFinishRequest, const char *, const char * )
 DECLARE_PANEL_EVENT1( HTMLTitle, const char * )
 DECLARE_PANEL_EVENT1( HTMLStatusText, const char * )
-DECLARE_PANEL_EVENT2( HTMLJSAlert, const char *, bool * )
-DECLARE_PANEL_EVENT2( HTMLJSConfirm, const char *, bool * )
+DECLARE_PANEL_EVENT1( HTMLJSAlert, const char * )
+DECLARE_PANEL_EVENT1( HTMLJSConfirm, const char * )
 DECLARE_PANEL_EVENT2( HMTLLinkAtPosition, const char *, bool )
 DECLARE_PANEL_EVENT4( HMTLThumbNailImage, int, CUtlBuffer *, uint32, uint32  )
 DECLARE_PANEL_EVENT1( HTMLOpenLinkInNewTab, const char * )
@@ -83,7 +84,6 @@ DECLARE_PANEL_EVENT0( HTMLCloseWindow )
 DECLARE_PANEL_EVENT2( HTMLFormHasFocus, HtmlFormHasFocus_t, const char * /* URL */ )
 DECLARE_PANEL_EVENT2( HTMLScreenShotTaken, const char *, const char * )
 DECLARE_PANEL_EVENT1( HTMLFocusedNodeValue, const char * )
-DECLARE_PANEL_EVENT0( HTMLSteamRightPadMoving );
 DECLARE_PANEL_EVENT2( HTMLStartRequest, const char *, bool * );
 
 class CImagePanel;
@@ -114,11 +114,12 @@ public:
 	void Shutdown();
 
 	// panel2d overrides
-	virtual void Paint();
+	virtual void Paint() OVERRIDE;
 	virtual bool BSetProperty( CPanoramaSymbol symName, const char *pchValue ) OVERRIDE;
 	virtual void OnLayoutTraverse( float flFinalWidth, float flFinalHeight );
-	virtual void OnStylesChanged();
+	virtual void OnStylesChanged() OVERRIDE;
 	virtual bool BRequiresContentClipLayer() OVERRIDE { return true; } // BUGBUG Alfred - fix ::Paint to scale u/v offsets rather than requiring a clipping
+	virtual void OnContentSizeTraverse( float *pflContentWidth, float *pflContentHeight, float flMaxWidth, float flMaxHeight, bool bFinalDimensions ) OVERRIDE;
 
 	// simple browser management
 	void OpenURL(const char *);
@@ -130,6 +131,7 @@ public:
 	void GoForward();
 	bool BCanGoBack();
 	bool BCanGoForward();
+	void SetBackgroundMode( bool bBackgroundMode );
 	
 	// kb/mouse management
 	virtual bool OnKeyDown( const KeyData_t &code ) OVERRIDE;
@@ -143,26 +145,32 @@ public:
 	virtual bool OnMouseButtonDoubleClick( const MouseData_t &code ) OVERRIDE;
 	virtual bool OnMouseWheel( const MouseData_t &code ) OVERRIDE;
 	virtual void OnMouseMove( float flMouseX, float flMouseY ) OVERRIDE;
+	virtual bool OnVRTouchPad( const VRTouchEvent_t &code ) OVERRIDE;
 
 	virtual void SetupJavascriptObjectTemplate() OVERRIDE;
+
+	virtual void GetDebugPropertyInfo( CUtlVector< DebugPropertyOutput_t *> *pvecProperties ) OVERRIDE;
 
 	// run input event processing for something that may not be a real input event, so don't bubble to parents, etc.
 	bool OnGamePadDownImpl( const GamePadData_t &code, bool *out_pbOptionalResult = nullptr );
 	bool OnGamePadAnalogImpl( const GamePadData_t &code, bool *out_pbOptionalResult = nullptr );
 	
-	bool ProcessAnalogScroll( float fValueX, float fValueY, double fTimeDelta, float fDeadzoneValue );
-	bool ProcessAnalogZoom( float fValueX, float fValueY, double fTimeDelta, float fDeadzoneValue );
-	void ProcessRawScroll( bool bFingerDown );
-	void ProcessRawZoom( float fValueRaw );
+	void ProcessAnalogScroll( float fValueX, float fValueY, float fDeadzoneValue, bool bAllowOverScroll );
+	void ProcessAnalogZoom( float fValueX, float fValueY, float fDeadzoneValue );
+	
+	void ProcessSteamController();
+	void InitSteamController();
+	bool BHasSteamController() const { return m_hActiveControllerHandle != 0; }
+	void SetControllerActionSet( const char *pszActionSet );
 
 	// browser helpers
 	void Copy();
 	void Paste();
-	void RequestLinkUnderGamepad() { RequestLinkAtPosition( GetActualLayoutWidth()/2 - GetHScrollOffset(), GetActualLayoutHeight()/2 - GetVScrollOffset() ); }
-	void RequestLinkUnderMouse() { RequestLinkAtPosition( m_flCursorX - GetHScrollOffset(), m_flCursorY - GetVScrollOffset() ); }
-	void ZoomToElementUnderPanelCenter();
-	void ZoomToElementUnderMouse();
+	void PressButton( panorama::KeyCode key, uchar32 unichar );
+	void RequestLinkUnderCursor();
+	void ZoomToElementUnderCursor();
 	const char *PchLastLinkAtPosition() { return m_LinkAtPos.m_sURL; }
+	bool BIsCursorOverLink() const { return m_LinkAtPos.m_bLiveLink && !m_LinkAtPos.m_sURL.IsEmpty(); }
 	void RunJavascript( const char *pchScript );
 	void ViewSource();
 	void SetHorizontalScroll( int scroll );
@@ -208,34 +216,43 @@ public:
 	const char *PchCertName() const { return m_sCertName; }
 
 	// if true don't allow the page to scroll beyond the page edges
-	void SetDontAllowOverScroll( bool bState );
 	void SetEmbeddedMode( bool bState );
+	void SetIgnoreCursor( bool bState ); // don't use or show a cursor
 
-	void ZoomPageToFocusedElement( int nLeftOffset, int nTopOffset );
+	void ZoomPageToFocusedElement();
 
 	// ITextInputControl helpers
+
+	virtual bool BSupportsImmediateTextReturn() { return false; }
+
 	virtual int32 GetCursorOffset() const { return 0; }
 	virtual  uint GetCharCount() const { return 0; }
 
 	virtual const char *PchGetText() const { return ""; }
-	virtual const wchar_t *PwchGetText() const { return L""; }
+	virtual const uchar32 *Pch32GetText() const { return s_ch32EmptyStr; }
 
-	virtual void InsertCharacterAtCursor( const wchar_t &unichar );
-	virtual void InsertCharactersAtCursor( const wchar_t *pwch, size_t cwch ) 
+	virtual void InsertCharacterAtCursor( const uchar32 &unichar );
+	virtual void InsertCharactersAtCursor( const uchar32 *pch32, size_t cch32 ) 
 	{
-		for ( uint i = 0; i < cwch; i++ )
-			InsertCharacterAtCursor( pwch[i] ); 
+		for ( uint i = 0; i < cch32; i++ )
+			InsertCharacterAtCursor( pch32[i] ); 
 	}
-	bool BSupportsImmediateTextReturn() { return false; }
-	void RequestControlString() { RequestFocusedNodeValue(); }
 
 	virtual CPanel2D *GetAssociatedPanel() { return this; }
+	virtual void OnTextInputHandlerOpened( CTextInputHandler *pHandler ) OVERRIDE { /* no custom implementation currently */ }
+
+	virtual void RequestControlString() { RequestFocusedNodeValue(); }
+	
 
 	void PauseFlashVideoIfVisible();
 
 	void ResetScrollbarsAndClearOverflow();
 
+	void UpdateCursorBehaviourOnFocusChange( bool bGotFocus );
+
 	void SetPopupChild(CHTML *pChild) { m_pPopupChild = pChild; }
+	
+	void EnableSteamControllerSupport();
 
 #ifdef DBGFLAG_VALIDATE
 	virtual void ValidateClientPanel( CValidator &validator, const char *pchName ) OVERRIDE;
@@ -252,27 +269,7 @@ public:
 			m_pScrollThumb->AddClass( "VerticalScrollThumb" );
 		}
 
-		void ScrollToMousePos()
-		{
-			float flHeight = GetActualLayoutHeight();
-			if ( flHeight > 0.00001f )
-			{
-				if ( m_bMouseWentDownOnThumb )
-				{
-					float flPercentDiff = (m_flMouseY - m_flMouseStartY) / flHeight;
-					float flPositionOffset = flPercentDiff * GetRangeSize();
-					float flPosition = m_flScrollStartPosition + flPositionOffset;
-					SetScrollWindowPosition( clamp( flPosition, 0.0f, GetRangeSize() - GetScrollWindowSize() ), true );
-				}
-				else
-				{
-					float flPercent = m_flMouseY / flHeight;
-					float flPos = GetRangeSize() * flPercent;
-					SetScrollWindowPosition( clamp( flPos, 0.0f, GetRangeSize() - GetScrollWindowSize() ), true );
-				}
-			}
-		}
-
+		virtual float GetInterpolatedScrollWindowPosition() OVERRIDE { return -GetParent()->GetInterpolatedYScrollOffset(); }
 
 		virtual ~CHTMLVerticalScrollBar() {}
 
@@ -303,6 +300,13 @@ public:
 
 			m_bLastMoveImmediate = bImmediateMove;
 		}
+
+		virtual float GetActualLayoutLength() OVERRIDE { return GetActualLayoutHeight(); }
+		virtual float GetContentLength() OVERRIDE { return GetRangeSize(); }
+		virtual void SetMouseCoord( const Vector &vMousePosition ) OVERRIDE { m_flMouseCoord = vMousePosition.y; }
+
+		virtual void StopScroll() OVERRIDE {}
+
 	};
 
 	class CHTMLHorizontalScrollBar : public CScrollBar
@@ -315,27 +319,7 @@ public:
 			m_pScrollThumb->AddClass( "HorizontalScrollThumb" );
 		}
 
-		void ScrollToMousePos()
-		{
-			float flWidth = GetActualLayoutWidth();
-			if ( flWidth > 0.00001f )
-			{
-				if ( m_bMouseWentDownOnThumb )
-				{
-					float flPercentDiff = (m_flMouseX - m_flMouseStartX) / flWidth;
-					float flPositionOffset = flPercentDiff * GetRangeSize();
-					float flPosition = m_flScrollStartPosition + flPositionOffset;
-					SetScrollWindowPosition( clamp( flPosition, 0.0f, GetRangeSize() - GetScrollWindowSize() ), true );
-				}
-				else
-				{
-					float flPercent = m_flMouseX / flWidth;
-					float flPos = GetRangeSize() * flPercent;
-					SetScrollWindowPosition( clamp( flPos, 0.0f, GetRangeSize() - GetScrollWindowSize() ), true );
-				}
-			}
-		}
-
+		virtual float GetInterpolatedScrollWindowPosition() OVERRIDE { return -GetParent()->GetInterpolatedXScrollOffset(); }
 
 		virtual ~CHTMLHorizontalScrollBar() {}
 
@@ -365,6 +349,13 @@ public:
 			m_pScrollThumb->AccessStyleDirty()->SetHeight( length );
 			m_bLastMoveImmediate = bImmediateMove;
 		}
+
+		virtual float GetActualLayoutLength() OVERRIDE { return GetActualLayoutWidth(); }
+		virtual float GetContentLength() OVERRIDE { return GetRangeSize(); }
+		virtual void SetMouseCoord( const Vector &vMousePosition ) OVERRIDE { m_flMouseCoord = vMousePosition.x; }
+
+		virtual void StopScroll() OVERRIDE {}
+
 	};
 
 	enum EHTMLScrollDirection
@@ -377,8 +368,8 @@ public:
 
 	bool BCanScrollInDirection( EHTMLScrollDirection eDirection ) const;
 
-	static float GetScrollDeadzoneScale() { return s_fScrollDeadzoneScale; }
-
+	void ScrollPageUp( float flScrollValue );
+	void ScrollPageDown( float flScrollValue );
 protected:
 	// functions you can override to specialize html behavior
 	virtual void OnURLChanged( const char *url, const char *pchPostData, bool bIsRedirect );
@@ -400,9 +391,9 @@ protected:
 	virtual void OnSearchResults( int iActiveMatch, int nResults );
 
 	friend class ::CTexturePanel;
-	IUIDoubleBufferedTexture *m_pDoubleBufferedTexture;
-	IUIDoubleBufferedTexture *m_pDoubleBufferedTexturePending;
-	IUIDoubleBufferedTexture *m_pDoubleBufferedTextureComboBox;
+	CRefPtr< IUIDoubleBufferedTexture > m_pDoubleBufferedTexture;
+	CRefPtr< IUIDoubleBufferedTexture > m_pDoubleBufferedTexturePending;
+	CRefPtr< IUIDoubleBufferedTexture > m_pDoubleBufferedTextureComboBox;
 	int32 m_nTextureSerial; // serial number of the last texture we uploaded
 
 	void RequestFocusedNodeValue();
@@ -410,15 +401,11 @@ protected:
 	// let the web control scroll itself
 	void SetManualHTMLScroll( bool bControlScroll ) { m_bControlPageScrolling = bControlScroll;  }
 
+	int HorizontalPageSize();
+	int VerticalPageSize();
+
 private:
-	typedef void (CHTML::* ScrollFunc_t)( float, bool );
-	bool ProcessAnalogScrollAxis( float fValue, float fDeadzoneValue, double fTimeDelta, ScrollFunc_t ScrollFunc );
-
-	// we used to create the virtual mouse in our constructor, but now we don't know enough information at
-	// construction time to know whether we want one (ie., if we're wrapped by CHTMLSimpleNavigationWrapper
-	// we disable touchpad navigation). Instead we just try to lazy-create one at first use.
-	void LazyCreateVirtualMouseIfNecessary();
-
+	
 	// getters/setters for html cef object
 	void SetHTMLFocus();
 	void KillHTMLFocus();
@@ -426,7 +413,6 @@ private:
 	int VerticalScroll();
 	bool IsHorizontalScrollBarVisible();
 	bool IsVeritcalScrollBarVisible();
-	void RequestLinkAtPosition( int x, int y );
 	void GetCookiesForURL( const char *pchURL );
 	void UpdatePanoramaScrollBars();
 	bool BHandleKeyPressPageScroll() const;
@@ -498,6 +484,7 @@ private:
 	void BrowserSavePageToJPEGResponse( const CMsgSavePageToJPEGResponse *pCmd );
 	void BrowserFocusedNodeValueResponse( const CMsgFocusedNodeTextResponse *pCmd );
 	void BrowserComboNeedsPaint(const CMsgComboNeedsPaint *pCmd);
+	void BrowserJSMethodCall( const CMsgJSMethodCall *pCmd ) {}
 	bool BSupportsOffMainThreadPaints();
 	void ThreadNotifyPendingPaints();
 #endif
@@ -507,22 +494,21 @@ private:
 	void SendPendingHTMLMessages();
 
 	// helpers to move the html page around inside the control
-	void ScrollPageUp( float flScrollValue, bool bApplyBezier );
-	void ScrollPageDown( float flScrollValue, bool bApplyBezier );
-	void ScrollPageLeft( float flScrollValue, bool bApplyBezier );
-	void ScrollPageRight( float flScrollValue, bool bApplyBezier );
+	void ScrollPageLeft( float flScrollValue );
+	void ScrollPageRight( float flScrollValue );
 
 	// Overrides for scroll bar to call back to us rather than normal panel2d call
 	virtual void ScrollToXPercent( float flXPercent );
 	virtual void ScrollToYPercent( float flXPercent );
 
 	// event handlers
-	bool OnGamepadInput();
+	bool OnGamepadInput( GamePadCode eGamePadCode );
 	bool OnPropertyTransitionEnd( const CPanelPtr< IUIPanel > &pPanel, CStyleSymbol prop );
 	bool OnSetBrowserSize( const CPanelPtr< IUIPanel > &pPanel, int nWide, int nTall );
 	bool OnHTMLFormFocusPending( const CPanelPtr< IUIPanel > &pPanel );
 	bool OnInputFocusSet( const panorama::CPanelPtr< panorama::IUIPanel > &ptrPanel );
 	bool OnInputFocusLost( const panorama::CPanelPtr< panorama::IUIPanel > &ptrPanel );
+	bool OnInputFocusTopLevelChanged( panorama::CPanelPtr< panorama::IUIPanel > ptrPanel );
 	bool OnHTMLScreenShotCaptured( const panorama::CPanelPtr< panorama::IUIPanel > &ptrPanel, int nThumbNailWidth, int nThumbNailHeight  );
 	bool OnHTMLCommitZoom( const panorama::CPanelPtr< panorama::IUIPanel > &ptrPanel, float flZoom );
 	bool OnHTMLRequestRepaint( const panorama::CPanelPtr< panorama::IUIPanel > &ptrPanel );
@@ -533,23 +519,23 @@ private:
 
 	// moving the html texture around
 	void ResizeBrowserTextureIfNeeded();
-	int AdjustPageScrollForTextureOffset( int &nTargetValue, const int nCurScroll, const int nMaxScroll, float &flOffsetTextureScroll, const float flMaxTextureScroll );
-
-	int GetHScrollOffset() 
+	
+	float GetHScrollOffset() 
 	{ 
 		return m_ScrollLeft.m_flOffsetTextureScroll;
 	}
 
-	int GetVScrollOffset() 
+	float GetVScrollOffset()
 	{ 
 		return m_ScrollUp.m_flOffsetTextureScroll;
 	}
 
-	void ClampTextureScroll( bool bAllowScrollBorder = true );
+	void SetPageDPI( float flDPI );
 
 	bool m_bInitialized; // used to prevent double shutdown
 	bool m_bReady; // When we are ready to load a url
 	CTexturePanel *m_pTexurePanel;
+	CLabel *m_pBrowserDisabledMessage;
 
 	int m_nWindowWide, m_nWindowTall; // how big the html texture should be
 	int m_nTextureWide, m_nTextureTall;
@@ -581,11 +567,13 @@ private:
 			m_flOffsetTextureScroll = 0.0f;
 			m_bScrollingUp = false;
 			m_flLastScrollTime = 0.0f;
+			m_flScrollRemainder = 0.0f;
 		}
 
-		float m_flOffsetTextureScroll; // amount the html texture is scrolled around the panel itself
-		bool m_bScrollingUp; // we are scrolling up (or left) on the page last?
-		double m_flLastScrollTime; // when did we scroll in this direction last, used for accel curve
+		float	m_flOffsetTextureScroll; // amount the html texture is scrolled around the panel itself
+		bool	m_bScrollingUp; // we are scrolling up (or left) on the page last?
+		double	m_flLastScrollTime; // when did we scroll in this direction last, used for accel curve
+		float	m_flScrollRemainder; // remainder from scolling added next time
 	};
 
 	ScrollControl_t m_ScrollUp;
@@ -618,9 +606,10 @@ private:
 		int m_nScroll; // currently scrolled amount of pixels
 		int m_nWebScroll; // last scrolled return value from cef, not updated locally
 	};
-	bool ScrollHelper( ScrollControl_t &scrollControl, float flScrollDelta, int iMaxScrollOffset, ScrollData_t &scrollBar, float &flScrollHTMLAmount, bool bApplyBezier ); // shared code when scrolling around the page
-	bool SetupScrollBar( const ScrollData_t & scrollData, bool bHorizontal, float flContentSize, float flMaxSize );
-	CScrollBar *MakeScrollBar( bool bHorizontal);
+
+	bool ScrollHelper( bool bHorizontal, float flScrollDelta, float flLeadInTime = 0.0f, bool bAllowOverScroll = false, bool * bHitEdge = NULL ); // shared code when scrolling around the page
+	bool SetupScrollBar( bool bHorizontal, float flMaxSize );
+	CScrollBar *MakeScrollBar( bool bHorizontal );
 
 	ScrollData_t m_scrollHorizontal; // details of horizontal scroll bar
 	ScrollData_t m_scrollVertical; // details of vertical scroll bar
@@ -640,6 +629,7 @@ private:
 	float m_flCursorY;
 
 	double m_flGamePadInputTime; // last time we saw input from the gamepad
+	double m_flStartZoomTime;
 
 	bool m_bPopupVisible; // true if a popup menu is visible on the client
 	bool m_bCanGoBack;
@@ -666,11 +656,9 @@ private:
 	int m_nCaptureUserData;
 
 	bool m_bCommenceZoomOperationOnTextureUpload; // when the next texture upload is ready, should we apply scale/offset transforms we have saved above
-	float m_flHorizScrollOffset; // the offset between page scroll and texture scroll we had at the start of a zoom
-	float m_flVertScrollOffset; // the offset between page scroll and texture scroll we had at the start of a zoom
 	bool m_bFullScreen; // are we in fullscreen right now?
 	bool m_bConfigureYouTubeHTML5OptIn; // are we doing the forcefully opt into youtube html5 beta path
-	bool m_bMousePanningActive; // true if the mouse is in panning mode
+	bool m_bMousePanningActive; // true if the mouse is in panning mode (middle mouse button)
 	Vector2D m_vecMousePanningPos; // the x,y pos of the mouse over the panel when middle panning started
 	CImagePanel *m_pMousePanningImage; // the image to show when panning
 	CCubicBezierCurve< Vector2D > m_MousePanBezier; // the curve to scale panning accel by
@@ -679,21 +667,15 @@ private:
 	bool m_bIsEVCert; // is it an EV cert?
 	CUtlString m_sCertName; // who was the cert issued to?
 	bool m_bEmbedded; // if true we are embedded instance, just show html pages and simple scrolling, not complex interactions
-	bool m_bAllowOverScroll; // if true allow scrolling the edge of the texture beyond the edge of the screen (i.e so you can hover the recticle at any point)
-	bool m_bLastScrollbarSetupAllowedOverScroll;
+	bool m_bIgnoreCursor; // if true, the cursor is ignore for input
 	float m_flMouseLastX;
 	float m_flMouseLastY;
-	float m_flLastSteamPadScroll;
-	uint32 m_unSteamPadScrollRepeats;
-
+	
 	panorama::HtmlFormHasFocus_t m_evtFocus;		// used for saving state of controls that have focus info dispatched
 
-	bool m_bPendingInputZoom; // true if we are zooming into an input element
 	bool m_bFocusEventSentForClick; // time we sent a focus event to the browser
 	bool m_bDidMousePanWhileMouseDown; // did we do panning with the mouse held down
 	bool m_bWaitingForZoomResponse;
-
-	Vector2D m_LastSteamRightPad;
 
 	panorama::CTextTooltip *m_pTooltip;
 	bool m_bGotKeyDown;
@@ -720,22 +702,39 @@ private:
 	CThreadMutex m_mutexHTMLTexture;
 	CThreadMutex m_mutexScreenShot;
 	CUtlBuffer m_bufScreenshotTexture;
-	float m_flScrollRemainder;
-	int m_nTargetHorizontalScrollValue;
-	int m_nTargetVerticalScrollValue;
+	
 	bool m_bControlPageScrolling;
 
-	// virtual mouse used when steam controller is connected
-	IVirtualMouse *m_pLeftMousePad;
-	Vector2D m_vecVirtualScrollPrev;
-	Vector2D m_vecVirtualScrollOrigin;
+
+	bool m_bInvertScrolling;
 	bool m_bVerticalAxisSnap;
 	bool m_bClickingLeftPad;
 	bool m_bMarkZoomStart;
 	float m_flInitialZoomLevel;
 	float m_flZoomSwipeOriginPosition;
+	
+	// Steam controller state
+	
+#if !defined( SOURCE2_PANORAMA ) && !defined( PANORAMA_PUBLIC_STEAM_SDK )
+	STEAM_CALLBACK( CHTML, OnControllerConnected, ControllerConnected_t );
+#endif
+	
+	ControllerHandle_t m_hActiveControllerHandle;
+	CUIScheduledDel	m_scheduledProcessController;
+	ControllerAnalogActionHandle_t	m_hCursorAnalogAction;
+	ControllerAnalogActionHandle_t	m_hScrollAnalogAction;
+	ControllerAnalogActionHandle_t	m_hZoomAnalogAction;
+	bool m_bHasControllerFocus;
+	bool m_bControllerScrollThunked;
+	
+	bool m_bSteamControllerEnabled;
 
-	static const float s_fScrollDeadzoneScale;
+	// VR controller touchpad state
+	CUtlLinkedList<VRTouchEvent_t> m_vecVRTouchEvents;
+	bool m_bVRTouchPadFingerDown;
+	float m_flVRTouchLinearMoveDistanceForHaptics;
+
+	static uchar32 s_ch32EmptyStr[1];
 };
 
 //-----------------------------------------------------------------------------

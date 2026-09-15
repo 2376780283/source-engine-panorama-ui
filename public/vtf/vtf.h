@@ -64,7 +64,16 @@ enum CompiledVtfFlags
 
 	TEXTUREFLAGS_NODEPTHBUFFER                 = 0x00800000,
 
+	// SE port: create the texture in D3DUSAGE_DYNAMIC.  A D3DPOOL_DEFAULT texture that is not dynamic
+	// cannot be updated with IDirect3DDevice9::UpdateSurface and cannot be locked, so D3D9 silently
+	// drops every upload - panorama's text atlas needs both (see CMaterialSystem::
+	// CreatePanoramaAlphaTexture).
+	TEXTUREFLAGS_DYNAMIC                      = 0x10000000,
+
 		TEXTUREFLAGS_UNUSED_01000000		   = 0x01000000,
+	// SE port: CS:GO uses this bit as TEXTUREFLAGS_SKIP_INITIAL_DOWNLOAD (Source2 panorama
+	// procedural textures set it, asking the material system to skip an initial download).
+	TEXTUREFLAGS_SKIP_INITIAL_DOWNLOAD		   = 0x01000000,
 
 	TEXTUREFLAGS_CLAMPU                        = 0x02000000,
 
@@ -78,6 +87,11 @@ enum CompiledVtfFlags
 	TEXTUREFLAGS_BORDER						   = 0x20000000,
 
 	TEXTUREFLAGS_STREAMABLE_COARSE			   = 0x40000000,
+	// SE port: CS:GO re-purposed this bit as TEXTUREFLAGS_YCOCG (DXT5 texture whose colour is
+	// stored as YCoCg).  The Source2 wrapper keeps it on procedural textures.  SE 2013's
+	// streaming paths that consult TEXTUREFLAGS_STREAMABLE are the VTF / AsyncFindTexture
+	// ones, which procedural textures never take, so the two meanings do not collide today.
+	TEXTUREFLAGS_YCOCG						   = 0x40000000,
 	TEXTUREFLAGS_STREAMABLE_FINE		       = 0x80000000, 
 	TEXTUREFLAGS_STREAMABLE					   = ( TEXTUREFLAGS_STREAMABLE_COARSE | TEXTUREFLAGS_STREAMABLE_FINE )
 

@@ -61,6 +61,12 @@ int V_stricmp( const char *s1, const char *s2 );
 int	V_strncmp( const char *s1, const char *s2, int count );
 int V_strnicmp( const char *s1, const char *s2, int n );
 
+// Source2/_fast aliases used by CS:GO panorama code
+#define V_strncmp_fast V_strncmp
+#define V_strnicmp_fast V_strnicmp
+#define V_stristr_fast V_stristr
+#define V_strlower_fast V_strlower
+
 //-----------------------------------------------------------------------------
 // Purpose: Slightly modified strtok. Does not modify the input string. Does
 //			not skip over more than one separator at a time. This allows parsing
@@ -311,6 +317,14 @@ inline bool V_isstrlower( const char *pch )
 // pDest[maxLen-1] is always NULL terminated if pSrc's length is >= maxLen.
 //
 // This means the last parameter can usually be a sizeof() of a string.
+// SE port (CS:GO addition): 3d memcpy with arbitrary source/destination strides.
+// Optimizes to a single memcpy when the strides allow it.  For 2d data pass nNumSlices = 1.
+void CopyMemory3D( void *pDestAdr, void const *pSrcAdr,
+				   int nNumCols, int nNumRows, int nNumSlices,	// dimensions of copy
+				   int nSrcBytesPerRow, int nSrcBytesPerSlice,	// strides for source.
+				   int nDestBytesPerRow, int nDestBytesPerSlice	// strides for dest
+				   );
+
 void V_strncpy( OUT_Z_CAP(maxLenInChars) char *pDest, const char *pSrc, int maxLenInChars );
 
 // Ultimate safe strcpy function, for arrays only -- buffer size is inferred by the compiler
@@ -359,6 +373,7 @@ enum EStringConvertErrorPolicy
 	_STRINGCONVERTFLAG_SKIP =		1,
 	_STRINGCONVERTFLAG_FAIL =		2,
 	_STRINGCONVERTFLAG_ASSERT =		4,
+	_STRINGCONVERTFLAG_TOTALSIZE =	8,	// internal flag used to optimize two-pass conversions
 
 	STRINGCONVERT_REPLACE =			0,
 	STRINGCONVERT_SKIP =			_STRINGCONVERTFLAG_SKIP,
@@ -385,6 +400,9 @@ bool Q_UnicodeValidate( const uchar32 *pUTF32 );
 int Q_UnicodeLength( const char *pUTF8 );
 int Q_UnicodeLength( const uchar16 *pUTF16 );
 int Q_UnicodeLength( const uchar32 *pUTF32 );
+
+// V_-style alias (CS:GO panorama / Source2 code uses the V_ name)
+#define V_UnicodeLength			Q_UnicodeLength
 
 // Returns length of string in elements, not characters! These are analogous to Q_strlen and Q_wcslen
 inline int Q_strlen16( const uchar16 *puc16 ) { int nElems = 0; while ( puc16[nElems] ) ++nElems; return nElems; }
@@ -464,6 +482,55 @@ int Q_UTF16ToUChar32( const uchar16 *pUTF16, uchar32 &uValueOut, bool &bErrorOut
 // These are legacy names which don't make a lot of sense but are used everywhere. Prefer the WString convention wherever possible
 #define V_UTF8ToUnicode Q_UTF8ToWString
 #define V_UnicodeToUTF8 Q_WStringToUTF8
+
+// SE port: the CS:GO-era spelling of the same two aliases (common/currencyamount.cpp uses
+// V_WStringToUTF8; Source Engine 2013 only ever shipped the V_...Unicode names above).
+#define V_UTF8ToWString Q_UTF8ToWString
+#define V_WStringToUTF8 Q_WStringToUTF8
+
+// V_-style aliases over the Q_ unicode helpers (CSGO-era / Source2 code uses the V_ names)
+#define V_strlen16 Q_strlen16
+#define V_strlen32 Q_strlen32
+#define V_UTF8ToUTF16 Q_UTF8ToUTF16
+#define V_UTF8ToUTF32 Q_UTF8ToUTF32
+#define V_UTF16ToUTF8 Q_UTF16ToUTF8
+#define V_UTF16ToUTF32 Q_UTF16ToUTF32
+#define V_UTF32ToUTF8 Q_UTF32ToUTF8
+#define V_UTF32ToUTF16 Q_UTF32ToUTF16
+#define V_UnicodeAdvance Q_UnicodeAdvance
+#define V_UnicodeTruncate Q_UnicodeTruncate
+#define V_UChar32ToUTF8Len Q_UChar32ToUTF8Len
+#define V_UChar32ToUTF8 Q_UChar32ToUTF8
+#define V_UChar32ToUTF16Len Q_UChar32ToUTF16Len
+#define V_UChar32ToUTF16 Q_UChar32ToUTF16
+#define V_UTF8ToUChar32 Q_UTF8ToUChar32
+#define V_UTF16ToUChar32 Q_UTF16ToUChar32
+
+
+// Source2 Unicode Case Conversion (ported from CS:GO public/tier1/strtools.h;
+// implemented in tier1/strtools_unicode.cpp)
+enum
+{
+	// Must specify one of these:
+	STRINGCASE_LOWER = 0,
+	STRINGCASE_UPPER = 1,
+	STRINGCASE_TITLE_FIRST_WORD = 2,
+	STRINGCASE_TITLE_ALL_WORDS = 3,
+
+	// May combine it with one or more of these flags:
+	STRINGCASE_FLAG_LINGUISTIC = 8,	// enables non-reversible and many-for-1 mappings
+	STRINGCASE_FLAG_TURKISH = 16,	// enables dotless/dotted I distinction
+
+	STRINGCASE_FLAG_ALL_FLAGS = 0x18,
+};
+
+int V_UnicodeCaseConvert( const char *in, char *out, int cchOut, int nStringCaseFlags, EStringConvertErrorPolicy ePolicy = STRINGCONVERT_ASSERT_REPLACE );
+int V_UnicodeCaseConvert( const uchar16 *in, uchar16 *out, int cchOut, int nStringCaseFlags, EStringConvertErrorPolicy ePolicy = STRINGCONVERT_ASSERT_REPLACE );
+int V_UnicodeCaseConvert( const uchar32 *in, uchar32 *out, int cchOut, int nStringCaseFlags, EStringConvertErrorPolicy ePolicy = STRINGCONVERT_ASSERT_REPLACE );
+
+int V_UnicodeCaseCompare( const char *str1, const char *str2, int nStringCaseFlags, EStringConvertErrorPolicy ePolicy = STRINGCONVERT_ASSERT_REPLACE );
+int V_UnicodeCaseCompare( const uchar16 *str1, const uchar16 *str2, int nStringCaseFlags, EStringConvertErrorPolicy ePolicy = STRINGCONVERT_ASSERT_REPLACE );
+int V_UnicodeCaseCompare( const uchar32 *str1, const uchar32 *str2, int nStringCaseFlags, EStringConvertErrorPolicy ePolicy = STRINGCONVERT_ASSERT_REPLACE );
 
 
 #ifdef WIN32
@@ -689,6 +756,9 @@ void V_ExtractFileExtension( const char *path, char *dest, int destSize );
 
 const char *V_GetFileExtension( const char * path );
 
+// CS:GO-era variant: never returns NULL (returns "" when there is no extension)
+const char *V_GetFileExtensionSafe( const char * path );
+
 // returns a pointer to just the filename part of the path
 // (everything after the last path seperator)
 const char *V_GetFileName( const char * path );
@@ -797,6 +867,17 @@ inline void V_wcscat( INOUT_Z_CAP(cchDest) wchar_t *dest, const wchar_t *src, in
 //
 // Returns false if there was not enough room in pDest to encode the entire source string, otherwise true
 bool V_BasicHtmlEntityEncode( OUT_Z_CAP( nDestSize ) char *pDest, const int nDestSize, char const *pIn, const int nInSize, bool bPreserveWhitespace = false );
+
+// SE port: "how much room do I need" form, used by CS:GO's panorama code
+// (panorama/uiengine.cpp::JSHTMLEscape, panorama/localization/localize.cpp):
+//     V_BasicHtmlEntityEncode( NULL, 0, pchIn, nLen, &nRequiredBytes );   // measure
+//     pBuf = malloc( nRequiredBytes );
+//     V_BasicHtmlEntityEncode( pBuf, nRequiredBytes, pchIn, nLen );       // encode
+// Source 2013 spends the 5th parameter on bPreserveWhitespace instead, so the query form gets this
+// overload (an int* argument binds to it exactly; it deliberately has no default value, otherwise a
+// 4-argument call would be ambiguous).  *pnRequiredBytes receives the encoded size *including* the
+// terminator - exactly what the caller has to allocate.  A NULL pDest encodes nothing.
+bool V_BasicHtmlEntityEncode( char *pDest, const int nDestSize, char const *pIn, const int nInSize, int *pnRequiredBytes );
 
 // Decode a string with htmlentities HTML -- this should handle all special chars, not just the ones Q_BasicHtmlEntityEncode uses.
 //

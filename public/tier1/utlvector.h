@@ -205,6 +205,9 @@ public:
 	void Validate( CValidator &validator, char *pchName );		// Validate our internal structures
 #endif // DBGFLAG_VALIDATE
 
+	int SortedFindLessOrEqual( const T& search, bool( __cdecl *pfnLessFunc )( const T& src1, const T& src2, void *pCtx ), void *pLessContext ) const;
+	int SortedInsert( const T& src, bool( __cdecl *pfnLessFunc )( const T& src1, const T& src2, void *pCtx ), void *pLessContext );
+
 	/// sort using std:: and expecting a "<" function to be defined for the type
 	void Sort( void );
 
@@ -612,6 +615,9 @@ public:
 	CCopyableUtlVector( T* pMemory, int numElements ) : BaseClass( pMemory, numElements ) {}
 	virtual ~CCopyableUtlVector() {}
 	CCopyableUtlVector( CCopyableUtlVector const& vec ) { this->CopyArray( vec.Base(), vec.Count() ); }
+	// SE port (CS:GO addition): let a plain CUtlVector convert into a CCopyableUtlVector, which
+	// is what brace-initialising a struct member of this type from a local CUtlVector needs.
+	CCopyableUtlVector( CUtlVector<T> const& vec ) { this->CopyArray( vec.Base(), vec.Count() ); }
 };
 
 //-----------------------------------------------------------------------------
@@ -629,6 +635,8 @@ public:
 	CCopyableUtlVectorFixed( T* pMemory, int numElements ) : BaseClass( pMemory, numElements ) {}
 	virtual ~CCopyableUtlVectorFixed() {}
 	CCopyableUtlVectorFixed( CCopyableUtlVectorFixed const& vec ) { this->CopyArray( vec.Base(), vec.Count() ); }
+	// SE port (CS:GO addition): see CCopyableUtlVector above.
+	CCopyableUtlVectorFixed( CUtlVectorFixed< T, MAX_SIZE > const& vec ) { this->CopyArray( vec.Base(), vec.Count() ); }
 };
 
 // TODO (Ilya): It seems like all the functions in CUtlVector are simple enough that they should be inlined.
@@ -857,6 +865,41 @@ void CUtlVector<T, A>::GrowVector( int num )
 	ResetDbgInfo();
 }
 
+//-----------------------------------------------------------------------------
+// finds a particular element (sorted); CS:GO panorama
+//-----------------------------------------------------------------------------
+template< typename T, class A >
+int CUtlVector<T, A>::SortedFindLessOrEqual( const T& search, bool (__cdecl *pfnLessFunc)( const T& src1, const T& src2, void *pCtx ), void *pLessContext ) const
+{
+	int start = 0, end = Count() - 1;
+	while (start <= end)
+	{
+		int mid = (start + end) >> 1;
+		if ( pfnLessFunc( Element(mid), search, pLessContext ) )
+		{
+			start = mid + 1;
+		}
+		else if ( pfnLessFunc( search, Element(mid), pLessContext ) )
+		{
+			end = mid - 1;
+		}
+		else
+		{
+			return mid;
+		}
+	}
+	return end;
+}
+
+template< typename T, class A >
+int CUtlVector<T, A>::SortedInsert( const T& src, bool (__cdecl *pfnLessFunc)( const T& src1, const T& src2, void *pCtx ), void *pLessContext )
+{
+	int pos = SortedFindLessOrEqual( src, pfnLessFunc, pLessContext ) + 1;
+	GrowVector();
+	ShiftElementsRight( pos );
+	CopyConstruct<T>( &Element( pos ), src );
+	return pos;
+}
 
 //-----------------------------------------------------------------------------
 // Sorts the vector

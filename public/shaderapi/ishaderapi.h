@@ -281,6 +281,18 @@ public:
 	// all use the texture specified by this function.
 	virtual void ModifyTexture( ShaderAPITextureHandle_t textureHandle ) = 0;
 
+	// SE port (CS:GO addition): the panorama renderer needs the raw D3D texture behind a shader API
+	// texture handle (IMaterialSystem::GetPanormaTexturePtr).  Defaulted so the other IShaderAPI
+	// implementations stay valid; CShaderAPIDx8 overrides it with GetD3DTexture().
+	virtual void *GetD3DTexturePtr( ShaderAPITextureHandle_t hTexture ) { return NULL; }
+
+	// SE port (CS:GO addition): the panorama renderer asks the material system for the OS shader object
+	// of a (shader name, dynamic combo) pair (IMaterialSystem::GetOS{Vertex,Pixel}Shader, called from
+	// panorama/source2/renderer/source2surface.cpp for "panorama_vs30"/"panorama_ps30").  Defaulted so
+	// the other IShaderAPI implementations stay valid; CShaderAPIDx8 overrides them.
+	virtual void *GetOSVertexShader( const char *pszName, int nIndex ) { return NULL; }
+	virtual void *GetOSPixelShader( const char *pszName, int nIndex ) { return NULL; }
+
 	virtual void TexImage2D(
 		int level,
 		int cubeFaceID,

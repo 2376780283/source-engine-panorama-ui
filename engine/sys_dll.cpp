@@ -9,6 +9,9 @@
 
 #if defined(_WIN32) && !defined(_X360)
 #include "winlite.h"
+// SE port (temporary bring-up probe): SYMBOL_INFO / SYMOPT_* used by the crash-address symbolizer
+// below.  dbghelp is loaded with LoadLibrary, so no import library is needed.
+#include <dbghelp.h>
 #elif defined(OSX)
 #include <Carbon/Carbon.h>
 #include <sys/sysctl.h>
@@ -382,6 +385,16 @@ void Sys_Error_Internal( bool bMinidump, const char *error, va_list argsList )
 
 	Q_vsnprintf( text, sizeof( text ), error, argsList );
 
+	// SE port (temporary bring-up probe): the message is otherwise lost when the process exits.
+	{
+		FILE *pSEProbeFile = fopen( "d:\\cstrike\\se_probe.txt", "a" );
+		if ( pSEProbeFile )
+		{
+			fprintf( pSEProbeFile, "SE_SYSERROR: %s\n", text );
+			fclose( pSEProbeFile );
+		}
+	}
+
 	if ( bReentry )
 	{
 		fprintf( stderr, "%s\n", text );
@@ -538,6 +551,141 @@ void Sys_Sleep( int msec )
 #endif
 }
 
+#if defined(_WIN32) && !defined( _X360 )
+// SE port (temporary bring-up probe): the process dies during map load without printing anything (no
+// Error(), no Sys_Error(), no minidump).  A vectored handler runs before any engine crash handler and
+// logs the exception code, the faulting module+offset and the return addresses on the stack.  Plain
+// Win32 file I/O is used because the CRT heap may not be usable at that point.
+static void SEProbeWriteWin32( const char *pText )
+{
+	HANDLE hFile = CreateFileA( "d:\\cstrike\\se_probe.txt", FILE_APPEND_DATA,
+		FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL );
+	if ( hFile == INVALID_HANDLE_VALUE )
+		return;
+
+	DWORD cbWritten = 0;
+	WriteFile( hFile, pText, (DWORD)V_strlen( pText ), &cbWritten, NULL );
+	CloseHandle( hFile );
+}
+
+// dbghelp entry points, resolved at load time (no import library needed).
+typedef BOOL (WINAPI *SEProbeSymInitializeFn)( HANDLE, PCSTR, BOOL );
+typedef BOOL (WINAPI *SEProbeSymFromAddrFn)( HANDLE, DWORD64, PDWORD64, PSYMBOL_INFO );
+typedef DWORD (WINAPI *SEProbeSymSetOptionsFn)( DWORD );
+typedef BOOL (WINAPI *SEProbeSymRefreshModuleListFn)( HANDLE );
+typedef BOOL (WINAPI *SEProbeSymSetSearchPathFn)( HANDLE, PCSTR );
+typedef BOOL (WINAPI *SEProbeSymGetLineFromAddr64Fn)( HANDLE, DWORD64, PDWORD, PIMAGEHLP_LINE64 );
+
+static SEProbeSymInitializeFn g_pSEProbeSymInitialize = NULL;
+static SEProbeSymFromAddrFn g_pSEProbeSymFromAddr = NULL;
+static SEProbeSymRefreshModuleListFn g_pSEProbeSymRefreshModuleList = NULL;
+static SEProbeSymGetLineFromAddr64Fn g_pSEProbeSymGetLineFromAddr64 = NULL;
+
+static void SEProbeDescribeAddress( char *pOut, int nOutLen, uintp nAddr, const char *pPrefix )
+{
+	HMODULE hModule = NULL;
+	char szModule[ MAX_PATH ] = { 0 };
+	if ( GetModuleHandleExA( GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+			(LPCSTR)nAddr, &hModule ) && hModule )
+	{
+		GetModuleFileNameA( hModule, szModule, sizeof( szModule ) );
+	}
+
+	// Try for a symbol name as well - dbghelp is loaded lazily in DllMain so the engine does not have to
+	// link against it, and the PDBs sit next to the deployed DLLs.
+	char szSymbol[ 512 ] = { 0 };
+	if ( g_pSEProbeSymInitialize && g_pSEProbeSymFromAddr )
+	{
+		BYTE buffer[ sizeof( SYMBOL_INFO ) + 512 ] = { 0 };
+		SYMBOL_INFO *pSymbol = (SYMBOL_INFO *)buffer;
+		pSymbol->SizeOfStruct = sizeof( SYMBOL_INFO );
+		pSymbol->MaxNameLen = 512;
+
+		DWORD64 nDisplacement = 0;
+		if ( g_pSEProbeSymFromAddr( GetCurrentProcess(), (DWORD64)nAddr, &nDisplacement, pSymbol ) )
+		{
+			V_snprintf( szSymbol, sizeof( szSymbol ), " %s+0x%X", pSymbol->Name, (unsigned int)nDisplacement );
+		}
+	}
+
+	if ( g_pSEProbeSymGetLineFromAddr64 )
+	{
+		IMAGEHLP_LINE64 line = { 0 };
+		line.SizeOfStruct = sizeof( line );
+		DWORD dwDisplacement = 0;
+		if ( g_pSEProbeSymGetLineFromAddr64( GetCurrentProcess(), (DWORD64)nAddr, &dwDisplacement, &line ) && line.FileName )
+		{
+			V_strncat( szSymbol, va( " [%s:%u]", line.FileName, line.LineNumber ), sizeof( szSymbol ) );
+		}
+	}
+
+	V_snprintf( pOut, nOutLen, "%s %s+0x%X (0x%p)%s\n", pPrefix, szModule[ 0 ] ? szModule : "?",
+		(unsigned int)( nAddr - (uintp)hModule ), (void*)nAddr, szSymbol );
+}
+
+static volatile LONG s_SEProbeCrashLogged = 0;
+
+static LONG CALLBACK SEProbeVectoredHandler( PEXCEPTION_POINTERS pInfo )
+{
+	unsigned int nCode = (unsigned int)pInfo->ExceptionRecord->ExceptionCode;
+
+	// only care about real faults, not C++ exceptions / debug breaks
+	if ( nCode != EXCEPTION_ACCESS_VIOLATION && nCode != EXCEPTION_ILLEGAL_INSTRUCTION &&
+		 nCode != EXCEPTION_STACK_OVERFLOW && nCode != EXCEPTION_INT_DIVIDE_BY_ZERO &&
+		 nCode != EXCEPTION_PRIV_INSTRUCTION && nCode != 0xC0000409 /* STATUS_STACK_BUFFER_OVERRUN */ )
+	{
+		return EXCEPTION_CONTINUE_SEARCH;
+	}
+
+	if ( InterlockedExchange( &s_SEProbeCrashLogged, 1 ) != 0 )
+		return EXCEPTION_CONTINUE_SEARCH;
+
+	char szLine[ 1024 ];
+	V_snprintf( szLine, sizeof( szLine ), "\n=== SE_CRASH code=0x%08X flags=0x%08X ===\n", nCode, (unsigned int)pInfo->ExceptionRecord->ExceptionFlags );
+	SEProbeWriteWin32( szLine );
+
+	// modules loaded after SymInitialize() are unknown to dbghelp - refresh before symbolizing
+	if ( g_pSEProbeSymRefreshModuleList )
+	{
+		g_pSEProbeSymRefreshModuleList( GetCurrentProcess() );
+	}
+
+	__try
+	{
+		SEProbeDescribeAddress( szLine, sizeof( szLine ), (uintp)pInfo->ExceptionRecord->ExceptionAddress, "SE_CRASH fault:" );
+		SEProbeWriteWin32( szLine );
+
+		if ( pInfo->ExceptionRecord->NumberParameters >= 2 && nCode == EXCEPTION_ACCESS_VIOLATION )
+		{
+			V_snprintf( szLine, sizeof( szLine ), "SE_CRASH access: type=%u addr=0x%p\n",
+				(unsigned int)pInfo->ExceptionRecord->ExceptionInformation[ 0 ],
+				(void*)pInfo->ExceptionRecord->ExceptionInformation[ 1 ] );
+			SEProbeWriteWin32( szLine );
+		}
+
+		uintp *pStack = (uintp *)pInfo->ContextRecord->Esp;
+		for ( int i = 0; i < 40; i++ )
+		{
+			uintp nAddr = pStack[ i ];
+			HMODULE hModule = NULL;
+			if ( nAddr && GetModuleHandleExA( GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+					(LPCSTR)nAddr, &hModule ) && hModule )
+			{
+				SEProbeDescribeAddress( szLine, sizeof( szLine ), nAddr, "SE_CRASH stack:" );
+				SEProbeWriteWin32( szLine );
+			}
+		}
+	}
+	__except ( EXCEPTION_EXECUTE_HANDLER )
+	{
+		SEProbeWriteWin32( "SE_CRASH: stack scan failed\n" );
+	}
+
+	SEProbeWriteWin32( "=== SE_CRASH end ===\n" );
+	return EXCEPTION_CONTINUE_SEARCH;
+}
+#endif
+
 //-----------------------------------------------------------------------------
 // Purpose: 
 // Input  : hInst - 
@@ -551,6 +699,34 @@ BOOL WINAPI DllMain(HANDLE hInst, ULONG ulInit, LPVOID lpReserved)
 	InitCRTMemDebug();
 	if (ulInit == DLL_PROCESS_ATTACH)
 	{
+		AddVectoredExceptionHandler( 1, SEProbeVectoredHandler );
+
+		// SE port (temporary bring-up probe): load dbghelp so crash addresses come with symbol names.
+		if ( HMODULE hDbgHelp = LoadLibraryA( "dbghelp.dll" ) )
+		{
+			g_pSEProbeSymInitialize = (SEProbeSymInitializeFn)GetProcAddress( hDbgHelp, "SymInitialize" );
+			g_pSEProbeSymFromAddr = (SEProbeSymFromAddrFn)GetProcAddress( hDbgHelp, "SymFromAddr" );
+			g_pSEProbeSymRefreshModuleList = (SEProbeSymRefreshModuleListFn)GetProcAddress( hDbgHelp, "SymRefreshModuleList" );
+			g_pSEProbeSymGetLineFromAddr64 = (SEProbeSymGetLineFromAddr64Fn)GetProcAddress( hDbgHelp, "SymGetLineFromAddr64" );
+			SEProbeSymSetSearchPathFn pSymSetSearchPath = (SEProbeSymSetSearchPathFn)GetProcAddress( hDbgHelp, "SymSetSearchPath" );
+			SEProbeSymSetOptionsFn pSymSetOptions = (SEProbeSymSetOptionsFn)GetProcAddress( hDbgHelp, "SymSetOptions" );
+
+			if ( pSymSetOptions )
+			{
+				pSymSetOptions( SYMOPT_UNDNAME | SYMOPT_DEFERRED_LOADS | SYMOPT_LOAD_LINES );
+			}
+
+			if ( g_pSEProbeSymInitialize )
+			{
+				g_pSEProbeSymInitialize( GetCurrentProcess(), NULL, TRUE );
+			}
+
+			// the PDBs are deployed next to the DLLs
+			if ( pSymSetSearchPath )
+			{
+				pSymSetSearchPath( GetCurrentProcess(), "D:\\cstrike\\bin" );
+			}
+		}
 	} 
 	else if (ulInit == DLL_PROCESS_DETACH)
 	{

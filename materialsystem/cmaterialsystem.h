@@ -415,6 +415,15 @@ public:
 
 	bool									IsTextureLoaded( const char* pTextureName ) const;
 
+	// SE port (CS:GO additions): see public/materialsystem/imaterialsystem.h
+	bool									CanDownloadTextures() const;
+	void *								GetPanormaTexturePtr( ITexture *pTexture );
+	void *								GetOSVertexShader( const char *pszName, int nIndex );
+	void *								GetOSPixelShader( const char *pszName, int nIndex );
+	void									ResetPanoramaRenderState();
+	ITexture *							CreatePanoramaAlphaTexture( const char *pDebugName, int nWidth, int nHeight );
+	bool									UpdatePanoramaAlphaTexture( ITexture *pTexture, int xOffset, int yOffset, int nWidth, int nHeight, void *pImageData );
+
 	void									AddTextureAlias( const char *pAlias, const char *pRealName );
 	void									RemoveTextureAlias( const char *pAlias );
 

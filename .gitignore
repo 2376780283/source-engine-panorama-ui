@@ -13,6 +13,12 @@ Debug/
 Debug_*/
 Release/
 Release_*/
+# SE port: panorama/controls/debug and similar are *source* directories ported from CS:GO, not
+# VPC output.  Windows git matches the Debug/ rule case-insensitively, so re-include them.
+!panorama/controls/debug/
+!panorama/controls/debug/**
+!panorama/**/debug/
+!panorama/**/debug/**
 *.tlog/
 *.obj
 *.pch

@@ -28,11 +28,18 @@ public:
 
 	void SetMin( float flMin ) { m_flMin = flMin; InvalidateSizeAndPosition(); }
 	void SetMax( float flMax ) { m_flMax = flMax; InvalidateSizeAndPosition(); }
-	void SetValue( float flValue ) { m_flCur = flValue; InvalidateSizeAndPosition(); }
-	float GetValue() { return m_flCur; }
+	void SetValue( float flValue ) { if ( !CloseEnough( m_flCur, flValue ) ) { m_flCur = flValue; InvalidateSizeAndPosition(); } }
+
+	float GetMin() const { return m_flMin; }
+	float GetMax() const { return m_flMax; }
+	float GetValue() const { return m_flCur; }
+	
+
+	virtual void SetupJavascriptObjectTemplate() OVERRIDE;
 
 protected:
-	virtual void OnLayoutTraverse( float flFinalWidth, float flFinalHeight );
+	virtual void OnLayoutTraverse( float flFinalWidth, float flFinalHeight ) OVERRIDE;
+	virtual bool BSetProperty( CPanoramaSymbol symName, const char *pchValue ) OVERRIDE;
 
 private:
 	float m_flMin;

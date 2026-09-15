@@ -14,10 +14,11 @@
 #include "../common/video/ivideoplayer.h"
 #include "panorama/controls/panelptr.h"
 
+class IAudioOutputStream;
 namespace panorama
 {
 
-class IUIRenderEngine;
+class IUIRenderDevice;
 class IUIDoubleBufferedYUV420Texture;
 class CPanoramaVideoPlayer;
 
@@ -28,12 +29,10 @@ class CPanoramaVideoPlayer;
 class CVideoPlayerVideoRenderer : public IVideoPlayerVideoCallback
 {
 public:
-	CVideoPlayerVideoRenderer( IUIRenderEngine *pSurface );
+	CVideoPlayerVideoRenderer( IUIRenderDevice *pDevice );
 	virtual ~CVideoPlayerVideoRenderer();
 
-	uint32 GetTextureID() { return m_unTextureID; }
-	uint32 GetTextureWidth();
-	uint32 GetTextureHeight();
+	IUIDoubleBufferedYUV420Texture *GetTexture() { return m_pYUV420DoubleBufferedTexture; }
 
 	// IVideoPlayerVideoCallback
 	virtual bool BPresentYUV420Texture( uint nWidth, uint nHeight, void *pPlaneY, void *pPlaneU, void *pPlaneV, uint unStrideY, uint unStrideU, uint unStrideV ) OVERRIDE;
@@ -43,10 +42,8 @@ public:
 #endif 
 
 private:
-	CInterlockedUInt m_unTextureID;
-
 	// used by video threads
-	IUIRenderEngine *m_pSurface;
+	IUIRenderDevice *m_pDevice;
 	IUIDoubleBufferedYUV420Texture *m_pYUV420DoubleBufferedTexture;
 };
 
@@ -54,6 +51,21 @@ private:
 //-----------------------------------------------------------------------------
 // Purpose: Renders audio frames from video player for tenfoot
 //-----------------------------------------------------------------------------
+
+#if PANORAMA_STAGING_CLIP_MISSING_DEPENDENCIES
+class IAudioOutputStream_Stub
+{
+public:
+	void SetVolume( float dummy ) {}
+	void WriteAudioData( const int16 *pData, uint nSampleCount, uint nChannels ) {}
+	uint32 QueuedSampleCount() { return 0; }
+	uint32 MaxWriteSampleCount() { return 0; }
+	uint32 LatencySamplesCount() {	return 0; }
+	void Pause() {}
+	 void Resume() 	{}
+};
+#endif
+
 class CVideoPlayerAudioRenderer : public IVideoPlayerAudioCallback
 {
 public:
@@ -88,10 +100,18 @@ private:
 
 	CInterlockedInt m_bShuttingDown;
 	CThreadEvent m_eventWait;
-#ifdef SUPPORTS_AUDIO
+	
+#if PANORAMA_STAGING_CLIP_MISSING_DEPENDENCIES
+	IAudioOutputStream_Stub *m_pAudioStream;
+#else
 	IAudioOutputStream *m_pAudioStream;
-#endif
+#endif	
 	float m_flVolume;
+#if defined(SOURCE2_PANORAMA)
+	char m_tempAudioBuffer[ 16384 ]; // about 93ms of stereo audio at 44.1KHz
+	int m_nChannels;
+	int m_nSampleRate;
+#endif
 };
 
 
@@ -133,16 +153,15 @@ private:
 //-----------------------------------------------------------------------------
 // Purpose: Helper to create a tenfoot video player
 //-----------------------------------------------------------------------------
-class CPanoramaVideoPlayer : public IVideoPlayer, public ::CRefCount
+class CPanoramaVideoPlayer : public CRefCounted1< IVideoPlayer, CRefCountServiceMT >
 {
 public:
 	CPanoramaVideoPlayer( IUIPanel *pPanel );
-	CPanoramaVideoPlayer( IUIRenderEngine *pSurface );
+	CPanoramaVideoPlayer( IUIRenderDevice *pDevice );
 	virtual ~CPanoramaVideoPlayer();
 
-	virtual uint32 GetTextureID() { return m_videoCallback.GetTextureID(); }
-	uint32 GetTextureWidth() { return m_videoCallback.GetTextureWidth(); }
-	uint32 GetTextureHeight() { return m_videoCallback.GetTextureHeight(); }
+	IUITexture *GetTexture() { return m_videoCallback.GetTexture(); }
+	void GetTextureSize( uint32 &unTextureWidth, uint32 &unTextureHeight );
 
 	void RegisterEventListener( IUIPanel *pPanel ) { m_eventCallback.RegisterEventListener( pPanel ); }
 	void UnregisterEventListener( IUIPanel *pPanel ) { m_eventCallback.UnregisterEventListener( pPanel ); }
@@ -155,6 +174,7 @@ public:
 	// IVideoPlayer
 	virtual bool BLoad( const char *pchURL ) OVERRIDE;
 	virtual bool BLoad( const byte *pubData, uint cubData ) OVERRIDE;
+#if !defined( PANORAMA_DISABLE_VIDEO )
 	virtual void Play() OVERRIDE { m_pVideoPlayer->Play(); }
 	virtual void Stop() OVERRIDE;
 	virtual void Pause() OVERRIDE { m_pVideoPlayer->Pause(); }
@@ -176,6 +196,31 @@ public:
 	virtual void ForceVideoRepresentation( int iRep ) OVERRIDE { return m_pVideoPlayer->ForceVideoRepresentation( iRep ); }
 	virtual void GetVideoSegmentInfo( int *pnCurrent, int *pnTotal ) OVERRIDE { m_pVideoPlayer->GetVideoSegmentInfo( pnCurrent, pnTotal );  }
 	virtual bool BHasAudioTrack() OVERRIDE { return m_pVideoPlayer->BHasAudioTrack(); }
+#else
+	// SE port: this build has video disabled, so m_pVideoPlayer is always NULL.  The pass-throughs above
+	// used to dereference it - a panel that named a movie took the process down.
+	virtual void Stop() OVERRIDE;
+	virtual void Play() OVERRIDE {}
+	virtual void Pause() OVERRIDE {}
+	virtual void SetPlaybackSpeed( float ) OVERRIDE {}
+	virtual void Seek( uint ) OVERRIDE {}
+	virtual void SetRepeat( bool ) OVERRIDE {}
+	virtual void SuggestMaxVeritcalResolution( int ) OVERRIDE {}
+	virtual EVideoPlayerPlaybackState GetPlaybackState() OVERRIDE { return (EVideoPlayerPlaybackState)0; }
+	virtual bool IsStoppedForBuffering() OVERRIDE { return false; }
+	virtual float GetPlaybackSpeed() OVERRIDE { return 0.0f; }
+	virtual uint32 GetDuration() OVERRIDE { return 0; }
+	virtual uint32 GetCurrentPlaybackTime() OVERRIDE { return 0; }
+	virtual EVideoPlayerPlaybackError GetPlaybackError() OVERRIDE { return (EVideoPlayerPlaybackError)0; }
+	virtual void GetVideoResolution( int *pnWidth, int *pnHeight ) OVERRIDE { if ( pnWidth ) *pnWidth = 0; if ( pnHeight ) *pnHeight = 0; }
+	virtual int GetVideoDownloadRate() OVERRIDE { return 0; }
+	virtual int GetVideoRepresentationCount() OVERRIDE { return 0; }
+	virtual bool BGetVideoRepresentationInfo( int, int *, int * ) OVERRIDE { return false; }
+	virtual int GetCurrentVideoRepresentation() OVERRIDE { return 0; }
+	virtual void ForceVideoRepresentation( int ) OVERRIDE {}
+	virtual void GetVideoSegmentInfo( int *pnCurrent, int *pnTotal ) OVERRIDE { if ( pnCurrent ) *pnCurrent = 0; if ( pnTotal ) *pnTotal = 0; }
+	virtual bool BHasAudioTrack() OVERRIDE { return false; }
+#endif
 
 #ifdef DBGFLAG_VALIDATE
 	void Validate( CValidator &validator, const char *pchName );

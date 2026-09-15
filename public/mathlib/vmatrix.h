@@ -207,6 +207,18 @@ public:
 
 	bool		IsIdentity() const;
 
+	// Panorama port (CSGO2019 mathlib): static identity accessor.
+	static const VMatrix& GetIdentityMatrix()
+	{
+		static const VMatrix identityMatrix(	
+			1, 0, 0, 0,
+			0, 1, 0, 0, 
+			0, 0, 1, 0,
+			0, 0, 0, 1 );
+
+		return identityMatrix;
+	}
+
 	// Setup a matrix for origin and angles.
 	void		SetupMatrixOrgAngles( const Vector &origin, const QAngle &vAngles );
 	
@@ -222,7 +234,18 @@ public:
 	// Usually used for debug checks. Returns true if the upper 3x3 contains
 	// unit vectors and they are all orthogonal.
 	bool		IsRotationMatrix() const;
-	
+
+	///\name operations required for generic matrix template code (CS:GO panorama)
+	FORCEINLINE float Element( int i, int j ) const
+	{
+		return m[ j ][ i ];
+	}
+
+	FORCEINLINE void SetElement( int i, int j, float flValue )
+	{
+		m[ j ][ i ] = flValue;
+	}
+
 #ifndef VECTOR_NO_SLOW_OPERATIONS
 	// This calls the other InverseTR and returns the result.
 	VMatrix		InverseTR() const;

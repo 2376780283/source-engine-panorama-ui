@@ -173,6 +173,20 @@ public:
 		m_nLength = 0; 
 	}
 
+	// SE port (CS:GO addition): reformat into this buffer and return it; panorama code such as
+	// controls/debug/debugpanel.cpp calls it as s.Format( "%.0f", value ).  CS:GO's version just
+	// passes the format string through to FmtStrVSNPrintf (which drops the arguments), this one
+	// forwards the va_list properly.
+	const char *Format( PRINTF_FORMAT_STRING const char *pszFormat, ... ) FMTFUNCTION( 2, 3 )
+	{
+		va_list args;
+		va_start( args, pszFormat );
+		V_vsnprintf( m_szBuf, SIZE_BUF, pszFormat, args );
+		va_end( args );
+		m_nLength = V_strlen( m_szBuf );
+		return m_szBuf;
+	}
+
 	void AppendFormat( PRINTF_FORMAT_STRING const char *pchFormat, ... ) FMTFUNCTION( 2, 3 )
 	{ 
 		char *pchEnd = m_szBuf + m_nLength; 
@@ -275,6 +289,8 @@ void CFmtStrN< SIZE_BUF, QUIET_TRUNCATION >::AppendFormatV( const char *pchForma
 #define FMTSTR_STD_LEN 256
 
 typedef CFmtStrN<FMTSTR_STD_LEN> CFmtStr;
+// SE port (CS:GO addition): 32 byte scratch buffer form used by the panorama controls.
+typedef CFmtStrN<32> CFmtStr32;
 typedef CFmtStrQuietTruncationN<FMTSTR_STD_LEN> CFmtStrQuietTruncation;
 typedef CFmtStrN<1024> CFmtStr1024;
 typedef CFmtStrN<8192> CFmtStrMax;
@@ -358,6 +374,10 @@ protected:
 
 
 //=============================================================================
+
+// CS:GO-era buffer sizes for the localized date/time helpers (see panorama/localization/localize.cpp)
+const int k_cchFormattedDate = 64;
+const int k_cchFormattedTime = 32;
 
 bool BGetLocalFormattedDateAndTime( time_t timeVal, char *pchDate, int cubDate, char *pchTime, int cubTime );
 bool BGetLocalFormattedDate( time_t timeVal, char *pchDate, int cubDate );

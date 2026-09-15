@@ -20,6 +20,37 @@
 #include "steam/isteamcontroller.h"
 
 //-----------------------------------------------------------------------------
+// SE port (CS:GO addition): cursor handles + the well-known cursor icons.  panorama's Source 2 top
+// level window maps its cursor styles onto these (panorama/source2/uitoplevelwindowsource2.cpp) and
+// public/inputsystem/iinputstacksystem.h already references InputCursorHandle_t.
+//-----------------------------------------------------------------------------
+DECLARE_POINTER_HANDLE( InputCursorHandle_t );
+#define INPUT_CURSOR_HANDLE_INVALID ( (InputCursorHandle_t)0 )
+
+//-----------------------------------------------------------------------------
+// An enumeration describing well-known cursor icons
+//-----------------------------------------------------------------------------
+enum InputStandardCursor_t
+{
+	INPUT_CURSOR_NONE	= 0,
+	INPUT_CURSOR_ARROW,
+	INPUT_CURSOR_IBEAM,
+	INPUT_CURSOR_HOURGLASS,
+	INPUT_CURSOR_CROSSHAIR,
+	INPUT_CURSOR_WAITARROW,
+	INPUT_CURSOR_UP,
+	INPUT_CURSOR_SIZE_NW_SE,
+	INPUT_CURSOR_SIZE_NE_SW,
+	INPUT_CURSOR_SIZE_W_E,
+	INPUT_CURSOR_SIZE_N_S,
+	INPUT_CURSOR_SIZE_ALL,
+	INPUT_CURSOR_NO,
+	INPUT_CURSOR_HAND,
+
+	INPUT_CURSOR_COUNT
+};
+
+//-----------------------------------------------------------------------------
 // Main interface for input. This is a low-level interface
 //-----------------------------------------------------------------------------
 #define INPUTSYSTEM_INTERFACE_VERSION	"InputSystemVersion001"
@@ -153,12 +184,34 @@ public:
 	// force us to skip initialization of Steam (which messes up dedicated servers).
 	virtual void SetSkipControllerInitialization( bool bSkip ) = 0;
 
+	// SE port (CS:GO additions): CS:GO declares these as pure virtual.  They are defaulted here so
+	// Source Engine 2013's CInputSystem keeps compiling - an invalid handle simply leaves the OS cursor
+	// untouched (the panorama UI still functions, only its cursor style is missing).
+	virtual InputCursorHandle_t GetStandardCursor( InputStandardCursor_t id ) { return INPUT_CURSOR_HANDLE_INVALID; }
+	virtual void SetCursorIcon( InputCursorHandle_t hCursor ) {}
+	virtual void ResetCursorIcon() {}
+
+	// SE port (CS:GO addition): the engine's IME plumbing (panoramaenginehandler.cpp, sys_dll2.cpp)
+	// asks whether IME input is currently allowed.  Source Engine 2013 has no such state yet, so this
+	// defaults to true; M4 can wire it to the IME manager once the engine tracks it.
+	virtual bool IsIMEAllowed() const { return true; }
+
 	// Helper - activate same action set for all controller slots.
 	void ActivateSteamControllerActionSet( GameActionSet_t eActionSet ) {
 		ActivateSteamControllerActionSetForSlot( 0xffffffffffffffff, eActionSet );
 	}
 
 	virtual void StartTextInput() = 0;
+
+	// SE port (CS:GO addition): a UI layer registers itself here so the input system starts
+	// generating UI events - notably IE_LocateMouseClick, which is how the panorama UI learns the
+	// cursor position (see CSGO2019 inputsystem/inputsystem.cpp AddUIEventListener() /
+	// ShouldGenerateUIEvents()).  CS:GO calls these from CMatSystemSurface::EnableWindowsMessages().
+	// NOTE: appended at the end of the interface on purpose - inserting virtuals in the middle
+	// changes the vtable layout for every other module (doing that once crashed materialsystem.dll
+	// during window creation).
+	virtual void AddUIEventListener() {}
+	virtual void RemoveUIEventListener() {}
 };
 
 

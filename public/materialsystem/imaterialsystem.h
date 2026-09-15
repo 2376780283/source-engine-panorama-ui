@@ -571,6 +571,19 @@ DECLARE_POINTER_HANDLE( MaterialLock_t );
 // 
 //-----------------------------------------------------------------------------
 
+// SE port (CS:GO addition): where in a frame panorama is being invoked ("slots", analogous to
+// Scaleform's).  Declared here exactly as CS:GO does, because panoramaenginehandler.cpp and the
+// engine's gl_screen.cpp/view.cpp frame hooks pass these to PanoramaRenderFrame().
+enum EPanoramaSlot
+{
+	k_EPanoramaSlotHUD = 0,
+	k_EPanoramaSlotInGameMenus,			// Pause menu in game
+	k_EPanoramaSlotFrontEnd,			// Main menu at the front end.
+	k_EPanoramaSlotBeginFrame,
+	k_EPanoramaSlotEndFrame,
+};
+
+
 abstract_class IMaterialSystem : public IAppSystem
 {
 public:
@@ -882,6 +895,37 @@ public:
 	// Checks to see if a particular texture is loaded
 	virtual bool				IsTextureLoaded( char const* pTextureName ) const = 0;
 
+	// SE port (CS:GO additions): the panorama renderer asks the material system for the D3D texture
+	// behind an ITexture, and whether texture data may be read back from the GPU.  Declared here so
+	// panorama/source2/renderer/source2surface.cpp compiles; CMaterialSystem implements both, and the
+	// default bodies keep other IMaterialSystem implementers (mat_stub, shaderapiempty) link-compatible.
+	virtual bool				CanDownloadTextures() const { return false; }
+	virtual void *				GetPanormaTexturePtr( ITexture *pTexture ) { return NULL; }   // (CS:GO's spelling)
+
+	// SE port (CS:GO additions): CS:GO's CMaterialSystem forwards these to
+	// IShaderAPI::GetOS{Vertex,Pixel}Shader(), which Source Engine 2013 does not have, and the
+	// "panorama_vs30"/"panorama_ps30" shaders they look up are not part of this tree yet either.
+	// Returning NULL makes source2surface.cpp fall back to its unshaded path; M4 has to add both the
+	// shaders (materialsystem stdshaders) and the IShaderAPI lookup.
+	virtual void *				GetOSVertexShader( const char *pszName, int nIndex ) { return NULL; }
+	virtual void *				GetOSPixelShader( const char *pszName, int nIndex ) { return NULL; }
+
+	// SE port (CS:GO addition): called before panorama draws so the S1 render state does not leak into
+	// it.  CS:GO declares it pure and implements it in CMaterialSystem; it is defaulted here and also
+	// implemented by CMaterialSystem (which forwards to IShaderAPI::ResetRenderState).
+	virtual void				ResetPanoramaRenderState() {}
+
+	// SE port (CS:GO additions): panorama's text atlas (the A8 texture the DirectWrite/pango text
+	// backends upload their glyph masks into).  CS:GO had both on IMaterialSystem and its s1wrapper
+	// wrote the masks with IShaderAPI::TexLock/TexUnlock ("font special case" in
+	// panorama_s1wrapper/wrap_texture.h).  This port originally dropped them, which left the atlas
+	// uninitialised - text came out as solid blocks of the text colour.  Re-routing the upload through
+	// ITexture::SetTextureRegenerator()+Download() instead also works, but the partial download
+	// corrupts the heap for A8 textures (0xc0000374 in ntdll), so the direct lock path is used.
+	// Default bodies keep the other IMaterialSystem implementers (mat_stub, shaderapiempty) compiling.
+	virtual ITexture *		CreatePanoramaAlphaTexture( const char *pDebugName, int nWidth, int nHeight ) { return NULL; }
+	virtual bool			UpdatePanoramaAlphaTexture( ITexture *pTexture, int xOffset, int yOffset, int nWidth, int nHeight, void *pImageData ) { return false; }
+
 	// Creates a procedural texture
 	virtual ITexture *			CreateProceduralTexture( const char	*pTextureName, 
 		const char *pTextureGroupName, 
@@ -1129,6 +1173,15 @@ public:
 
 	// read to a unsigned char rgb image.
 	virtual void				ReadPixels( int x, int y, int width, int height, unsigned char *data, ImageFormat dstFormat ) = 0;
+
+	// SE port (CS:GO addition): CS:GO's ReadPixels takes the source render target as a 7th argument.
+	// Rather than change the existing pure virtual (and every implementation of it), the CS:GO form is
+	// provided as a delegating overload that reads from the currently bound render target - which is
+	// what the panorama debugger path wants when it passes its own render target texture.
+	virtual void				ReadPixels( int x, int y, int width, int height, unsigned char *data, ImageFormat dstFormat, ITexture *pRenderTargetTexture )
+	{
+		ReadPixels( x, y, width, height, data, dstFormat );
+	}
 
 	// Sets lighting
 	virtual void				SetAmbientLight( float r, float g, float b ) = 0;

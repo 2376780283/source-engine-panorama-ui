@@ -38,7 +38,7 @@ public:
 	bool BAutoCaps() const { return m_bAutoCaps; }
 
 	void SetID( const char *pszID ) { m_strID = pszID; }
-	const char *GetID() const { return m_strID; }
+	const char *GetID() const { return m_strID.IsEmpty() ? "GenericTextInputHandlerID" : m_strID.Get(); }
 
 	void SetClasses( const char *pszClasses ) { m_strClasses = pszClasses; }
 	const char *GetClasses() const { return m_strClasses; }
@@ -51,6 +51,9 @@ public:
 
 	void SetMode( ETextInputMode_t mode ) { m_mode = mode; }
 	ETextInputMode_t GetMode() const { return m_mode; }
+
+	const char *GetHeaderLabel() const { return m_strHeaderLabel.Get(); }
+	const char *GetSubHeaderDetailLabel() const { return m_strSubHeaderDetailLabel.Get(); }
 
 #ifdef DBGFLAG_VALIDATE
 	void Validate( CValidator &validator, const tchar *pchName );
@@ -65,6 +68,8 @@ public:
 	CUtlString m_strClasses;
 	CUtlString m_strDoneActionString;	
 	CUtlString m_strCancelActionString;	
+	CUtlString m_strHeaderLabel;
+	CUtlString m_strSubHeaderDetailLabel;
 	ETextInputMode_t m_mode;
 };
 

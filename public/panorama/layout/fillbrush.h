@@ -6,15 +6,15 @@
 
 #ifndef FILLBRUSH_H
 #define FILLBRUSH_H
-
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include <float.h>
 #include "color.h"
 #include "utlvector.h"
 #include "uilength.h"
+#if defined( SOURCE2_PANORAMA )
+//#include "tier1/utlleanvector.h"
+#endif
 
 namespace panorama
 {
@@ -291,35 +291,35 @@ public:
 
 	}
 
-	void ScaleLengthValues( float flScaleFactor )
+	void ScaleLengthValues( float flScaleFactorX, float flScaleFactorY )
 	{
 		// Scale all X/Y size/position values
-		m_vecBasePosition.x *= flScaleFactor;
-		m_vecBasePosition.y *= flScaleFactor;
+		m_vecBasePosition.x *= flScaleFactorX;
+		m_vecBasePosition.y *= flScaleFactorY;
 
-		m_vecBasePositionVariance.x *= flScaleFactor;
-		m_vecBasePositionVariance.y *= flScaleFactor;
+		m_vecBasePositionVariance.x *= flScaleFactorX;
+		m_vecBasePositionVariance.y *= flScaleFactorY;
 
-		m_flParticleSize *= flScaleFactor;
-		m_flParticleSizeVariance *= flScaleFactor;
+		m_flParticleSize *= flScaleFactorX;
+		m_flParticleSizeVariance *= flScaleFactorX;
 
-		m_vecParticleInitialVelocity.x *= flScaleFactor;
-		m_vecParticleInitialVelocity.y *= flScaleFactor;
+		m_vecParticleInitialVelocity.x *= flScaleFactorX;
+		m_vecParticleInitialVelocity.y *= flScaleFactorY;
 
-		m_vecParticleInitialVelocityVariance.x *= flScaleFactor;
-		m_vecParticleInitialVelocityVariance.y *= flScaleFactor;
+		m_vecParticleInitialVelocityVariance.x *= flScaleFactorX;
+		m_vecParticleInitialVelocityVariance.y *= flScaleFactorY;
 
-		m_vecGravityAcceleration.x *= flScaleFactor;
-		m_vecGravityAcceleration.y *= flScaleFactor;
+		m_vecGravityAcceleration.x *= flScaleFactorX;
+		m_vecGravityAcceleration.y *= flScaleFactorY;
 
-		m_vecGravityAccelerationParticleVariance.x *= flScaleFactor;
-		m_vecGravityAccelerationParticleVariance.y *= flScaleFactor;
+		m_vecGravityAccelerationParticleVariance.x *= flScaleFactorX;
+		m_vecGravityAccelerationParticleVariance.y *= flScaleFactorY;
 
-		m_vecVelocityMin.x *= flScaleFactor;
-		m_vecVelocityMin.y *= flScaleFactor;
+		m_vecVelocityMin.x *= flScaleFactorX;
+		m_vecVelocityMin.y *= flScaleFactorY;
 
-		m_vecVelocityMax.x *= flScaleFactor;
-		m_vecVelocityMax.y *= flScaleFactor;
+		m_vecVelocityMax.x *= flScaleFactorX;
+		m_vecVelocityMax.y *= flScaleFactorY;
 	}
 
 	Vector GetBasePosition() const
@@ -552,12 +552,12 @@ public:
 		return true;
 	}
 
-	void ScaleLengthValues( float flScaleFactor )
+	void ScaleLengthValues( float flScaleFactorX, float flScaleFactorY )
 	{
-		m_StartPoint[0].ScaleLengthValue( flScaleFactor );
-		m_StartPoint[1].ScaleLengthValue( flScaleFactor );
-		m_EndPoint[0].ScaleLengthValue( flScaleFactor );
-		m_EndPoint[1].ScaleLengthValue( flScaleFactor );
+		m_StartPoint[0].ScaleLengthValue( flScaleFactorX );
+		m_StartPoint[1].ScaleLengthValue( flScaleFactorY );
+		m_EndPoint[0].ScaleLengthValue( flScaleFactorX );
+		m_EndPoint[1].ScaleLengthValue( flScaleFactorY );
 	}
 
 #ifdef DBGFLAG_VALIDATE
@@ -677,14 +677,14 @@ public:
 		return true;
 	}
 
-	void ScaleLengthValues( float flScaleFactor )
+	void ScaleLengthValues( float flScaleFactorX, float flScaleFactorY )
 	{
-		m_Center[0].ScaleLengthValue( flScaleFactor );
-		m_Center[1].ScaleLengthValue( flScaleFactor );
-		m_Offset[0].ScaleLengthValue( flScaleFactor );
-		m_Offset[1].ScaleLengthValue( flScaleFactor );
-		m_Radius[0].ScaleLengthValue( flScaleFactor );
-		m_Radius[1].ScaleLengthValue( flScaleFactor );
+		m_Center[0].ScaleLengthValue( flScaleFactorX );
+		m_Center[1].ScaleLengthValue( flScaleFactorY );
+		m_Offset[0].ScaleLengthValue( flScaleFactorX );
+		m_Offset[1].ScaleLengthValue( flScaleFactorY );
+		m_Radius[0].ScaleLengthValue( flScaleFactorX );
+		m_Radius[1].ScaleLengthValue( flScaleFactorY );
 	}
 
 #ifdef DBGFLAG_VALIDATE
@@ -739,14 +739,16 @@ public:
 	CFillBrush( CUILength StartX, CUILength StartY, CUILength EndX, CUILength EndY, const CUtlVector<CGradientColorStop> &vecStopColors )
 	{
 		m_eType = k_EStrokeTypeLinearGradient;
-		m_LinearGradient.SetGradient( StartX, StartY, EndX, EndY, vecStopColors );
+		m_pLinearGradient = new CLinearGradient;
+		m_pLinearGradient->SetGradient( StartX, StartY, EndX, EndY, vecStopColors );
 	}
 
 	// Constructor for radial gradient
 	CFillBrush( CUILength centerX, CUILength centerY, CUILength offsetX, CUILength offsetY, CUILength radiusX, CUILength radiusY, const CUtlVector<CGradientColorStop> &vecStopColors )
 	{
 		m_eType = k_EStrokeTypeRadialGradient;
-		m_RadialGradient.SetGradient( centerX, centerY, offsetX, offsetY, radiusX, radiusY, vecStopColors );
+		m_pRadialGradient = new CRadialGradient;
+		m_pRadialGradient->SetGradient( centerX, centerY, offsetX, offsetY, radiusX, radiusY, vecStopColors );
 	}
 
 	// Constructor for particle system
@@ -756,10 +758,51 @@ public:
 		Color colorStart, Color colorStartVariance, Color colorEnd, Color colorEndVariance, float flSharpness, float flSharpnessVariance, float flFlicker, float flFlickerVariance )
 	{
 		m_eType = k_EStrokeTypeParticleSystem;
-		m_ParticleSystem.SetParticleSystem( vecBasePositon, vecBasePositionVariance, flSize, flSizeVariance, flParticlesPerSecond, flParticlesPerSecondVariance,
+		m_pParticleSystem = new CParticleSystem;
+		m_pParticleSystem->SetParticleSystem( vecBasePositon, vecBasePositionVariance, flSize, flSizeVariance, flParticlesPerSecond, flParticlesPerSecondVariance,
 			flLifeSpanSeconds, flLifeSpanSecondsVariance, vecInitialVelocity, vecInitialVelocityVariance, vecVelocityMin, vecVelocityMax,
 			vecGravityAcceleration, vecGravityAccelerationParticleVariance,
 			colorStart, colorStartVariance, colorEnd, colorEndVariance, flSharpness, flSharpnessVariance, flFlicker, flFlickerVariance );
+	}
+
+	CFillBrush( const CFillBrush &rhs )
+	{
+		CopyOther( rhs );
+	}
+
+	~CFillBrush()
+	{
+		Purge();
+	}
+
+	void Purge()
+	{
+		switch( m_eType )
+		{
+		case k_EStrokeTypeFillColor:
+			break;
+		case k_EStrokeTypeLinearGradient:
+			delete m_pLinearGradient;
+			m_pLinearGradient = NULL;
+			break;
+		case k_EStrokeTypeRadialGradient:
+			delete m_pRadialGradient;
+			m_pRadialGradient = NULL;
+			break;
+		case k_EStrokeTypeParticleSystem:
+			delete m_pParticleSystem;
+			m_pParticleSystem = NULL;
+			break;
+		default:
+#if defined( SOURCE2_PANORAMA )
+			Plat_FatalError( "Invalid type %d on fillbrush\n", m_eType );
+#else
+			AssertMsg( false, "Invalid type on fillbrush" );
+#endif
+			break;
+		}
+
+		m_eType = k_EStrokeTypeFillColor;
 	}
 
 	// Get type
@@ -768,6 +811,7 @@ public:
 	// Set to a fill color value
 	void SetToFillColor( Color color )
 	{
+		Purge();
 		m_eType = k_EStrokeTypeFillColor;
 		m_FillColor = color;
 	}
@@ -775,22 +819,33 @@ public:
 	// Get fill color for fill stroke types
 	Color GetFillColor() const 
 	{ 
-		Assert( m_eType == k_EStrokeTypeFillColor ); 
+#if defined( SOURCE2_PANORAMA )
+		if ( m_eType != k_EStrokeTypeFillColor )
+		{
+			Plat_FatalError( "%s called on fill brush type %d\n", __FUNCTION__, m_eType );
+		}
+#else
+		Assert( m_eType == k_EStrokeTypeFillColor );
+#endif
 		return m_FillColor; 
 	}
 
 	// Set brush to a linear gradient value
 	void SetToLinearGradient( const CUILength &startX, const CUILength &startY, const CUILength &endX, const CUILength &endY, const CUtlVector<CGradientColorStop> &vecColorStops )
 	{
+		Purge();
 		m_eType = k_EStrokeTypeLinearGradient;
-		m_LinearGradient.SetGradient( startX, startY, endX, endY, vecColorStops );
+		m_pLinearGradient = new CLinearGradient;
+		m_pLinearGradient->SetGradient( startX, startY, endX, endY, vecColorStops );
 	}
 
 	// Set to a radial gradient value
 	void SetToRadialGradient( CUILength centerX, CUILength centerY, CUILength offsetX, CUILength offsetY, CUILength radiusX, CUILength radiusY, const CUtlVector<CGradientColorStop> &vecStopColors )
 	{
+		Purge();
 		m_eType = k_EStrokeTypeRadialGradient;
-		m_RadialGradient.SetGradient( centerX, centerY, offsetX, offsetY, radiusX, radiusY, vecStopColors );
+		m_pRadialGradient = new CRadialGradient;
+		m_pRadialGradient->SetGradient( centerX, centerY, offsetX, offsetY, radiusX, radiusY, vecStopColors );
 	}
 
 	// Set to particle system value
@@ -799,8 +854,10 @@ public:
 		Vector vecGravityAcceleration, Vector vecGravityAccelerationParticleVariance,
 		Color colorStart, Color colorStartVariance, Color colorEnd, Color colorEndVariance, float flSharpness, float flSharpnessVariance, float flFlicker, float flFlickerVariance )
 	{
+		Purge();
 		m_eType = k_EStrokeTypeParticleSystem;
-		m_ParticleSystem.SetParticleSystem( vecBasePositon, vecBasePositionVariance, flSize, flSizeVariance, flParticlesPerSecond, flParticlesPerSecondVariance, 
+		m_pParticleSystem = new CParticleSystem;
+		m_pParticleSystem->SetParticleSystem( vecBasePositon, vecBasePositionVariance, flSize, flSizeVariance, flParticlesPerSecond, flParticlesPerSecondVariance, 
 			flLifeSpanSeconds, flLifeSpanSecondsVariance, vecInitialVelocity, vecInitialVelocityVariance, vecVelocityMin, vecVelocityMax, vecGravityAcceleration, vecGravityAccelerationParticleVariance,
 			colorStart, colorStartVariance, colorEnd, colorEndVariance, flSharpness, flSharpnessVariance, flFlicker, flFlickerVariance );
 	}
@@ -808,38 +865,72 @@ public:
 	// Get start/end pos for linear gradient types
 	void GetStartAndEndPoints( CUILength &StartX, CUILength &StartY, CUILength &EndX, CUILength &EndY ) const
 	{
-		Assert( m_eType == k_EStrokeTypeLinearGradient ); 
-		m_LinearGradient.GetStartPoint( StartX, StartY );
-		m_LinearGradient.GetEndPoint( EndX, EndY );
+#if defined( SOURCE2_PANORAMA )
+		if ( m_eType != k_EStrokeTypeLinearGradient )
+		{
+			Plat_FatalError( "%s called on fill brush type %d\n", __FUNCTION__, m_eType );
+		}
+#else
+		Assert( m_eType == k_EStrokeTypeLinearGradient );
+#endif
+		m_pLinearGradient->GetStartPoint( StartX, StartY );
+		m_pLinearGradient->GetEndPoint( EndX, EndY );
 	}
 
 	// Access start/end pos for linear or radial gradient types
 	const CUtlVector<CGradientColorStop> &AccessStopColors() const
 	{
-		Assert( m_eType == k_EStrokeTypeLinearGradient || m_eType == k_EStrokeTypeRadialGradient ); 
+#if defined( SOURCE2_PANORAMA )
+		if ( m_eType != k_EStrokeTypeLinearGradient && m_eType != k_EStrokeTypeRadialGradient )
+		{
+			Plat_FatalError( "%s called on fill brush type %d\n", __FUNCTION__, m_eType );
+		}
+#else
+		AssertFatal( m_eType == k_EStrokeTypeLinearGradient || m_eType == k_EStrokeTypeRadialGradient );
+#endif
+		
 		if ( m_eType == k_EStrokeTypeLinearGradient )
-			return m_LinearGradient.AccessStopColors();
+			return m_pLinearGradient->AccessStopColors();
 
 		if ( m_eType == k_EStrokeTypeRadialGradient )
-			return m_RadialGradient.AccessStopColors();
+			return m_pRadialGradient->AccessStopColors();
 
-		// Otherwise this is bad, let's just return the hopefully empty linear vector
-		return m_LinearGradient.AccessStopColors();
+		// Otherwise this is bad and we're going to use a pointer in
+		// a way that isn't necessarily valid.  However we did fatal
+		// checks initially so this should never actually get called,
+		// this is just to placate the compiler by providing some kind
+		// of return value.
+		return m_pLinearGradient->AccessStopColors();
 	}
 
 	// Get start/end pos for linear gradient types
 	void GetRadialGradientValues( CUILength &centerX, CUILength &centerY, CUILength &offsetX, CUILength &offsetY, CUILength &radiusX, CUILength	&radiusY ) const
 	{
-		Assert( m_eType == k_EStrokeTypeRadialGradient ); 
-		m_RadialGradient.GetCenterPoint( centerX, centerY );
-		m_RadialGradient.GetOffsetDistance( offsetX, offsetY );
-		m_RadialGradient.GetRadii( radiusX, radiusY );
+#if defined( SOURCE2_PANORAMA )
+		if ( m_eType != k_EStrokeTypeRadialGradient )
+		{
+			Plat_FatalError( "%s called on fill brush type %d\n", __FUNCTION__, m_eType );
+		}
+#else
+		Assert( m_eType == k_EStrokeTypeRadialGradient );
+#endif
+		
+		m_pRadialGradient->GetCenterPoint( centerX, centerY );
+		m_pRadialGradient->GetOffsetDistance( offsetX, offsetY );
+		m_pRadialGradient->GetRadii( radiusX, radiusY );
 	}
 
 	CParticleSystem * AccessParticleSystem()
 	{
+#if defined( SOURCE2_PANORAMA )
+		if ( m_eType != k_EStrokeTypeParticleSystem )
+		{
+			Plat_FatalError( "%s called on fill brush type %d\n", __FUNCTION__, m_eType );
+		}
+#else
 		Assert( m_eType == k_EStrokeTypeParticleSystem );
-		return &m_ParticleSystem;
+#endif
+		return m_pParticleSystem;
 	}
 
 	bool Interpolate( float flActualWidth, float flActualHeight, CFillBrush &target, float flProgress );
@@ -854,13 +945,17 @@ public:
 		case k_EStrokeTypeFillColor:
 			return m_FillColor == rhs.m_FillColor;
 		case k_EStrokeTypeLinearGradient:
-			return m_LinearGradient == rhs.m_LinearGradient;
+			return *m_pLinearGradient == *rhs.m_pLinearGradient;
 		case k_EStrokeTypeRadialGradient:
-			return m_RadialGradient == rhs.m_RadialGradient;
+			return *m_pRadialGradient == *rhs.m_pRadialGradient;
 		case k_EStrokeTypeParticleSystem:
-			return m_ParticleSystem == rhs.m_ParticleSystem;
+			return *m_pParticleSystem == *rhs.m_pParticleSystem;
 		default:
+#if defined( SOURCE2_PANORAMA )
+			Plat_FatalError( "Invalid type %d on fillbrush\n", m_eType );
+#else
 			AssertMsg( false, "Invalid type on fillbrush" );
+#endif
 			return false;
 		}
 	}
@@ -870,14 +965,21 @@ public:
 		return !( *this == rhs );
 	}
 
-	void ScaleLengthValues( float flScaleFactor )
+	CFillBrush &operator=( const CFillBrush &rhs )
+	{
+		Purge();
+		CopyOther( rhs );
+		return *this;
+	}
+
+	void ScaleLengthValues( float flScaleFactorX, float flScaleFactorY )
 	{
 		if ( m_eType == k_EStrokeTypeLinearGradient )
-			m_LinearGradient.ScaleLengthValues( flScaleFactor );
+			m_pLinearGradient->ScaleLengthValues( flScaleFactorX, flScaleFactorY );
 		else if ( m_eType == k_EStrokeTypeRadialGradient )
-			m_RadialGradient.ScaleLengthValues( flScaleFactor );
+			m_pRadialGradient->ScaleLengthValues( flScaleFactorX, flScaleFactorY );
 		else if ( m_eType == k_EStrokeTypeParticleSystem )
-			m_ParticleSystem.ScaleLengthValues( flScaleFactor );
+			m_pParticleSystem->ScaleLengthValues( flScaleFactorX, flScaleFactorY );
 
 	}
 	
@@ -885,11 +987,43 @@ public:
 	virtual void Validate( CValidator &validator, const tchar *pchName )
 	{
 		VALIDATE_SCOPE();
-		ValidateObj( m_LinearGradient );
-		ValidateObj( m_RadialGradient );
-		ValidateObj( m_ParticleSystem );
+		ValidateObj( m_pLinearGradient );
+		ValidateObj( m_pRadialGradient );
+		ValidateObj( m_pParticleSystem );
 	}
 #endif
+
+protected:
+	void CopyOther( const CFillBrush &rhs )
+	{
+		m_eType = rhs.m_eType;
+		switch( m_eType )
+		{
+		case k_EStrokeTypeFillColor:
+			m_FillColor = rhs.m_FillColor;
+			break;
+		case k_EStrokeTypeLinearGradient:
+			m_pLinearGradient = new CLinearGradient;
+			*m_pLinearGradient = *rhs.m_pLinearGradient;
+			break;
+		case k_EStrokeTypeRadialGradient:
+			m_pRadialGradient = new CRadialGradient;
+			*m_pRadialGradient = *rhs.m_pRadialGradient;
+			break;
+		case k_EStrokeTypeParticleSystem:
+			m_pParticleSystem = new CParticleSystem;
+			*m_pParticleSystem = *rhs.m_pParticleSystem;
+			break;
+		default:
+#if defined( SOURCE2_PANORAMA )
+			Plat_FatalError( "Invalid type %d on fillbrush\n", m_eType );
+#else
+			AssertMsg( false, "Invalid type on fillbrush" );
+#endif
+			break;
+		}
+	}
+	
 private:
 
 	void ConvertToRadialGradient();
@@ -899,9 +1033,12 @@ private:
 	EStrokeType m_eType;
 
 	Color m_FillColor;
-	CLinearGradient m_LinearGradient;
-	CRadialGradient m_RadialGradient;
-	CParticleSystem m_ParticleSystem;
+	union
+	{
+		CLinearGradient *m_pLinearGradient;
+		CRadialGradient *m_pRadialGradient;
+		CParticleSystem *m_pParticleSystem;
+	};
 };
 
 
@@ -929,33 +1066,35 @@ public:
 	// Get brush count
 	uint32 GetBrushCount() const { return m_vecFillBrushes.Count(); }
 
+	typedef CUtlVectorFixed< FillBrush_t, MAX_FILL_BRUSHES_PER_COLLECTION > BrushVec_t;
+	typedef CCopyableUtlVectorFixed< FillBrush_t, MAX_FILL_BRUSHES_PER_COLLECTION > CopyableBrushVec_t;
+
 	// Access brush vector directly
-	CUtlVectorFixed< FillBrush_t, MAX_FILL_BRUSHES_PER_COLLECTION > &AccessBrushes() { return m_vecFillBrushes; }
-	const CUtlVectorFixed< FillBrush_t, MAX_FILL_BRUSHES_PER_COLLECTION> &AccessBrushes() const { return m_vecFillBrushes; }
+	BrushVec_t &AccessBrushes() { return m_vecFillBrushes; }
+	const BrushVec_t &AccessBrushes() const { return m_vecFillBrushes; }
 
 	// Add brush to collection
 	void AddFillBrush( const CFillBrush &brush, float opacity = 1.0 ) 
 	{ 
-
 		int i = m_vecFillBrushes.AddToTail(); 
 		m_vecFillBrushes[i].m_Brush = brush;
 		m_vecFillBrushes[i].m_Opacity = opacity;
 	}
 
-	void ScaleLengthValues( float flScaleFactor )
+	void ScaleLengthValues( float flScaleFactorX, float flScaleFactorY )
 	{
-		FOR_EACH_VEC( m_vecFillBrushes, i )
+		for ( FillBrush_t &brush : m_vecFillBrushes )
 		{
-			m_vecFillBrushes[i].m_Brush.ScaleLengthValues( flScaleFactor );
+			brush.m_Brush.ScaleLengthValues( flScaleFactorX, flScaleFactorY );
 		}
 	}
 
 	int GetNumParticleSystems()
 	{
 		int nParticleSystems = 0;
-		FOR_EACH_VEC( m_vecFillBrushes, i )
+		for ( FillBrush_t &brush : m_vecFillBrushes )
 		{
-			if ( m_vecFillBrushes[i].m_Brush.GetType() == CFillBrush::k_EStrokeTypeParticleSystem )
+			if ( brush.m_Brush.GetType() == CFillBrush::k_EStrokeTypeParticleSystem )
 				++nParticleSystems;
 		}
 
@@ -985,7 +1124,7 @@ public:
 
 private:
 
-	CCopyableUtlVectorFixed< FillBrush_t, MAX_FILL_BRUSHES_PER_COLLECTION > m_vecFillBrushes;
+	CopyableBrushVec_t m_vecFillBrushes;
 };
 
 } // namespace panorama

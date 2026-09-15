@@ -144,6 +144,24 @@ typedef void (*ShaderModeChangeCallbackFunc_t)( void );
 // Methods related to discovering and selecting devices
 //-----------------------------------------------------------------------------
 #define SHADER_DEVICE_MGR_INTERFACE_VERSION		"ShaderDeviceMgr001"
+//-----------------------------------------------------------------------------
+// Used by the scaleform UI to manage when then device is lost or reset, or when
+// the mode changes
+//-----------------------------------------------------------------------------
+
+class IShaderDevice;
+
+// SE port (CS:GO addition): Source2/panorama code (e.g. public/panorama/source2/ipanoramaui.h,
+// panorama/source2/panoramauiengine.h) keeps objects that must be notified when the device is
+// lost / reset / resized.  CS:GO declares it here, ported verbatim.
+abstract_class IShaderDeviceDependentObject
+{
+public:
+	virtual void DeviceLost( void ) = 0;
+	virtual void DeviceReset( void *pDevice, void *pPresentParameters, void *pHWnd ) = 0;
+	virtual void ScreenSizeChanged( int width, int height ) = 0;
+};
+
 abstract_class IShaderDeviceMgr : public IAppSystem
 {
 public:
@@ -177,6 +195,12 @@ public:
 	// Installs a callback to get called 
 	virtual void AddModeChangeCallback( ShaderModeChangeCallbackFunc_t func ) = 0;
 	virtual void RemoveModeChangeCallback( ShaderModeChangeCallbackFunc_t func ) = 0;
+
+	// SE port (CS:GO addition): panorama/source2/panoramauiengine.h registers IShaderDeviceDependentObject
+	// instances (device lost/reset/resize notifications).  Defaulted here so the existing Source Engine
+	// device managers need no change; a DX9 device manager can forward these to its own device-dependent list.
+	virtual void AddDeviceDependentObject( IShaderDeviceDependentObject *pObject ) {}
+	virtual void RemoveDeviceDependentObject( IShaderDeviceDependentObject *pObject ) {}
 };
 
 

@@ -16,6 +16,7 @@
 #include "materialsystem/imaterialsystemhardwareconfig.h"
 #include "vertexshaderdx8.h"
 #include "tier0/vprof.h"
+#include "tier1/strtools.h"
 #include "shaderdevicedx8.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
@@ -1609,7 +1610,40 @@ void CTransitionTable::ApplyShaderState( const ShadowState_t &shadowState, const
 void CTransitionTable::UseSnapshot( StateSnapshot_t snapshotId )
 {
 	VPROF("CTransitionTable::UseSnapshot");
+
+	// SE port: ResetRenderState() (which the panorama port runs at frame boundaries) clears
+	// m_nCurrentSnapshot to -1, and the first RenderPass() coming out of it then indexed the snapshot
+	// and shadow-state lists with out-of-range ids.  Release builds turned that into a wild read.
+	if ( snapshotId < 0 || snapshotId >= m_SnapshotList.Count() )
+	{
+		return;
+	}
+
 	ShadowStateId_t id = m_SnapshotList[snapshotId].m_ShadowStateId;
+	if ( id < 0 || id >= m_ShadowStateList.Count() || id >= m_TransitionTable.Count() )
+	{
+		return;
+	}
+
+	// SE port: CShaderAPIDx8::InitRenderState() only calls ResetRenderState() while the device is
+	// active, and ResetRenderState() is what moves m_CurrentShadowId away from its initial -1.  When
+	// the device is still coming up, the lookup below indexed m_TransitionTable[id][-1] - a wild
+	// reference - and the first world draw died inside ApplyTransition().  Anchor the bookkeeping on
+	// the default shadow state; the normal transition from there is applied right below.
+	if ( m_CurrentShadowId < 0 || m_CurrentShadowId >= m_ShadowStateList.Count() )
+	{
+		if ( m_DefaultStateSnapshot == -1 )
+		{
+			TakeDefaultStateSnapshot();
+		}
+
+		if ( m_DefaultStateSnapshot != -1 && m_DefaultStateSnapshot < m_SnapshotList.Count() )
+		{
+			m_CurrentShadowId = m_SnapshotList[ m_DefaultStateSnapshot ].m_ShadowStateId;
+			m_CurrentSnapshotId = -1;
+		}
+	}
+
 	if (m_CurrentSnapshotId != snapshotId)
 	{
 		// First apply things that are in the transition table

@@ -107,11 +107,23 @@ public:
 
 	virtual void SetConsoleTextMode( bool bConsoleTextMode );
 
+	// SE port (CS:GO addition): UI event listener registration; see the comment on
+	// IInputSystem::AddUIEventListener and LocateMouseClick() below.
+	virtual void AddUIEventListener();
+	virtual void RemoveUIEventListener();
+
 	// Windows proc
 	LRESULT WindowProc( HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam );
 
 
 private:
+	// SE port (CS:GO addition, verbatim from CSGO2019 inputsystem/inputsystem.h): UI events are only
+	// generated while at least one client wants them.  Used by LocateMouseClick().
+	bool ShouldGenerateUIEvents() const { return m_nUIEventClientCount > 0; }
+
+	// Generates LocateMouseClick messages
+	void LocateMouseClick( LPARAM lParam );
+
 	enum
 	{
 		STICK1_AXIS_LEFT,
@@ -397,6 +409,10 @@ public:
 	int m_nLastPollTick;
 	int m_nLastSampleTick;
 	int m_nPollCount;
+
+	// SE port (CS:GO addition): number of registered UI event listeners
+	// (IInputSystem::AddUIEventListener); drives ShouldGenerateUIEvents().
+	int m_nUIEventClientCount;
 
 	// Mouse wheel hack
 	UINT m_uiMouseWheel;

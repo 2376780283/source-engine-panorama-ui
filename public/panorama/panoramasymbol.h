@@ -51,6 +51,45 @@ private:
 	UtlSymId_t m_Id;
 };
 
+
+// Version of CPanoramaSymbol that delays its initialization until panorama is loaded.
+// For use in client code if you want to place a symbol in global scope.
+class CGlobalPanoramaSymbol
+{
+public:
+	CGlobalPanoramaSymbol( const char *pszValue );
+
+	const panorama::CPanoramaSymbol &GetSymbol() const;
+	operator const CPanoramaSymbol &( ) const
+	{
+		if( m_sym.IsValid() )
+		{
+			return m_sym;
+		}
+		else
+		{
+			return GetSymbol();
+		}
+	}
+
+private:
+	panorama::CPanoramaSymbol m_sym;
+
+	struct SPendingSymbol
+	{
+		CGlobalPanoramaSymbol *pSymbol;
+		const char *pszValue;
+	};
+	static CUtlVector< SPendingSymbol > *s_pvecPendingSymbols;
+};
+
 } // namespace panorama
+
+template<>
+inline uint32 HashItem( const panorama::CPanoramaSymbol &item )
+{
+	return ::HashItem( (UtlSymId_t)item );
+}
+
 
 #endif // PANORAMASYMBOL_H

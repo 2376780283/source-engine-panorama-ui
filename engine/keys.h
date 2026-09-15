@@ -21,6 +21,13 @@ struct InputEvent_t;
 
 void		Key_Event( const InputEvent_t &event );
 
+#ifdef PANORAMA_ENABLE
+// SE port (CS:GO addition): lets the panorama UI consume an input event before the game sees it.
+// Called from CGame::DispatchInputEvent (engine/sys_mainwind.cpp) exactly like CS:GO does; see
+// CSGO2019 engine/sys_mainwind.cpp CGame::DispatchInputEvent.
+bool		PanoramaHandleInputEvent( const InputEvent_t &event );
+#endif
+
 void		Key_Init( void );
 void		Key_Shutdown( void );
 void		Key_WriteBindings( CUtlBuffer &buf );

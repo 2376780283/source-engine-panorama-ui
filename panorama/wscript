@@ -1,0 +1,296 @@
+#! /usr/bin/env python
+# encoding: utf-8
+# Phase 2: panorama framework static lib (ported from D:\CSGO2019\panorama).
+# Source list is grown incrementally as compilation issues are resolved.
+
+top = '.'
+
+def options(opt):
+	return
+
+def configure(conf):
+	return
+
+def build(bld):
+	# Panorama hosts V8, and the only prebuilt V8 this tree can fetch for Windows is the x86 build
+	# (scripts/dev/fetch_v8_deps.ps1 -Arch x86; the NuGet x64 package for 7.3.492 ships no binaries),
+	# so the panorama projects are 32-bit only.  A 64-bit build skips them, and the engine reports the
+	# UI client module as unavailable and keeps running (see the check in Host_Init).
+	if bld.env.DEST_CPU in ('x86_64', 'amd64'):
+		from waflib import Logs
+		Logs.warn('panorama: skipped in 64-bit builds (no x64 prebuilt V8)')
+		return
+
+	source = [
+		# Batch 1: core top-level UI framework TUs (grown from panorama.vpc list)
+		'ctx_debug.cpp',
+		'panoramasymbol.cpp',
+		# 'uiengine.cpp',   # TEMP excluded: V8-era API drift (B1 blocker) - needs v8-header era alignment
+		'uiengine.cpp',
+		'uisoundsystem.cpp',
+		'uievent.cpp',
+		'uievents.cpp',
+		'uifileresource.cpp',
+		'uijsregistration.cpp',
+		'uipanel.cpp',
+		'uischeduleddel.cpp',
+		'uitoplevelwindow.cpp',
+		'uicommands.cpp',
+		'uiwebapiclient.cpp',
+		'transformations.cpp',
+		# Batch 2: layout module (per panorama.vpc list)
+		'layout/backgroundimage.cpp',
+		'layout/csshelpers.cpp',
+		'layout/fillbrush.cpp',
+		'layout/layoutfile.cpp',
+		'layout/panel2dfactory.cpp',
+		'layout/stylefile.cpp',
+		'layout/stylepropertyfactory.cpp',
+		'layout/uilength.cpp',
+		# Batch 3: input + localization (per panorama.vpc list)
+		'input/uiinput.cpp',
+		'input/controller.cpp',
+		'input/steamcontroller.cpp',
+		'input/mousecursor.cpp',
+		# Batch 3b: localization (re-enabled; SE/CSGO drift patched in SE headers)
+		'localization/localize.cpp',
+		# Batch 4: renderer (per panorama.vpc list)
+		'renderer/uirenderengine.cpp',
+		'renderer/rendercommands.cpp',
+		'renderer/styles.cpp',
+		'renderer/styleproperties.cpp',
+		'renderer/uianimationengine.cpp',
+		# 'renderer/win32openglfuncs.cpp',    # TEMP excluded: OpenGL-only backend (Windows runs the s1wrapper/D3D9 path)
+		# 'renderer/opengllazyshaders.cpp',   # TEMP excluded: OpenGL-only backend
+		# Batch 5: data + module stub (per panorama.vpc list)
+		'stdafx.cpp',
+		'data/imageloader.cpp',
+		'data/panoramavideoplayer.cpp',
+		'../common/imageloadwrapper.cpp',
+		# libparsifal: self-written, API-compatible XML reader for layout/layoutfile.cpp
+		# (the upstream 0.8.3 sources are unobtainable - see thirdparty/libparsifal-0.8.3/README.md)
+		'thirdparty/libparsifal-0.8.3/src/parsifal.cpp',
+		# Batch 5b: the CS:GO common/ helpers that CS:GO's own panorama.vpc compiles into the framework
+		# ("Source 2" folder of the vpc) - the loaders imageloadwrapper.cpp calls into, the SVG
+		# attribute helpers controls/image.cpp needs, and the localization helpers localize.cpp needs.
+		'../common/tgaloader.cpp',
+		'../common/currencyamount.cpp',
+		'../common/language.cpp',
+		'../common/timeutils.cpp',
+		'../common/svg/svghelpers.cpp',
+		# CS:GO's SVG loader, verbatim: it parses SVG with parsifal (thirdparty/libparsifal-0.8.3
+		# above) and rasterises with cairo.  seport/se_cairo_shim/ provides that rasteriser, so
+		# this is the real ConvertSVGToRGBA the image loaders call (seport/se_image_codecs.cpp
+		# used to stub it out).
+		'../common/svg/svgloader.cpp',
+		# seport/: SE-side replacements for CS:GO pieces whose external dependencies are absent from this
+		# tree (stb_image based JPEG/PNG decode + resizer).  See the file header for details.
+		'seport/se_image_codecs.cpp',
+		# seport/: the software implementation of the cairo subset svgloader.cpp draws with.
+		'seport/se_cairo_shim/se_cairo_shim.cpp',
+		# SE port: Media Foundation implementation of the libvideo player API that
+		# panorama/data/panoramavideoplayer.cpp calls (video/video_mf/mf_video_player.cpp).
+		'../video/video_mf/mf_video_player.cpp',
+		# seport/: the interface globals CS:GO's interfaces/interfaces.cpp provides.
+		'seport/se_interfaces.cpp',
+		# Batch 8: Source 2 UI engine + renderer (panorama.vpc "Source 2" folder).  CS:GO compiles these
+		# into the same framework library: CUIEngineSource2 is the concrete UIEngine, and the "PanDx"
+		# functions (g_bPanDx/PanDxFlushBatch/...) live in source2/renderer/source2surface.cpp, which
+		# draws panorama through the rendersystem/ interfaces that panorama_s1wrapper implements on
+		# top of the Source 1 shader/material system (togl/rendermechanism.h).
+		'source2/panoramauiengine.cpp',
+		'source2/uienginesource2.cpp',
+		'source2/uitoplevelwindowsource2.cpp',
+		'source2/uisoundsystemsource2.cpp',
+		'source2/uirenderdevicesource2.cpp',
+		'source2/imesource2.cpp',
+		'source2/renderer/source2surface.cpp',
+		'../public/filesystem_helpers.cpp',
+		# Batch 6: text - the native DirectWrite backend, rasterised on the CPU.
+		#
+		# CS:GO's build compiles the pango backend unconditionally (text/uitextlayoutpango.cpp,
+		# uitextservicespango.cpp, uifontfileloaderlinux.cpp), which needs pango+glib+cairo+harfbuzz -
+		# neither the sources nor their prebuilt import libraries exist in this tree.  CS:GO also keeps
+		# a native Windows/DirectWrite backend in-tree, but its draw path
+		# (renderer/dwritetextrenderer.cpp) paints into Direct2D render targets owned by
+		# CD3D10D2DSurface, i.e. the Source 2 D3D10 renderer - not the s1wrapper/materialsystem surface
+		# this port renders with.
+		#
+		# PANORAMA_SE_CPU_TEXT switches CUITextLayoutWin32::BDraw() over to
+		# seport/se_dwrite_cpu_text.cpp, which rasterises each glyph run with DirectWrite (ClearType,
+		# reduced to 8-bit coverage) and uploads the mask through IUITextTextureStorage - the same
+		# protocol the pango backend uses.  CUITextServicesWin32 is instantiated by
+		# CPanoramaUIEngine::Connect() (see the note there).
+		#
+		# Still out of the build: the pango backend, the Direct2D renderer (ditto above) and the font
+		# *package* loaders (text/uifontfileloaderwin32.cpp + steamextra/common/uifontfile.cpp,
+		# which need protobuf-generated sources this tree does not have).
+		'text/texttexturecache.cpp',
+		'text/textlayoutdrawcache.cpp',
+		'text/uitextlayoutwin32.cpp',
+		'text/uitextserviceswin32.cpp',
+		'seport/se_dwrite_cpu_text.cpp',
+	]
+
+	includes = [
+		'.',                        # panorama/ (self)
+		'steamextra/common',        # steamextra/common/uifontfile.h (included unqualified by the text loaders)
+		'..',                       # repo root (mathlib/, tier1/ ...)
+		'../panorama_s1wrapper',    # rendersystem/ resourcesystem/ materialsystem2/ assetsystem/ (lightweight, BEFORE ../public so it wins)
+		'../panorama_s1wrapper/tier1',
+		'../public',
+		'../public/tier0',
+		'../public/tier1',
+		'../public/tier2',
+		'../public/vstdlib',
+		'../public/panorama',
+		'../public/steam',     # isteamcontroller.h (panorama_client.vpc also has ..\public\steam)
+		'../common',
+		'../gcsdk',             # gcsdk/enumutils.h (common/currencyamount.cpp)
+		'seport/pcre_shim',     # pcrecpp.h / pcre/pcrecpp.h for controls/debug/debuglayout.cpp
+		'seport/se_cairo_shim', # cairo.h for ../common/svg/svgloader.cpp (the SE port's cairo subset)
+		'../thirdparty',        # stb/stb_image.h, stb/stb_image_resize.h (seport/se_image_codecs.cpp)
+		'../thirdparty/protobuf-2.6.1/src',   # google/protobuf/descriptor.h, text_format.h (renderer/uirenderengine.cpp)
+		'../gcsdk/steamextra',  # tier1/tsmempool.h (CThreadSafeClassMemoryPool) - CS:GO's own build got this via its text PCH
+		'../external/v8/include',
+		'../external/v8',   # libplatform.h does #include "include/v8-platform.h" (v8-root relative)
+		'../external',   # so "v8/include/libplatform/libplatform.h" style includes resolve
+	]
+
+	defines = [
+		# Match CSGO2019 panorama.vpc framework build config
+		'SOURCE2_PANORAMA',
+		# CSGO framework build defines this to skip Source1 steam client_api.h (SE has no steam client)
+		'SOURCE2_PANORAMA_FIXME',
+		# CSGO panorama framework is built against the Source1 wrapper (CSGO's uiengine.h #else
+		# branch with CDefFastCaselessStringLess is dead code there)
+		'PANORAMA_USE_S1WRAPPER',
+		# In CS:GO the framework is a DLL (built with PANORAMA_EXPORTS) and the client module uses the
+		# inline UIEngine()/UILocalize()/UISoundSystem()/UIInputEngine() from the headers.  Here the
+		# framework is a static lib linked into the same module as panorama_client, so *every*
+		# panorama module is compiled WITH PANORAMA_EXPORTS: the accessors then have a single
+		# out-of-line definition in uiengine.cpp.  Without it the client's inline copies collide with
+		# it (LNK2005), and the framework loses uievent.h's IUIPanel DispatchEvent overloads.
+		'PANORAMA_EXPORTS',
+		# CS:GO's VPC sets this for every panorama module.  public/interfaces/interfaces.h gates
+		# g_pPanoramaUIEngine / g_pIMEManager / g_IUITextServices / SOUNDEMITTERSYSTEM_INTERFACE_VERSION
+		# behind it, and panorama/source2/*.cpp uses all of those.
+		'PANORAMA_ENABLE',
+		'STEAM_API_NODLL',
+		# CS:GO's video player is created through CreateVideoPlayer()/DeleteVideoPlayer() from the
+		# prebuilt video.lib (Valve binary, no source in the SDK).  video/video_mf/mf_video_player.cpp
+		# implements that API on top of Windows Media Foundation (which decodes WebM/VP8/VP9 on
+		# Windows 10+), so the movie panel - the CS:GO main menu background video - works again.
+		# 'PANORAMA_DISABLE_VIDEO',  <- SE port: now implemented, see video/video_mf/
+		# SE port: common/video/ivideoplayer.h declares the player entry points as DLL imports (Valve
+		# ships them in a prebuilt video.lib).  With this define they are plain functions, matching
+		# video/video_mf/mf_video_player.cpp which implements them in-tree.
+		'SE_VIDEO_STATIC',
+		# SE-era adaptions: SE tier0/platform.h already provides these helpers
+		'SE_PLATFORM_HAS_CONSTRUCT_HELPERS',
+		# The text backend: DirectWrite layout + CPU rasterisation of glyph masks.  Switches
+		# CUITextLayoutWin32::BDraw() to seport/se_dwrite_cpu_text.cpp and compiles the font-package
+		# / Direct2D code paths out (see the Batch 6 note above).
+		'PANORAMA_SE_CPU_TEXT',
+		# Panorama is drawn through the material system (panorama_vs30/ps30 shaders) rather than the
+		# raw D3D9 "PanDx" path CS:GO used; see the note on PANDX_DRAW in source2/renderer/source2surface.h.
+		'PANORAMA_SE_MATERIALSYSTEM_DRAW',
+	]
+
+	bld.stlib(
+		source   = source,
+		target   = 'panorama',
+		includes = includes,
+		defines  = defines,
+		use      = [],
+		install_path = None,
+	)
+
+	# ---------------------------------------------------------------------------------
+	# panorama_client (CS:GO's panorama_client.vpc): the client-side controls / panels /
+	# top level windows on top of the framework lib.  In CS:GO it is a separate static lib
+	# feeding client_panorama.dll, so it lives in its own target here too.  The PCH in the
+	# vpc (stdafx_client.h) is included explicitly by each TU, so waf needs no /Yu.
+	#
+	# The source list is grown batch by batch from panorama_client.vpc.  Started with the
+	# panel base class + the debugger overlay (the minimum needed to instantiate a surface).
+	client_source = [
+		'controls/panel2d.cpp',
+		'controls/debug/debugger.cpp',
+		# Batch 2: the controls a minimal surface needs to paint something
+		# (image/label/frame/button/scrollbar - the rest of panorama_client.vpc follows)
+		'controls/image.cpp',
+		'controls/label.cpp',
+		'controls/frame.cpp',
+		'controls/button.cpp',
+		'controls/scrollbar.cpp',
+		# Batch 3: the rest of the controls listed by panorama_client.vpc (renderpanel /
+		# debug overlays / textinput follow in later batches)
+		'controls/animatedimagestrip.cpp',
+		'controls/carousel.cpp',
+		'controls/carouselnav.cpp',
+		'controls/carouselnavbutton.cpp',
+		'controls/circularprogressbar.cpp',
+		'controls/contextui.cpp',
+		'controls/countdown.cpp',
+		'controls/contextmenu.cpp',
+		'controls/delayloadlist.cpp',
+		'controls/delayloadpanel.cpp',
+		'controls/dragzoom.cpp',
+		'controls/dropdown.cpp',
+		'controls/edgescroller.cpp',
+		'controls/fileopendialog.cpp',
+		'controls/grid.cpp',
+		'controls/html.cpp',
+		'controls/mousescroll.cpp',
+		'controls/movieplayer.cpp',
+		'controls/numberentry.cpp',
+		'controls/progressbar.cpp',
+		'controls/scrollforwarding.cpp',
+		'controls/slider.cpp',
+		'controls/slideshow.cpp',
+		'controls/textentry.cpp',
+		'controls/tooltip.cpp',
+		'controls/verticalscrolllist.cpp',
+		'controls/vumeter.cpp',
+		# SE port: CRenderPanel was deferred with the rest of batch 3 ("renderpanel follows in later
+		# batches"); it is needed now by the game-client panels ported under
+		# panorama/seport/gameclient (CSGOBackbufferImagePanel derives from it).
+		'controls/source2/renderpanel.cpp',
+		# Batch 4: the debug overlay (panorama_client.vpc - everything except console.cpp,
+		# which the vpc itself has commented out with //APS)
+		'controls/debug/debugautocomplete.cpp',
+		# Batch 4b: the layout inspection pane.  It includes pcrecpp (both "pcre/pcrecpp.h" and
+		# <pcrecpp.h>) for a single URL-highlighting regex; seport/pcre_shim/ provides that subset on top
+		# of <regex> (see the header for the exact usage).
+		'controls/debug/debuglayout.cpp',
+		'controls/debug/debugpanel.cpp',
+		'controls/debug/debugpanelparents.cpp',
+		'controls/debug/debugpanelstyle.cpp',
+		# Batch 5: text input (panorama_client.vpc "TextInput" folder) - the daisywheel /
+		# fullscreen / settings handlers used by CTextEntry
+		'textinput/textinput.cpp',
+		'textinput/textinput_daisywheel.cpp',
+		'textinput/textinput_fullscreen.cpp',
+		'textinput/textinput_settings.cpp',
+		'textinput/textinput_suggest.cpp',
+		# panorama_client.vpc "Public" folder: the client-side engine bootstrap
+		# (panorama::ConnectPanoramaUIEngine / g_pUIEngineSingleton, used by panoramauiclient.dll)
+		'uiengineclient.cpp',
+	]
+
+	# NOTE: the client lib is built like the framework here - see the PANORAMA_EXPORTS note above.
+	client_defines = defines + [
+		# Match CSGO2019 panorama_client.vpc build config
+		'_CLIENT',
+		'PANORAMA_CLIENT_EXPORTS',
+	]
+
+	bld.stlib(
+		source   = client_source,
+		target   = 'panorama_client',
+		includes = includes,
+		defines  = client_defines,
+		use      = [],
+		install_path = None,
+	)

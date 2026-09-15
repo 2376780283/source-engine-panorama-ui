@@ -791,6 +791,14 @@ public:
 	virtual bool IsConnectedUserInfoChangeAllowed( IConVar *pCvar ) = 0;
 
 	virtual void IN_TouchEvent( int type, int fingerId, int x, int y ) = 0;
+
+	// SE port (CS:GO panorama): the client tells the engine whether the HUD is painting this frame;
+	// panorama uses that to choose between cached and freshly built paint command caches.  Deliberately
+	// not pure - the Source 2013 client DLLs have no opinion on it, and CS:GO's CHLClient returns true
+	// for the normal case (the alt-tick fast path is the exception).  Returning false here would tell
+	// panorama to reuse a paint command cache that has never been built, which skips PerformLayout()
+	// entirely and leaves every panel at 0x0.
+	virtual bool HudShouldPaintThisFrame() { return true; }
 };
 
 #define CLIENT_DLL_INTERFACE_VERSION		"VClient017"

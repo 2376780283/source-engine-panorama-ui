@@ -6,7 +6,15 @@
 
 #include "tier0/fasttimer.h"
 
+// SE port (temporary bring-up probe): the process exits silently during startup and Warning() output is
+// lost with it, so each Host_Init step records itself in a file.
+
 #ifdef _WIN32
+#ifdef PANORAMA_ENABLE
+#include "interfaces/interfaces.h"   // g_pPanoramaUIClient / g_pPanoramaUIEngine
+#include "panoramaenginehandler.h"
+#endif
+
 #include "tier0/memdbgon.h" // needed because in release builds crtdbg.h is handled specially if USE_MEM_DEBUG is defined
 #include "tier0/memdbgoff.h"
 #include <crtdbg.h>   // For getting at current heap size
@@ -1763,6 +1771,7 @@ void Host_ReadPreStartupConfiguration()
 		"sv_unlockedchapters",		// needed to display the startup graphic while loading
 		"snd_legacy_surround",		// needed to init the sound system
 		"gameui_xbox",				// needed to initialize the correct UI
+		"mat_borderless",			// needed to create a borderless game window at startup
 		"save_in_memory"			// needed to preread data from the correct location in UI
 	};
 
@@ -4200,6 +4209,25 @@ void Host_Init( bool bDedicated )
 
 		TRACEINIT( InitStudioRender(), ShutdownStudioRender() );
 
+#ifdef PANORAMA_ENABLE
+		// M4: the panorama UI engine has to be up before vgui's own input context exists (see the note
+		// in CPanoramaEngineHandler::Init).  A missing panoramauiclient.dll only disables the hosted
+		// UI - the engine stays usable, which matters while the port is still being brought up.
+		if ( g_pPanoramaUIClient && g_pPanoramaUIEngine )
+		{
+			if ( INIT_OK != PanoramaEngineHandler().Init() )
+			{
+				Error( "Failed to initialize panorama engine!" );
+			}
+		}
+		else
+		{
+			// Warning() (not Msg) so this shows up in engine.log - it is the first thing to check when the
+			// hosted UI does not come up.
+			Warning( "panorama: UI client module not available, engine hosted UI disabled\n" );
+		}
+#endif
+
 		//startup vgui
 		TRACEINIT( EngineVGui()->Init(), EngineVGui()->Shutdown() );
 
@@ -4884,6 +4912,10 @@ void Host_Shutdown(void)
 
 	// Disconnect from server
 	Host_Disconnect(true);
+
+#ifdef PANORAMA_ENABLE
+	PanoramaEngineHandler().Shutdown();
+#endif
 
 #ifndef SWDS
 	// keep ConMsg from trying to update the screen

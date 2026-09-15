@@ -35,6 +35,15 @@
 //  SKIP: ($FLASHLIGHT || $FLASHLIGHTSHADOWS) && $LIGHTING_PREVIEW
 // --------------------------------------------------------------------------------
 
+// SE port (CS:GO panorama): CS:GO's shader sources (panorama_ps30.fxc / panoramafancy_ps30.fxc)
+// spell their entry point return type with this macro instead of a literal float4.  Copied from
+// the CS:GO tree's common_ps_fxc.h; the Source 2013 stdshader sources predate it.
+#if defined( _PS3 )
+#define float4_color_return_type half4
+#else // _PS3
+#define float4_color_return_type float4
+#endif // !_PS3
+
 // System defined pixel shader constants
 
 #if defined( _X360 )

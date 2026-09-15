@@ -33,6 +33,10 @@
 #include "tier0/vprof.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
+#ifdef PANORAMA_ENABLE
+#include "panoramaenginehandler.h"
+#endif
+
 #include "tier0/memdbgon.h"
 
 // In other C files.
@@ -253,6 +257,19 @@ void SCR_UpdateScreen( void )
 	}
 
 	materials->BeginFrame( host_frametime );
+
+#ifdef PANORAMA_ENABLE
+	// M4: tick and render the hosted panorama UI.  CS:GO drives this from the game DLL through
+	// IGameUIFuncs::PanoramaRunFrame/PanoramaRenderFrame; the engine does it here as well so the UI
+	// works before the game code that creates the views has been ported.  PanoramaRunFrame ignores
+	// its argument (it resizes to the back buffer and runs exactly one UI frame).
+	if ( PanoramaEngineHandler().IsPanoramaEnabled() )
+	{
+		PanoramaEngineHandler().PanoramaRunFrame( k_EPanoramaSlotHUD );
+		PanoramaEngineHandler().PanoramaRenderFrame( k_EPanoramaSlotBeginFrame );
+	}
+#endif
+
 	{
 		tmZone( TELEMETRY_LEVEL0, TMZF_NONE, "EngineVGui_Simulate" );
 		EngineVGui()->Simulate();
@@ -276,6 +293,16 @@ void SCR_UpdateScreen( void )
 				
 	// Draw world, etc.
 	V_RenderView();
+
+#ifdef PANORAMA_ENABLE
+	if ( PanoramaEngineHandler().IsPanoramaEnabled() )
+	{
+		// BeginFrame/EndFrame only reset the panorama render state - the windows themselves are drawn
+		// for any other slot (see CPanoramaEngineHandler::PanoramaRenderFrame), so ask for one here too.
+		PanoramaEngineHandler().PanoramaRenderFrame( k_EPanoramaSlotFrontEnd );
+		PanoramaEngineHandler().PanoramaRenderFrame( k_EPanoramaSlotEndFrame );
+	}
+#endif
 
 	CL_TakeSnapshotAndSwap();	   
 	

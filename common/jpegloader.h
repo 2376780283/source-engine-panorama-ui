@@ -33,7 +33,8 @@ bool ConvertRGBToJpeg( CUtlBuffer &bufOutput, int quality, int width, int height
 bool BResizeImageRGB( CUtlBuffer &bufRGB, int nWidth, int nHeight, int &nNewWidth, int &nNewHeight );
 
 // Resize an RGBA image using linear interpolation
-bool BResizeImageRGBA( CUtlBuffer &bufRGBA, int nWidth, int nHeight, int &nNewWidth, int &nNewHeight );
+// (CS:GO-era overload: bIsPreMultipledAlpha undoes/reapplies premultiplied alpha while resizing)
+bool BResizeImageRGBA( CUtlBuffer &bufRGBA, int nWidth, int nHeight, int &nNewWidth, int &nNewHeight, bool bIsPreMultipledAlpha = false );
 
 // Convert an RGB image to RGBA with 100% opacity
 bool BConvertRGBToRGBA( CUtlBuffer &bufRGB, int nWidth, int nHeight );

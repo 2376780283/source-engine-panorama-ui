@@ -65,6 +65,11 @@ public:
 	int		FindLessOrEqual( const TKey& search ) const;
 	template< typename TKey >
 	int		FindLess( const TKey& search ) const;
+	template< typename TKey >
+	int		FindGreater( const TKey& search ) const;
+
+	/// Inserts src after any elements equal to it (CS:GO-era)
+	int		InsertAfterEqual( const T& src );
 	
 	/// Removes a particular element
 	void	Remove( const T& search );
@@ -364,6 +369,46 @@ int CUtlSortVector<T, LessFunc, BaseVector>::FindLessOrEqual( const TKey& src ) 
 {
 	bool bFound;
 	return FindLessOrEqual( src, &bFound );
+}
+
+//-----------------------------------------------------------------------------
+// finds the first element strictly greater than src (CS:GO-era)
+//-----------------------------------------------------------------------------
+template <class T, class LessFunc, class BaseVector>
+template < typename TKey >
+int CUtlSortVector<T, LessFunc, BaseVector>::FindGreater( const TKey& src ) const
+{
+	AssertFatal( !m_bNeedsSort );
+
+	LessFunc less;
+	int start = 0, end = this->Count() - 1;
+	int nResult = this->Count();
+	while ( start <= end )
+	{
+		int mid = ( start + end ) >> 1;
+		if ( less.Less( src, this->Element( mid ), m_pLessContext ) )
+		{
+			nResult = mid;
+			end = mid - 1;
+		}
+		else
+		{
+			start = mid + 1;
+		}
+	}
+	return nResult;
+}
+
+template <class T, class LessFunc, class BaseVector>
+int CUtlSortVector<T, LessFunc, BaseVector>::InsertAfterEqual( const T& src )
+{
+	AssertFatal( !m_bNeedsSort );
+
+	int pos = FindGreater( src );
+	this->GrowVector();
+	this->ShiftElementsRight( pos );
+	CopyConstruct<T>( &this->Element( pos ), src );
+	return pos;
 }
 
 template <class T, class LessFunc, class BaseVector> 

@@ -60,6 +60,17 @@
 #define VERSION_SAFE_STEAM_API_INTERFACES
 #include "steam/steam_api.h"
 
+// M4: the panorama UI client module exports both panorama interfaces.  The launcher does not include the
+// panorama header set (it would drag the whole Source2 interface tree into this small exe), so the two
+// version strings are declared locally - the canonical definitions live in public/interfaces/interfaces.h
+// and the #ifndef keeps this in sync if that header ever gets included here.
+#ifndef PANORAMAUI_CLIENT_INTERFACE_VERSION
+#define PANORAMAUI_CLIENT_INTERFACE_VERSION "PanoramaUIClient001"
+#endif
+#ifndef PANORAMAUI_ENGINE_INTERFACE_VERSION
+#define PANORAMAUI_ENGINE_INTERFACE_VERSION "PanoramaUIEngine001"
+#endif
+
 #if defined( _X360 )
 #include "xbox/xbox_win32stubs.h"
 #include "xbox/xbox_console.h"
@@ -681,6 +692,14 @@ bool CSourceAppSystemGroup::Create()
 		{ "vguimatsurface" DLL_EXT_STRING,	VGUI_SURFACE_INTERFACE_VERSION },
 		{ "vgui2" DLL_EXT_STRING,			VGUI_IVGUI_INTERFACE_VERSION },
 		{ "engine" DLL_EXT_STRING,			VENGINE_LAUNCHER_API_VERSION },
+
+		// M4: panorama UI hosting.  The client module registers both panorama interfaces, and adding it
+		// here is what lets the engine find them through the app system factory (see the grab in
+		// CEngineAPI::Connect) - the engine links no panorama library, it only talks to this module.
+		// The version strings are spelled out locally because the launcher deliberately does not pull
+		// the panorama header set in; the canonical definitions are in public/interfaces/interfaces.h.
+		{ "panoramauiclient" DLL_EXT_STRING,	PANORAMAUI_CLIENT_INTERFACE_VERSION },
+		{ "panoramauiclient" DLL_EXT_STRING,	PANORAMAUI_ENGINE_INTERFACE_VERSION },
 
 		{ "", "" }							// Required to terminate the list
 	};

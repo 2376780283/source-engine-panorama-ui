@@ -858,6 +858,10 @@ ISourceVirtualReality *g_pSourceVR = NULL;
 //-----------------------------------------------------------------------------
 int CHLClient::Init( CreateInterfaceFn appSystemFactory, CreateInterfaceFn physicsFactory, CGlobalVarsBase *pGlobals )
 {
+	// SE port (temporary bring-up probe): the process dies inside this function without any message, so
+	// each step reports itself.  Warning() output reaches engine.log, which is the channel that
+	// survives a crash here - fopen() is not usable in a game DLL (tier0 maps it to _dont_use_fopen).
+
 	InitCRTMemDebug();
 	MathLib_Init( 2.2f, 2.2f, 0.0f, 2.0f );
 
@@ -992,7 +996,9 @@ int CHLClient::Init( CreateInterfaceFn appSystemFactory, CreateInterfaceFn physi
 
 
 	if (!VGui_Startup( appSystemFactory ))
+	{
 		return false;
+	}
 
 	vgui::VGui_InitMatSysInterfacesList( "ClientDLL", &appSystemFactory, 1 );
 
@@ -1039,7 +1045,9 @@ int CHLClient::Init( CreateInterfaceFn appSystemFactory, CreateInterfaceFn physi
 	g_pClientMode->Init();
 
 	if ( !IGameSystem::InitAllSystems() )
+	{
 		return false;
+	}
 
 	g_pClientMode->Enable();
 
@@ -1071,7 +1079,9 @@ int CHLClient::Init( CreateInterfaceFn appSystemFactory, CreateInterfaceFn physi
 	}
 
 	if ( !PhysicsDLLInit( physicsFactory ) )
+	{
 		return false;
+	}
 
 	g_pGameSaveRestoreBlockSet->AddBlockHandler( GetEntitySaveRestoreBlockHandler() );
 	g_pGameSaveRestoreBlockSet->AddBlockHandler( GetPhysSaveRestoreBlockHandler() );

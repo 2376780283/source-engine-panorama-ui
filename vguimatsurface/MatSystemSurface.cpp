@@ -3863,6 +3863,17 @@ void CMatSystemSurface::SetMouseCallbacks( GetMouseCallback_t GetFunc, SetMouseC
 //-----------------------------------------------------------------------------
 void CMatSystemSurface::EnableWindowsMessages( bool bEnable )
 {
+	// SE port (CS:GO addition, see CSGO2019 vguimatsurface/MatSystemSurface.cpp): registering as a
+	// UI event listener is what makes the input system generate UI events such as
+	// IE_LocateMouseClick - the events the panorama UI uses to track the mouse cursor.
+	if ( g_pInputSystem )
+	{
+		if ( bEnable )
+			g_pInputSystem->AddUIEventListener();
+		else
+			g_pInputSystem->RemoveUIEventListener();
+	}
+
 	EnableInput( bEnable );
 }
 

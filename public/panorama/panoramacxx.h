@@ -126,6 +126,12 @@ _Ty&& panorama_forward( typename panorama_remove_reference<_Ty>::type&& _Arg )
 	return (static_cast<_Ty&&>(_Arg));
 }
 
+template<class _Ty> inline
+typename panorama_remove_reference<_Ty>::type&& panorama_move( _Ty&& _Arg )
+{	// move anything
+	return static_cast< typename panorama_remove_reference<_Ty>::type&& >( _Arg );
+}
+
 }
 
 #endif // PANORAMACXX_H

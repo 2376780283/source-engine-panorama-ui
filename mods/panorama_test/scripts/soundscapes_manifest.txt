@@ -1,0 +1,10 @@
+// Minimal soundscape manifest for the panorama test mod.
+//
+// C_SoundscapeSystem::Init() (client) and CSoundscapeSystem::Init() (server) Error() out when this
+// file is missing, so it has to exist - but the test mod has no soundscape files.  The loaders only
+// accept sub-keys called "file"; anything else is reported as a bogus file type and ignored, which is
+// exactly what this placeholder is for.
+"soundscapes_manifest"
+{
+	"note"		"panorama test mod: no soundscapes"
+}

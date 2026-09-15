@@ -279,6 +279,25 @@ void CSHA1::ReportHash(char *szReport, unsigned char uReportType)
 }
 #endif // _MINIMUM_BUILD_
 
+//-----------------------------------------------------------------------------
+// Purpose: writes k_cubHash*2 uppercase hex digits + NUL (CS:GO-era helper)
+//-----------------------------------------------------------------------------
+void CSHA1::GetHashHex( char *pDest, int nSize )
+{
+	if ( nSize < k_cubHash * 2 + 1 )
+	{
+		if ( nSize > 0 ) *pDest = 0;
+		return;
+	}
+	for ( int i = 0; i < k_cubHash; i++ )
+	{
+		unsigned char b = m_digest[i];
+		pDest[i * 2] = "0123456789ABCDEF"[b >> 4];
+		pDest[i * 2 + 1] = "0123456789ABCDEF"[b & 15];
+	}
+	pDest[k_cubHash * 2] = 0;
+}
+
 // Get the raw message digest
 #ifdef	_MINIMUM_BUILD_
 void Minimum_CSHA1::GetHash(unsigned char *uDest)

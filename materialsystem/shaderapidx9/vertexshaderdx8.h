@@ -19,7 +19,14 @@
 
 // uncomment to get dynamic compilation for HLSL shaders
 // X360 NOTE: By default, the system looks for a shared folder named "stdshaders" on the host machine and is completely compatible with -dvd. Ensure that the share is writable if you plan on generating UPDB's.
-//#define DYNAMIC_SHADER_COMPILE
+//
+// SE port: enabled.  This tree ships no precompiled shader caches (a game dir would need
+// shaders/fxc/*.pcs and *.vcs), so the shader manager compiles <name>.fxc straight out of
+// materialsystem/stdshaders at runtime - the normal Valve dev-machine path.  It is also the only way
+// the panorama renderer can get its panorama_vs30 / panorama_ps30 shaders, since those are new here
+// (see IShaderAPI::GetOS{Vertex,Pixel}Shader and FindOrCreateShaderCombos, which reads the
+// "// STATIC:"/"// DYNAMIC:" combo declarations out of the .fxc).
+#define DYNAMIC_SHADER_COMPILE
 
 // Uncomment to use remoteshadercompiler.exe as a shader compile server
 // Must also set mat_remoteshadercompile to remote shader compile machine name
@@ -63,9 +70,15 @@ abstract_class IShaderManager
 {
 protected:
 
-	// The current vertex and pixel shader index
-	int m_nVertexShaderIndex;
-	int m_nPixelShaderIndex;
+	// The current vertex and pixel shader index.
+	// SE port: these two were left uninitialised, yet they are used directly as indices into the hardware
+	// shader arrays (SetVertexShader / SetPixelShader index m_ShaderStaticCombos.m_pHardwareShaders[index]).
+	// CS:GO's engine always assigns them before the first draw; with the CS:GO menu loaded the first draw
+	// happened first, so the index was garbage (-2109740384 in the field), the lookup went past the end of
+	// the combo table and produced a wild shader pointer that the engine then used while drawing the world -
+	// that is what crashed in CShaderManager::SetPixelShader.
+	int m_nVertexShaderIndex = 0;
+	int m_nPixelShaderIndex = 0;
 
 public:
 	// Initialize, shutdown
@@ -99,6 +112,12 @@ public:
 	// Returns the current vertex + pixel shaders
 	virtual void *GetCurrentVertexShader() = 0;
 	virtual void *GetCurrentPixelShader() = 0;
+
+	// SE port (CS:GO addition): the OS shader object of an already created (shader, dynamic combo)
+	// pair.  CS:GO's shaderapidx8 uses these to hand the panorama renderer its D3D shaders
+	// (IShaderAPI::GetOS{Vertex,Pixel}Shader).  Defaulted so alternative shader managers stay valid.
+	virtual void *GetVertexShader( VertexShader_t shader, int nDynamicIndex ) { return NULL; }
+	virtual void *GetPixelShader( PixelShader_t shader, int nDynamicIndex ) { return NULL; }
 
 	virtual void ClearVertexAndPixelShaderRefCounts() = 0;
 	virtual void PurgeUnusedVertexAndPixelShaders() = 0;

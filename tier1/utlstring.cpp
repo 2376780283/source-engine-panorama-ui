@@ -64,6 +64,14 @@ void CUtlString::SetDirect( const char *pValue, int nChars )
 }
 
 
+// SE port (CS:GO addition): swap the contents of two strings without reallocating.
+void CUtlString::Swap( CUtlString &src )
+{
+	char *pTemp = m_pString;
+	m_pString = src.m_pString;
+	src.m_pString = pTemp;
+}
+
 void CUtlString::Set( const char *pValue )
 {
 	int length = pValue ? V_strlen( pValue ) : 0;
@@ -177,6 +185,35 @@ void CUtlString::ToUpper()
 	}
 
 	V_strupr( m_pString );
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: Unicode-aware case conversion (ported from CS:GO tier1/utlstring.cpp)
+//-----------------------------------------------------------------------------
+int CUtlString::UnicodeCaseConvert( int nStringCaseFlags, EStringConvertErrorPolicy ePolicy /* = STRINGCONVERT_ASSERT_REPLACE */ )
+{
+	if ( Length() == 0 )
+	{
+		return 0;
+	}
+
+	const char *pSrc = Get();
+
+	char stackbuf[2000];
+	int nChars = V_UnicodeCaseConvert( pSrc, stackbuf, (int)sizeof( stackbuf ), nStringCaseFlags, (EStringConvertErrorPolicy)( ePolicy | _STRINGCONVERTFLAG_TOTALSIZE ) );
+	if ( nChars <= (int)sizeof( stackbuf ) )
+	{
+		Set( stackbuf );
+		return nChars;
+	}
+	else
+	{
+		CUtlString replacement;
+		replacement.SetLength( nChars );
+		nChars = V_UnicodeCaseConvert( pSrc, replacement.GetForModify(), nChars, nStringCaseFlags, (EStringConvertErrorPolicy)( ePolicy & ~_STRINGCONVERTFLAG_ASSERT ) );
+		Set( replacement.Get() );
+		return nChars;
+	}
 }
 
 CUtlString &CUtlString::operator=( const CUtlString &src )

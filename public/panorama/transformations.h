@@ -6,7 +6,7 @@
 #ifndef TRANSFORMATIONS_H
 #define TRANSFORMATIONS_H
 
-#ifdef _WIN32
+#if defined( _WIN32 ) || defined( SOURCE2_PANORAMA )
 #pragma once
 #endif
 
@@ -20,6 +20,10 @@
 namespace panorama
 {
 
+#if !defined( SOURCE2_PANORAMA )
+extern ConVar s_convarPanoramaTransformParentsNoLayerIfNoPerspective;
+#endif
+
 class CTransform3D
 {
 public:
@@ -28,7 +32,7 @@ public:
 	virtual ETransform3DType GetType() const = 0;
 	virtual VMatrix GetTransformMatrix( float flParentWidth, float flParentHeight ) const = 0;
 	virtual CTransform3D *Clone() const = 0;
-	virtual void ScaleLengthValues( float flScaleFactor ) = 0;
+	virtual void ScaleLengthValues( const Vector &vScaleFactor ) = 0;
 	virtual bool BOnlyImpacts2DValues() = 0;
 
 	virtual bool operator==( const CTransform3D &rhs ) const = 0;
@@ -89,7 +93,17 @@ public:
 
 	bool BOnlyImpacts2DValues()
 	{
+#if !defined( SOURCE2_PANORAMA )
+		if ( s_convarPanoramaTransformParentsNoLayerIfNoPerspective.GetBool() )
+#endif
+		{
+			QAngle angle = m_quatTransform.ToQAngle();
+			return CloseEnough( angle.x, 0.0f ) && CloseEnough( angle.z, 0.0f );
+		}
+
+#if !defined( SOURCE2_PANORAMA )
 		return false;
+#endif
 	}
 
 	virtual CTransform3D *Clone() const
@@ -108,7 +122,7 @@ public:
 		return angle;
 	}
 
-	virtual void ScaleLengthValues( float flScaleFactor ) { }
+	virtual void ScaleLengthValues( const Vector &vScaleFactor ) OVERRIDE { }
 
 	virtual bool operator==( const CTransform3D &other ) const
 	{
@@ -168,11 +182,11 @@ public:
 		return new CTransformTranslate3D( m_x, m_y, m_z );
 	}
 
-	virtual void ScaleLengthValues( float flScaleFactor ) 
+	virtual void ScaleLengthValues( const Vector &vScaleFactor ) OVERRIDE
 	{
-		m_x.ScaleLengthValue( flScaleFactor );
-		m_y.ScaleLengthValue( flScaleFactor );
-		m_z.ScaleLengthValue( flScaleFactor );
+		m_x.ScaleLengthValue( vScaleFactor.x );
+		m_y.ScaleLengthValue( vScaleFactor.y );
+		m_z.ScaleLengthValue( vScaleFactor.z );
 	}
 
 	CUILength GetX() const { return m_x; }
@@ -207,7 +221,16 @@ public:
 
 	bool BOnlyImpacts2DValues()
 	{
+#if !defined( SOURCE2_PANORAMA )
+		if ( s_convarPanoramaTransformParentsNoLayerIfNoPerspective.GetBool() )
+#endif
+		{
+			return CloseEnough( m_VecScale.z, 1.0f );
+		}
+
+#if !defined( SOURCE2_PANORAMA )
 		return false;
+#endif
 	}
 
 	VMatrix GetTransformMatrix( float flParentWidth, float flParentHeight ) const
@@ -222,7 +245,7 @@ public:
 		return new CTransformScale3D( m_VecScale.x, m_VecScale.y, m_VecScale.z );
 	}
 
-	virtual void ScaleLengthValues( float flScaleFactor ) { }
+	virtual void ScaleLengthValues( const Vector &vScaleFactor ) OVERRIDE { }
 
 	float GetX() const { return m_VecScale.x; }
 	float GetY() const { return m_VecScale.y; }

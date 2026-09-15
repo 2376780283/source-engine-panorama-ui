@@ -6,6 +6,10 @@
 #ifndef PANORAMA_TEXTINPUT_DAISYWHEEL_H
 #define PANORAMA_TEXTINPUT_DAISYWHEEL_H
 
+#if defined(_WIN32) || defined(SOURCE2_PANORAMA)
+#pragma once
+#endif
+
 #include "panorama/textinput/textinput.h"
 #include "panorama/controls/panel2d.h"
 #include "panorama/controls/label.h"
@@ -39,19 +43,23 @@ public:
 	~CTextInputDaisyWheel();
 
 	// CTextInputHandler overrides
-	virtual void OpenHandler() OVERRIDE;
 	virtual void CloseHandlerImpl( bool bCommitText ) OVERRIDE;
-	virtual ETextInputHandlerType_t GetType() OVERRIDE;
 	virtual ITextInputControl *GetControlInterface() OVERRIDE;
-	virtual void SuggestWord( const wchar_t *pwch, int ich ) OVERRIDE;
-	virtual void SetYButtonAction( const char *pchLabel, IUIEvent *pEvent ) OVERRIDE;
+
+	virtual void SuggestWord( const uchar32 *pch32, int ich ) OVERRIDE;
+
+	// If SetSuggestionPanels returns false, it is not accepting ownership of these panels - calling code must handle them
+	virtual bool SetSuggestionPanels( const CUtlVector<panorama::CSuggestionPanel *>& vecPanels ) OVERRIDE;
 
 	static void GetSupportedLanguages( CUtlVector<ELanguage> &vecLangs );
+
 private:
 	void Initialize( const CTextInputHandlerSettings &settings, ITextInputControl *pTextControl );
 
 	// This isn't part of CTextInputHandler because currently there is no need to set this dynamically
 	void SetMode( ETextInputMode_t mode );
+
+	void SubmitTextNoClose( void );
 
 	// CPanel2D overrides
 	virtual bool OnGamePadUp( const panorama::GamePadData_t &code ) OVERRIDE;
@@ -180,8 +188,8 @@ private:
 	//	Types a character from selected group's side of world: "E" | "W" | "N" | "S"
 	bool TypeCharacterFromSide( char chSide );
 
-	//	Types a given wide character into text entry
-	bool TypeWchar( uchar16 wch );
+	//	Types a given Unicode character into text entry
+	bool TypeUniChar( uchar32 ch32 );
 
 	//	Simulates a key down event
 	bool TypeKeyDown( panorama::KeyCode eCode );
@@ -230,6 +238,8 @@ private:
 
 	// settings events
 	bool CancelSettings();
+
+	bool BDoSuggestions();
 
 	// auto-suggestion
 	void ShowSuggestion( const char *szPrefix, const char *szSuffix );

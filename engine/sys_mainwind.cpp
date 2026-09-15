@@ -98,9 +98,17 @@ void S_BlockSound (void);
 void S_UnblockSound (void);
 void ClearIOStates( void );
 
+extern ConVar mat_borderless;
+
 //-----------------------------------------------------------------------------
 // Game input events
+//
+// SE port: public/inputsystem/InputEnums.h carries CS:GO's IE_Close (part of its system event block,
+// which panorama consumes).  This file has always had its own IE_Close in the IE_FirstAppEvent range,
+// so the identifier is renamed locally; the value is unchanged.
 //-----------------------------------------------------------------------------
+#define IE_Close					GameIE_Close
+
 enum GameInputEventType_t
 {
 	IE_Close = IE_FirstAppEvent,
@@ -371,8 +379,30 @@ void CGame::DispatchInputEvent( const InputEvent_t &event )
 	case IE_ButtonPressed:
 	case IE_ButtonDoubleClicked:
 	case IE_ButtonReleased:
+	// SE port (CS:GO parity): CS:GO also routes typed characters through Key_Event
+	case IE_KeyTyped:
+	case IE_KeyCodeTyped:
 		Key_Event( event );
 		break;
+
+	case IE_AnalogValueChanged:
+	{
+		// CS:GO sends joystick events to scaleform first; this port has no scaleform, so every
+		// analog event takes the mouse path.
+		if ( g_pMatSystemSurface && g_pMatSystemSurface->HandleInputEvent( event ) )
+			break;
+
+#ifdef PANORAMA_ENABLE
+		// SE port (CS:GO parity, CSGO2019 engine/sys_mainwind.cpp CGame::DispatchInputEvent):
+		// this is how the hosted panorama UI receives mouse movement - the MOUSE_XY analog event is
+		// turned into IE_LocateMouseClick inside CPanoramaEngineHandler::ProcessUserInput.  Without
+		// this call panorama never learns the cursor position, so no panel can ever be hit.
+		if ( PanoramaHandleInputEvent( event ) )
+			break;
+#endif
+	}
+	break;
+
 	case IE_FingerDown:
 	case IE_FingerUp:
 	case IE_FingerMotion:
@@ -382,6 +412,13 @@ void CGame::DispatchInputEvent( const InputEvent_t &event )
 		// Let vgui have the first whack at events
 		if ( g_pMatSystemSurface && g_pMatSystemSurface->HandleInputEvent( event ) )
 			break;
+
+#ifdef PANORAMA_ENABLE
+		// SE port (CS:GO parity): the default branch is what delivers IE_LocateMouseClick (and the
+		// other UI events the input system posts) to the panorama UI.
+		if ( PanoramaHandleInputEvent( event ) )
+			break;
+#endif
 
 		for ( int i=0; i < ARRAYSIZE( g_GameMessageHandlers ); i++ )
 		{
@@ -1007,7 +1044,7 @@ bool CGame::CreateGameWindow( void )
 	// Give it a frame if we want a border
 	if ( videomode->IsWindowedMode() )
 	{
-		if( !CommandLine()->FindParm( "-noborder" ) )
+		if( !mat_borderless.GetBool() && !CommandLine()->FindParm( "-noborder" ) )
 		{
 			style |= WS_OVERLAPPEDWINDOW;
 			style &= ~WS_THICKFRAME;

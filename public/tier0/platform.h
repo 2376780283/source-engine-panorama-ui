@@ -122,6 +122,7 @@
 		#define IsPS3() false
 		#define IS_WINDOWS_PC
 		#define PLATFORM_WINDOWS_PC 1 // Windows PC
+		#define IsPlatformWindowsPC() true
 		#ifdef _WIN64
 			#define IsPlatformWindowsPC64() true
 			#define IsPlatformWindowsPC32() false
@@ -550,6 +551,15 @@ typedef void * HINSTANCE;
 #error "PORT: Code only tested with MSVC! Must validate with new compiler, and use built-in keyword if available."
 #endif
 
+// Portable alternative to __alignof (CSGO-era; required by VALIGNOF_PORTABLE).
+// Used by CS:GO panorama's DECLARE_STYLE_PROPERTY / CClassMemoryPool alignment argument.
+template<class T> struct AlignOf_t { AlignOf_t(){} AlignOf_t & operator=(const AlignOf_t &) { return *this; } byte b; T t; };
+
+// Source2-style dynamic module handle (CS:GO-era; used by CS:GO panorama/s1wrapper code).
+// Upstream defines these in platform.h next to the Plat_* helpers.
+typedef class CSysModule* PlatModule_t;
+#define PLAT_MODULE_INVALID ((PlatModule_t)0)
+
 // Pull in the /analyze code annotations.
 #include "annotations.h"
 
@@ -563,6 +573,11 @@ typedef void * HINSTANCE;
 //-----------------------------------------------------------------------------
 // Stack-based allocation related helpers
 //-----------------------------------------------------------------------------
+
+// Allocate a stack array of the given type with the given element count (16-byte aligned).
+// CSGO-era helper (used by vstdlib/vstrtools.h and Source2 code).
+#define  StackAlloc( typ, nelements )		( (typ *)stackalloc( (nelements) * sizeof( typ ) ) )
+
 #if defined( GNUC )
 	#define stackalloc( _size )		alloca( ALIGN_VALUE( _size, 16 ) )
 #if defined(_LINUX) || defined(PLATFORM_BSD)

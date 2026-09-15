@@ -1,0 +1,107 @@
+﻿Panorama public header overlay from CSGO2019 -> d:\source-engine
+source files: 98   dest files after merge: 100
+ADD=21 OVERWRITE=77 SAME=0 SE_ONLY_KEPT=2
+
+=== SE-only files (kept) ===
+uipbmsgbase.h
+controls\listsegmentview.h
+
+=== actions ===
+ADD      iavatarimagemgr.h
+OVERWRITE iuiengine.h
+OVERWRITE iuifilesystem.h
+OVERWRITE iuilayoutmanager.h
+OVERWRITE iuipanel.h
+OVERWRITE iuipanelclient.h
+OVERWRITE iuipanelstyle.h
+ADD      iuirenderdevice.h
+OVERWRITE iuirenderengine.h
+OVERWRITE iuisoundsystem.h
+OVERWRITE iuistylefactory.h
+OVERWRITE iuiwindow.h
+OVERWRITE panorama.h
+OVERWRITE panoramacurves.h
+OVERWRITE panoramacxx.h
+OVERWRITE panoramasymbol.h
+OVERWRITE panoramatypes.h
+ADD      parseuieventparam.h
+ADD      s1wrapperRenderAttributes.h
+OVERWRITE transformations.h
+OVERWRITE uievent.h
+OVERWRITE uieventcodes.h
+OVERWRITE uievents.h
+OVERWRITE uifileresource.h
+ADD      uiinputcapture.h
+OVERWRITE uijsregistration.h
+ADD      uimetaprogramming.h
+OVERWRITE uioverlaybuffersettype.h
+OVERWRITE uischeduleddel.h
+OVERWRITE uisettings.h
+OVERWRITE uitoplevelwindow.h
+OVERWRITE uitoplevelwindowopenvroverlay.h
+OVERWRITE uitoplevelwindowoverlay.h
+OVERWRITE uiwebapiclient.h
+OVERWRITE vrevents.h
+OVERWRITE controls\animatedimagestrip.h
+OVERWRITE controls\button.h
+OVERWRITE controls\carousel.h
+ADD      controls\carouselnav.h
+ADD      controls\carouselnavbutton.h
+ADD      controls\circularprogressbar.h
+OVERWRITE controls\contextmenu.h
+ADD      controls\countdown.h
+ADD      controls\delayloadlist.h
+ADD      controls\delayloadpanel.h
+ADD      controls\dragzoom.h
+OVERWRITE controls\dropdown.h
+OVERWRITE controls\edgescroller.h
+OVERWRITE controls\fileopendialog.h
+ADD      controls\frame.h
+OVERWRITE controls\grid.h
+OVERWRITE controls\html.h
+OVERWRITE controls\image.h
+OVERWRITE controls\label.h
+OVERWRITE controls\mousescroll.h
+OVERWRITE controls\movieplayer.h
+ADD      controls\numberentry.h
+OVERWRITE controls\panel2d.h
+OVERWRITE controls\panelhandle.h
+OVERWRITE controls\panelptr.h
+OVERWRITE controls\progressbar.h
+ADD      controls\scrollbar.h
+ADD      controls\scrollforwarding.h
+OVERWRITE controls\slider.h
+OVERWRITE controls\slideshow.h
+OVERWRITE controls\textentry.h
+OVERWRITE controls\tooltip.h
+ADD      controls\touchpad.h
+OVERWRITE controls\verticalscrolllist.h
+OVERWRITE controls\vumeter.h
+OVERWRITE controls\source2\renderpanel.h
+OVERWRITE data\iimagesource.h
+OVERWRITE data\imageloader.h
+OVERWRITE data\panoramavideoplayer.h
+OVERWRITE input\gamepadcodes.h
+OVERWRITE input\iuiinput.h
+OVERWRITE input\keycodes.h
+OVERWRITE input\mousecodes.h
+OVERWRITE input\mousecursors.h
+OVERWRITE layout\backgroundimage.h
+OVERWRITE layout\csshelpers.h
+OVERWRITE layout\fillbrush.h
+OVERWRITE layout\panel2dfactory.h
+OVERWRITE layout\stylefiletypes.h
+OVERWRITE layout\stylesymbol.h
+OVERWRITE layout\uilength.h
+OVERWRITE localization\ilocalize.h
+ADD      renderer\rendercommands.h
+OVERWRITE renderer\styleproperties.h
+OVERWRITE source2\ipanoramaui.h
+OVERWRITE text\iuitextlayout.h
+ADD      text\iuitextservices.h
+ADD      text\uitexttypes.h
+OVERWRITE textinput\textinput.h
+OVERWRITE textinput\textinput_daisywheel.h
+OVERWRITE textinput\textinput_dualtouch.h
+OVERWRITE textinput\textinput_fullscreen.h
+OVERWRITE textinput\textinput_settings.h
