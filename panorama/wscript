@@ -122,14 +122,31 @@ def build(bld):
 		# protocol the pango backend uses.  CUITextServicesWin32 is instantiated by
 		# CPanoramaUIEngine::Connect() (see the note there).
 		#
-		# Still out of the build: the pango backend, the Direct2D renderer (ditto above) and the font
-		# *package* loaders (text/uifontfileloaderwin32.cpp + steamextra/common/uifontfile.cpp,
-		# which need protobuf-generated sources this tree does not have).
+		# Still out of the build: the pango backend and the Direct2D renderer (both ditto above).
+		#
+		# The DirectWrite font *package* loaders ARE in the build.  CS:GO's panorama_text_base.vpc
+		# compiles text/uifontfileloaderwin32.cpp [$WINDOWS] and steamextra/common/uifontfile.cpp
+		# (plus the protobuf sources generated from uifontfile_format.proto), and they are what
+		# registers panorama/fonts/ as a DirectWrite font *collection* - i.e. what makes the game's
+		# own fonts (Stratum2, Noto Sans...) resolve instead of silently falling back to system
+		# fonts.  The generated sources are in the tree (scripts/dev/build_protobuf.ps1) and
+		# libprotobuf is already linked by panoramauiclient.
+		#
+		# CS:GO ships those fonts as Valve Font containers (".vfont" = SimpleCodec-obfuscated TTF
+		# followed by a "VFONT1" tag - see common/valvefont.h), which its Windows build fed through
+		# the pango/fontconfig loader because that was CS:GO's text backend.  This port draws with
+		# DirectWrite, so uifontfileloaderwin32.cpp decodes the container itself, and
+		# seport/se_diriterator.cpp provides the CDirIterator that CS:GO's public/tier1/fileio.h has
+		# and this tree does not (kept out of public/ - nothing else needs it).
 		'text/texttexturecache.cpp',
 		'text/textlayoutdrawcache.cpp',
 		'text/uitextlayoutwin32.cpp',
 		'text/uitextserviceswin32.cpp',
+		'text/uifontfileloaderwin32.cpp',
+		'steamextra/common/uifontfile.cpp',
+		'steamextra/common/uifontfile_format.pb.cc',
 		'seport/se_dwrite_cpu_text.cpp',
+		'seport/se_diriterator.cpp',
 	]
 
 	includes = [

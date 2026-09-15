@@ -3,28 +3,24 @@
 	SE port: font/text rendering smoke layout.
 
 	Loaded with `+panorama_menu se_font_test.xml` (the panorama_menu command maps a bare name to
-	file://{resources}/layout/<name>).  One Label per style so a single screenshot shows whether glyphs are
-	rasterised at the right size, whether kerning/advance is sane, and whether CJK falls back at all.
+	file://{resources}/layout/<name>).  The labels name font families explicitly so that one
+	screenshot shows whether the custom DirectWrite font collection built from panorama/fonts/*.vfont
+	is actually in use: "Stratum2" / "Noto Sans SC" / "Noto Mono" only resolve inside that
+	collection, while "NoSuchFontXYZ" resolves nowhere and is the control.
 -->
 <root>
 	<Panel style="width: 100%; height: 100%; flow-children: down; background-color: #101010ff;">
 
-		<Label style="font-size: 72px; color: #ffffffff; margin: 12px;"
-			   text="Hamburgefonstiv 0123456789" />
+		<Label style="font-family: Stratum2; font-size: 48px; color: #ffd54fff; margin: 10px;"
+			   text="family Stratum2 - ABC abc 0123456789" />
 
-		<Label style="font-size: 48px; color: #ffd54fff; margin: 12px;"
-			   text="Stratum2 48px ABC abc" />
+		<Label style="font-family: 'Noto Sans SC'; font-size: 32px; color: #4fc3f7ff; margin: 10px;"
+			   text="family Noto Sans SC - 中文字体测试 日本語" />
 
-		<Label style="font-size: 32px; color: #4fc3f7ff; margin: 12px;"
-			   text="notosans 32px 中文字体测试 日本語テスト" />
+		<Label style="font-family: 'Noto Mono'; font-size: 28px; color: #81c784ff; margin: 10px;"
+			   text="family Noto Mono - iii www 0123" />
 
-		<Label style="font-size: 20px; color: #81c784ff; margin: 12px;"
-			   text="Small 20px: The quick brown fox jumps over the lazy dog." />
-
-		<Label style="font-size: 12px; color: #e57373ff; margin: 12px;"
-			   text="Tiny 12px: the quick brown fox" />
-
-		<Label style="font-size: 32px; color: #ffffffff; margin: 12px;"
-			   text="UPPER first line&#10;second line" />
+		<Label style="font-family: NoSuchFontXYZ; font-size: 48px; color: #e57373ff; margin: 10px;"
+			   text="family NoSuchFontXYZ (control) - ABC abc 0123456789" />
 	</Panel>
 </root>

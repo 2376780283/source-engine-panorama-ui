@@ -15,6 +15,9 @@
 #include "uifontfile.h"
 #include "uitextlayoutwin32.h"
 #include "tier0/threadtools.h"
+// SE port: CS:GO's CDirIterator (public/tier1/fileio.h + tier1/fileio.cpp) is not part of this
+// tree; the port's Win32-based replacement is in seport/ (see se_diriterator.h for the details).
+#include "seport/se_diriterator.h"
 
 namespace panorama
 {
