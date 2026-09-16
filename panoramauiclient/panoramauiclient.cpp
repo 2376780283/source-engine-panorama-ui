@@ -276,6 +276,12 @@ panorama::IUIEngine *CPanoramaUIClient::SetupUIEngine( const char *pszLanguage, 
 	// engine is connected and before any layout runs.
 	SE_PortInstallUiComponentBindings();
 
+	// SE port (2026-09-16): GameInterfaceAPI.  CS:GO installs CUiComponent_GameInterface from the same
+	// CGameUI::Initialize() loop as CUiComponent_UiToolkit (see se_uicomponents.h).  With the real
+	// component installed, GameInterfaceAPI.GetSettingString/SetSettingString read and write the
+	// archived ConVars (ui_mainmenu_bkgnd_movie and friends) instead of the shim's placeholders.
+	SE_PortInstallGameInterfaceBindings();
+
     return pUIEngine;
 }
 

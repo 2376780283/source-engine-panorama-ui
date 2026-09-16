@@ -26,4 +26,8 @@
 // needs the panorama UIEngine, so call it after that has been set up (panoramauiclient.cpp).
 void SE_PortInstallUiComponentBindings();
 
+// Installs the "GameInterfaceAPI" global (CUiComponent_GameInterface, se_ui_settings.cpp).  CS:GO
+// installs it alongside UiToolkitAPI from CGameUI::Initialize(); same prerequisites.
+void SE_PortInstallGameInterfaceBindings();
+
 #endif // SE_UICOMPONENTS_H

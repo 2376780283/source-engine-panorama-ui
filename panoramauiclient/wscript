@@ -89,6 +89,11 @@ def build(bld):
 		'se_uicomponents.cpp',
 		'../panorama/seport/gameclient/cstrike15/uicomponents/uicomponent_common.cpp',
 		'../panorama/seport/gameclient/cstrike15/uicomponents/uicomponent_uitoolkit.cpp',
+		# SE port (2026-09-16): GameInterfaceAPI - CS:GO's uicomponent_gameinterface (the settings access
+		# the CS:GO scripts use for "UI preferences", first consumer: ui_mainmenu_bkgnd_movie), plus the
+		# game-side data it needs (the alias map, that ConVar, the scoreboard binding helper).
+		'../panorama/seport/gameclient/cstrike15/uicomponents/uicomponent_gameinterface.cpp',
+		'se_ui_settings.cpp',
 		# ... and the two GameUI helpers the ported code needs (CS:GO: cstrike15/gameui/gameui_util.*)
 		'../panorama/seport/gameclient/se_gameui_util.cpp',
 		# ... plus the gcsdk JSON/XML string escapers that uicomponent_common.cpp declares as an extern
