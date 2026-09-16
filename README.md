@@ -29,6 +29,8 @@ This project is using waf buildsystem. If you have waf-related questions look ht
 - Achivement system working without steam
 - Fixed many bugs
 - Serverbrowser works without steam
+- Panorama UI framework support
+- Panorama XML/CSS/JavaScript support
 
 # Current tasks
 - Rewrite materialsystem for OpenGL render
