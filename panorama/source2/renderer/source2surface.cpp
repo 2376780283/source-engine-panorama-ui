@@ -202,6 +202,71 @@ ConVar s_convarPanoramaFBOAllocBatch( "@panorama_fbo_alloc_batch", "10");
 
 ConVar s_convarPanoramaDisableBlur( "@panorama_disable_blur", "0", FCVAR_DEVELOPMENTONLY | FCVAR_CHEAT );
 ConVar s_convarPanoramaDisableBoxShadow( "@panorama_disable_box_shadow", "0", FCVAR_DEVELOPMENTONLY | FCVAR_CHEAT );
+
+//-----------------------------------------------------------------------------
+// SE port: the backdrop blur ("blurrects", CS:GO's CSGOBlurTarget) needs per-layer render targets -
+// CS:GO renders a layer's content into its own texture, blurs that texture and composites it into the
+// parent.  This port has no layer render targets: layer content is drawn straight into the parent
+// target, so the blur passes sample a texture nothing ever wrote.  Measured on the stock main menu:
+// with the passes enabled the screen fills with the texture wrapper's error texture (the magenta
+// checkerboard) or the content gets painted over; with them skipped the menu renders normally (that
+// is what @panorama_disable_blur 1 does, and the A/B was taken with it).
+//
+// Skip them by default.  When this port grows real per-layer targets, return true here and the blur
+// starts working again; the convar stays as the explicit override.
+//-----------------------------------------------------------------------------
+static bool SE_PortSupportsBlurPasses() { return false; }
+
+//-----------------------------------------------------------------------------
+// SE port (2026-09-16): the backdrop-blur layer hacks this port used to carry are the reason the CS:GO
+// main menu backdrop came out washed white and stopped refreshing.
+//
+// CS:GO renders every composition layer into its own render target:
+//   ClearCompositingLayer() -> CSource2CompositionLayer::Clear() -> ActivateRenderTargetAndClear()
+// binds *and clears* the layer's target right before PushCliplayersAndBeginDraw() runs, the layer's
+// content is drawn into it, and PopCompositingLayer() composites that target onto the parent.
+//
+// This port additionally copied the back buffer into the layer target inside PushCliplayersAndBeginDraw()
+// and re-bound the back buffer in PopClipLayersAndFlush().  That copy put the previous frame's back
+// buffer back into a target which had just been cleared, so the opaque composite of #MainMenuCore /
+// #MainMenuBackground redrew the menu on top of itself every frame (measured against an ffmpeg frame of
+// the same video: a uniform +60..67 per pixel, ~26% white), and after the popup that forced full
+// repaints went away the backdrop stopped updating altogether.
+//
+// Neither hunk exists in CS:GO, so 0 (the default) follows CS:GO.  Set it to 1 to get the old behaviour
+// back without rebuilding, for A/B.
+ConVar se_port_backdrop_blit( "se_port_backdrop_blit", "0", FCVAR_ARCHIVE,
+	"SE port: 1 = old backdrop-blur layer hacks (copy the back buffer into the layer render target), 0 = CS:GO behaviour" );
+static bool SE_PortBackdropBlit() { return se_port_backdrop_blit.GetBool(); }
+
+//-----------------------------------------------------------------------------
+// SE port diagnostic (2026-09-16): composition layer lifecycle.
+//
+// Question this answers: the main menu backdrop draws the video every frame (52k texType=3 draws were
+// counted) yet the screen keeps showing one frozen frame.  Either the layer's render target is reused
+// from the reserved-layer cache without being re-rendered, or the composite that should put it back on
+// screen does not run.  These three probes say which.
+//-----------------------------------------------------------------------------
+static void SE_LayerProbe( const char *pFmt, ... )
+{
+	FILE *fp = fopen( "D:\\cstrike\\se_ui_probe.txt", "a" );
+	if ( !fp )
+		return;
+
+	va_list args;
+	va_start( args, pFmt );
+	vfprintf( fp, pFmt, args );
+	va_end( args );
+
+	fflush( fp );
+	fclose( fp );
+}
+
+static bool SE_LayerProbeThis( int &nCounter, int nHead )
+{
+	++nCounter;
+	return ( nCounter <= nHead ) || ( ( nCounter % 240 ) == 0 );
+}
 ConVar s_convarPanoramaDisableRenderCallbacks( "@panorama_disable_render_callbacks", "0", FCVAR_DEVELOPMENTONLY | FCVAR_CHEAT );
 ConVar s_convarPanoramaDisableDrawFancyQuad( "@panorama_disable_draw_fancy_quad", "0", FCVAR_DEVELOPMENTONLY | FCVAR_CHEAT );
 ConVar s_convarPanoramaDisableLayerClear( "@panorama_disable_layer_clear", "0", FCVAR_DEVELOPMENTONLY | FCVAR_CHEAT );
@@ -842,18 +907,11 @@ void CSource2CompositionLayer::PushCliplayersAndBeginDraw( float flScaleX, float
 		m_flTranslateLayerY = flTranslateY;
 	}
 
-	// SE port: a "backdrop blur" layer - CS:GO's CSGOBlurTarget, which this port substitutes with a plain
-	// Panel - blurs what is behind the UI.  Panel content is only ever composited through the layer's own
-	// render target, and this port never bound one, so the layer stayed empty and its composite sampled an
-	// empty target (white in D3D9): that is what turned the whole CS:GO main menu white.
-	//
-	// So for a blur layer: copy the back buffer into the layer target - that copy is the blur's source,
-	// and it is exactly what CS:GO's CSGOBlurTarget panel does - then bind the target so the layer's own
-	// content (and the blur passes) land in it.
-	//
-	// Only blur layers are switched over.  Every other layer keeps drawing straight into the back buffer
-	// as before, which keeps the blast radius of this change to the backdrop layers.
-	if ( !m_bIsBackBuffer && m_hRenderTarget.IsValid() && BSEPortHasBlur() && m_pParentSurface && m_pParentSurface->m_pRenderContext )
+	// SE port: a "backdrop blur" layer - CS:GO's CSGOBlurTarget - blurs what is behind the UI.  The copy
+	// below is the *old* port behaviour and is off by default now; see SE_PortBackdropBlit().  CS:GO binds
+	// (and clears) the layer's own target in ClearCompositingLayer() -> Clear() before this runs, so this
+	// copy only overwrote a freshly cleared target with the previous frame.
+	if ( SE_PortBackdropBlit() && !m_bIsBackBuffer && m_hRenderTarget.IsValid() && BSEPortHasBlur() && m_pParentSurface && m_pParentSurface->m_pRenderContext )
 	{
 		m_pParentSurface->m_pRenderContext->CopyBackBufferToTexture( m_hRenderTarget );
 
@@ -875,7 +933,9 @@ void CSource2CompositionLayer::PopClipLayersAndFlush()
 
 	// SE port: undo the target binding PushCliplayersAndBeginDraw did for a blur layer (see the note
 	// there).  BindRenderTargets() pops the previous target when the descriptor is the back buffer.
-	if ( !m_bIsBackBuffer && m_hRenderTarget.IsValid() && BSEPortHasBlur() && m_pParentSurface && m_pParentSurface->m_pRenderContext )
+	// Off by default: it is part of the old backdrop hack and it corrupted the parent layer's target
+	// whenever the parent was itself a layer (PopCompositingLayer re-activates the parent target itself).
+	if ( SE_PortBackdropBlit() && !m_bIsBackBuffer && m_hRenderTarget.IsValid() && BSEPortHasBlur() && m_pParentSurface && m_pParentSurface->m_pRenderContext )
 	{
 		RenderTargetDesc_t rtBackBuffer( HRenderTexture( &CRenderContext::m_backBufferResourceData ), RENDER_TEXTURE_HANDLE_INVALID, RENDER_SRGB );
 		m_pParentSurface->m_pRenderContext->BindRenderTargets( rtBackBuffer );
@@ -5998,7 +6058,7 @@ void CSource2Surface::PopCompositingLayer( const PopCompositingLayerRenderComman
 		}
 
 		// If we have blur (and we redrew), then draw into another layer for blur first
-		if ( bLayerRedraw && flBlurPasses > 0.0f && (flBlurStdDevHor > 0.0f || flBlurStdDevVer > 0.0f) && !s_convarPanoramaDisableBlur.GetBool() )
+		if ( bLayerRedraw && flBlurPasses > 0.0f && (flBlurStdDevHor > 0.0f || flBlurStdDevVer > 0.0f) && !s_convarPanoramaDisableBlur.GetBool() && SE_PortSupportsBlurPasses() )
 		{
 			VPROF( "CSource2CompositionLayer::PopCompositingLayer - Draw Blur" );
 
@@ -6265,14 +6325,22 @@ void CSource2Surface::PopCompositingLayer( const PopCompositingLayerRenderComman
 					m_hCurrentBlendState = m_hMixOpaqueState;
 				}
 
-				// SE port: an "opaque" layer is composited exactly as it was drawn, and in this port it *was*
-				// drawn - PushClipLayer() only records a clip rect here, nothing is rendered into the layer's
-				// texture, so this composite samples an empty render target.  Sampling an unbound/empty S1
-				// texture reads white, and the opaque blend writes it over the whole frame: those two draws
-				// are what turned the entire CS:GO main menu white.  They are the backdrop panels
-				// #MainMenuCore / #MainMenuBackground (both 100%x100% with "-s2-mix-blend-mode: opaque" in
-				// mainmenu.css), so this is also what hid the loading screen and the game behind the menu.
-				if ( pLayer->GetMixBlendMode() != k_EMixBlendModeOpaque || pLayer->BSEPortHasBlur() )
+				// SE port diagnostic: what the composite decides to do
+				{
+					static int s_nSEPop = 0;
+					if ( SE_LayerProbeThis( s_nSEPop, 24 ) )
+					{
+						SE_LayerProbe( "SE_LAYER pop #%d layer=%p blend=%d blur=%.2f skipped=%d rt=%d\n",
+							s_nSEPop, pLayer, (int)pLayer->GetMixBlendMode(), 0.0f,
+							( !SE_PortBackdropBlit() || pLayer->GetMixBlendMode() != k_EMixBlendModeOpaque || pLayer->BSEPortHasBlur() ) ? 0 : 1, 0 );
+					}
+				}
+
+				// SE port: CS:GO composites the layer here unconditionally - the blend state selected above
+				// makes the opaque case a plain replace.  The old port default skipped this composite for
+				// blur-less opaque layers, which is why their content never reached the parent.  Kept reachable
+				// through se_port_backdrop_blit=1 so the change can be A/B'd without rebuilding.
+				if ( !SE_PortBackdropBlit() || pLayer->GetMixBlendMode() != k_EMixBlendModeOpaque || pLayer->BSEPortHasBlur() )
 				{
 					DrawFancyQuad( &fancyQuadDraw );
 				}
