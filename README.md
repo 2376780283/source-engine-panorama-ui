@@ -31,16 +31,17 @@ This project is using waf buildsystem. If you have waf-related questions look ht
 - Serverbrowser works without steam
 - Panorama UI framework support
 - Panorama XML/CSS/JavaScript support
+- WebM support
 
 # Current tasks
 - Rewrite materialsystem for OpenGL render
 - dxvk-native support
 - Elbrus port
-- Bink audio support( for video_bink )
+- //Bink audio support( for video_bink )
 
 # How to Build?
-- [Building instructions(EN)](https://github.com/nillerusr/source-engine/wiki/Source-Engine-(EN))
-- [Building instructions(RU)](https://github.com/nillerusr/source-engine/wiki/Source-Engine-(RU))
+- //[Building instructions(EN)](https://github.com/nillerusr/source-engine/wiki/Source-Engine-(EN))
+- //[Building instructions(RU)](https://github.com/nillerusr/source-engine/wiki/Source-Engine-(RU))
 
 # Support me
 BTC: `bc1qnjq92jj9uqjtafcx2zvnwd48q89hgtd6w8a6na`
