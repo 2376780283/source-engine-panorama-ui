@@ -113,8 +113,31 @@ CCSGO_MainMenu::CCSGO_MainMenu(CPanel2D *pParent, const char *pchID)
 	CUI_Root( pParent, pchID ),
 	m_hDenyInputToGame( 0 )
 {
-	Assert(s_pMainMenu == NULL);
-	s_pMainMenu = this;
+	// SE port: this constructor runs *twice* per menu view, and CS:GO's Assert(s_pMainMenu == NULL)
+	// here never fired only because retail runs with asserts compiled out.
+	//
+	// mainmenu.xml - the layout this class loads - contains a nested <CSGOMainMenu
+	// class="MainMenuRootPanel"> (mainmenu.xml:57) for the menu *content*, so the tree is
+	//     view -> base_mainmenu.xml -> <CSGOMainMenu id="MainMenu">   (the outer instance, below)
+	//                                    -> mainmenu.xml -> <CSGOMainMenu>  (the nested instance)
+	// The nested instance's RequireLoadLayout() is re-entrant (mainmenu.xml is already loading) and is
+	// dropped, so it becomes a plain container whose RequireChildInLayoutFile() calls resolve to the
+	// outer panel's children - which is why it does not crash on the NULL-looking lookups below.  What
+	// it *must not* do is repeat the singleton bookkeeping and the events the rest of this constructor
+	// registers, because the nested panel sits inside the outer one and panorama bubbles panel events
+	// up the parent chain: every handler would run twice.  Visible fallout was the initial state
+	// transition at the bottom walking CS:GO's own "publish the state GameUI is in at startup" step:
+	// CSGOShowMainMenu was dispatched twice, so mainmenu.js's _OnShowMainMenu() built *two* identical
+	// "legacy version" popups on top of each other - one click (or Enter) dismissed the twin that was
+	// hidden behind the other, the screen did not change ("点不动"), and Esc had to be pressed twice.
+	//
+	// Only the outer instance owns the singleton and drives the state machine, exactly as CS:GO
+	// intends; the nested panel is just the visual root of the content.
+	const bool bSEPortOuterInstance = ( s_pMainMenu == NULL );
+	if ( bSEPortOuterInstance )
+	{
+		s_pMainMenu = this;
+	}
 
 	RequireLoadLayout( "file://{resources}/layout/mainmenu.xml" );
 
@@ -146,6 +169,18 @@ CCSGO_MainMenu::CCSGO_MainMenu(CPanel2D *pParent, const char *pchID)
 	m_pInputPanel->SetAcceptsFocus( true );
 	m_pInputPanel->SetInputNamespace( "CSGO_mainmenu" );
 
+	// SE port: the nested instance (see the note at the top of this constructor) is inside the outer
+	// one, so anything registered on it would handle the same bubbling event a second time - and the
+	// state machine below is driven through GetInstance(), which is the outer instance.  Just the menu
+	// content container is left.
+	if ( !bSEPortOuterInstance )
+	{
+		m_bIsInGame = false;
+		m_bInitialDisplay = true;
+		m_nSEPortLastGameUIState = CSGO_GAME_UI_STATE_INVALID;
+		return;
+	}
+
 	// set up events
 	RegisterEventHandler(CSGOQuit(), this, &CCSGO_MainMenu::EventQuitClicked);
 	RegisterEventHandler(CSGOQuitConfirmed(), this, &CCSGO_MainMenu::EventOnQuitConfirmed);
@@ -161,9 +196,10 @@ CCSGO_MainMenu::CCSGO_MainMenu(CPanel2D *pParent, const char *pchID)
 	//     GameUI().RegisterGameUIStateListener( this );
 	//     OnCSGOGameUIStateChange( CSGO_GAME_UI_STATE_INVALID, GameUI().GetGameUIState() );
 	// here.  This tree has no CS:GO gameui module, so the state transitions are driven by Update()
-	// (called once per frame from engine/panoramaenginehandler.cpp::PanoramaRunFrame).  The initial
-	// transition is the one CS:GO's CGameUI publishes at startup, so the menu starts up visible with
-	// its movie/vanity panel loaded and the "deny game input" lock taken, exactly as there.
+	// (called once per frame from engine/panoramaenginehandler.cpp::PanoramaRunFrame, on GetInstance()).
+	// The initial transition is the one CS:GO's CGameUI publishes at startup, so the menu starts up
+	// visible with its movie/vanity panel loaded and the "deny game input" lock taken, exactly as
+	// there.  This is the step that must run once - see the note at the top of the constructor.
 	m_nSEPortLastGameUIState = CSGO_GAME_UI_STATE_INVALID;
 	OnCSGOGameUIStateChange( CSGO_GAME_UI_STATE_INVALID, CSGO_GAME_UI_STATE_MAINMENU );
 
@@ -187,8 +223,12 @@ CCSGO_MainMenu::~CCSGO_MainMenu()
 
 	// SE port: CS:GO calls GameUI().UnregisterGameUIStateListener( this ) here.
 
-	Assert(s_pMainMenu == this);
-	s_pMainMenu = NULL;
+	// SE port: only the outer instance registered itself (see the note in the constructor) - the
+	// nested content panel must not clear the singleton the outer instance still owns.
+	if ( s_pMainMenu == this )
+	{
+		s_pMainMenu = NULL;
+	}
 }
 
 
