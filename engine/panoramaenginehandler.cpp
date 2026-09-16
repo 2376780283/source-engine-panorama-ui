@@ -563,6 +563,18 @@ bool CPanoramaEngineHandler::CreatePanoramaMenuView()
 
 	SE_PortUIProbe( "WINDOW backbuffer=%dx%d\n", nWidth, nHeight );
 
+	// SE port: false here, exactly like CS:GO - game/client/cstrike15/gameui/gameui_interface.cpp:544
+	// creates the menu/HUD windows with bUseCustomMouseCursor = false.  false means
+	// CTopLevelWindowSource2::SetMouseCursor() maps the panel's cursor style onto a standard cursor and
+	// hands it to the input system (IInputSystem::GetStandardCursor + SetCursorIcon), i.e. the pointer is
+	// the OS one.  The custom-cursor path (true) is only used by the Steam/VR overlay windows
+	// (panorama/uitoplevelwindowoverlay.cpp, panorama/uitoplevelwindowopenvroverlay.cpp), which have no
+	// OS window of their own.
+	//
+	// This used to fail in both directions: with false, the input system's cursor calls were still no-op
+	// stubs (see CInputSystem::GetStandardCursor), and with true nothing draws the cursor either because
+	// CMouseCursorRender is never created in a SOURCE2_PANORAMA build (uitoplevelwindow.cpp:43-47) -
+	// while the engine hides the OS cursor whenever the UI owns the mouse.  Net result: no pointer.
 	panorama::IUIWindow *pMenuWindow = m_pUIEngine->CreateNewUILayerWindow( 0, 0, nWidth, nHeight, false, false, false, true, "CSGOMainMenu", INPUT_CONTEXT_HANDLE_INVALID );
 	panorama::IUIPanelClient *pMenuPanel = pMenuWindow ? AddPanoramaView( "CSGOMainMenu", pMenuWindow ) : NULL;
 	if ( !pMenuPanel )
@@ -1147,6 +1159,44 @@ void CPanoramaEngineHandler::RunFrame()
 	if ( g_pInputStackSystem )
 	{
 		g_pInputStackSystem->EnableInputContext( m_hPanoramaInputContext, ( m_eGameInputFlags & k_EGameInputUIEnableMouseCursor ) == k_EGameInputUIEnableMouseCursor );
+	}
+
+	// SE port: the OS cursor also has to be *visible* while the UI owns the mouse.  CS:GO leaves that to
+	// the input stack system (IInputStackSystem::SetCursorVisible through EnableInputContext above), which
+	// this tree does not have, and the game hides the cursor when it captures the mouse for gameplay
+	// (::ShowCursor( FALSE ) - e.g. sys_mainwind.cpp:1360 hides it while the startup movies play) and
+	// never shows it again.  So manage it here, with our own count so the game's own hide/show calls keep
+	// working once the UI gives the mouse back.
+	static int s_nSEPortCursorShows = 0;
+	const bool bSEUIWantsCursor = ( m_eGameInputFlags & k_EGameInputUIEnableMouseCursor ) == k_EGameInputUIEnableMouseCursor;
+	if ( bSEUIWantsCursor && s_nSEPortCursorShows == 0 )
+	{
+		++s_nSEPortCursorShows;
+
+		// Stop VGUI from touching the cursor while the UI owns it.  VGUI's idea of "the panel under the
+		// mouse" does not include panorama panels, so it keeps setting vgui::dc_none - i.e. NULL - on
+		// every mouse move (vguimatsurface/Input.cpp: IE_SetCursor -> ActivateCurrentCursor ->
+		// CursorSelect), which is what made the pointer disappear.  CMatSystemSurface::SetCursor() returns
+		// early once the cursor is locked, which is exactly what is needed here.  (CS:GO does not have this
+		// problem because its VGUI cursor is per input context - vguimatsurface/Cursor.cpp:205.)
+		if ( vgui::surface() )
+			vgui::surface()->LockCursor();
+
+		if ( g_pInputSystem )
+			g_pInputSystem->SetCursorIcon( g_pInputSystem->GetStandardCursor( INPUT_CURSOR_ARROW ) );
+
+		while ( ::ShowCursor( TRUE ) < 0 ) { }
+	}
+	else if ( !bSEUIWantsCursor && s_nSEPortCursorShows > 0 )
+	{
+		--s_nSEPortCursorShows;
+
+		if ( vgui::surface() )
+			vgui::surface()->UnlockCursor();
+		if ( g_pInputSystem )
+			g_pInputSystem->ResetCursorIcon();
+
+		::ShowCursor( FALSE );
 	}
 
 	// Panorama taking over cursor control if EnableMouseCursor set

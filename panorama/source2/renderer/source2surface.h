@@ -1312,6 +1312,13 @@ public:
 
 	bool BInitialize( int nSurfaceWidth, int nSurfaceHeight, int nWindowWidth, int nWindowHeight, bool bEnforceAspectRatio, bool bFixedSurfaceSize, CMouseCursorRender *pCursorRender );
 
+	// SE port: the OS window this surface belongs to.  Drawing the panorama mouse cursor reads the
+	// hardware cursor position (CMouseCursorRender::RunRenderFrame()), which needs it; the surface itself
+	// has none because it draws into the engine's render targets.  Set by
+	// CTopLevelWindowSource2::RenderWindow(); until it is set the cursor falls back to the position the
+	// input engine has (CMouseCursorRender::RunRenderFrameFromMainThreadPosition()).
+	void SE_PortSetCursorWindow( void *pOsWindow ) { m_pSEPortCursorWindow = pOsWindow; }
+
 	// Called to access the paint time of the last rendered frame (ie, time it was first generated in paint thread)
 	virtual double GetLastFramePaintTime() { return 0.0; }
 
@@ -1354,6 +1361,10 @@ public:
 
 	// Called at the end of every frame.  Should do any per-frame cleanup, call endscene(), etc.
 	virtual void EndFrame( const EndFrameRenderCommand_t &renderCommand ) OVERRIDE;
+
+	// SE port: draws the panorama mouse cursor into the layer EndFrame() is compositing.  The other back
+	// ends call their port of this from EndFrame() as well; see the note on the implementation.
+	void DrawMouseCursor( const EndFrameRenderCommand_t &renderCommand );
 
 	// Called to tell us to free all cached GPU resources that we can
 	void ClearGPUResources();
@@ -1577,6 +1588,7 @@ private:
 
 	// owner of details about the cursor state
 	CMouseCursorRender *m_pCursorRender;
+	void *m_pSEPortCursorWindow;	// SE port: the OS window, see SE_PortSetCursorWindow()
 
 	uint32 m_unSurfaceWidth;
 	uint32 m_unSurfaceHeight;

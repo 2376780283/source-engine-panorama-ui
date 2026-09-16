@@ -1020,6 +1020,12 @@ void panorama::CTopLevelWindowSource2::RenderWindow( PlatWindow_t hwnd, bool bDe
 	CSceneView view( bDebugger );
 	m_hPlatWindow = hwnd;
 
+	// SE port: hand the OS window to the surface - it needs it to read the hardware cursor position when
+	// it draws the panorama mouse cursor (CSource2Surface::DrawMouseCursor).  The surface is created as a
+	// CSource2Surface in BInitializeSurface(), two screens up, so the downcast is safe.
+	if ( m_p3DSurface )
+		static_cast< CSource2Surface * >( m_p3DSurface )->SE_PortSetCursorWindow( (void *)Plat_WindowToOsSpecificHandle( hwnd ) );
+
 	// Need to render now... this is called by worker thread in source2, and we should just do everything
 	// in the panaorama UIRenderEngine::RenderThread here and not create a thread for it of our own.  I think...
 	m_pRenderEngine->RunRenderThreadFrame( &view, &s2renderContext, &layer, !m_bIsAnimationDisabled );

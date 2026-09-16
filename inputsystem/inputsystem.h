@@ -112,6 +112,12 @@ public:
 	virtual void AddUIEventListener();
 	virtual void RemoveUIEventListener();
 
+	// SE port (CS:GO addition): the cursor icons a hosted UI can ask for.  panorama's top level window
+	// calls these from CTopLevelWindowSource2::SetMouseCursor(), and the base class only had no-op stubs.
+	virtual InputCursorHandle_t GetStandardCursor( InputStandardCursor_t id ) OVERRIDE;
+	virtual void SetCursorIcon( InputCursorHandle_t hCursor ) OVERRIDE;
+	virtual void ResetCursorIcon() OVERRIDE;
+
 	// Windows proc
 	LRESULT WindowProc( HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam );
 

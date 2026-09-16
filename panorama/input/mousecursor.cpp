@@ -221,6 +221,48 @@ void CMouseCursorRender::RunRenderFrame( SDL_Window *hWindow, float flCurrentFra
 
 
 //-----------------------------------------------------------------------------
+// Purpose: SE port: the same render-side update as RunRenderFrame(), but for a caller that has no
+// window handle (the port's CSource2Surface).  It uses the position the main thread already handed in
+// through RunFrame() - which is in surface space already - and then applies the same fade maths.
+//-----------------------------------------------------------------------------
+void CMouseCursorRender::RunRenderFrameFromMainThreadPosition( float flCurrentFrameTime )
+{
+	AUTO_LOCK( m_mutexCursorTime );
+
+	m_pointRenderMouse = m_pointMainThreadMouse;
+
+	// update opacity (kept in step with RunRenderFrame())
+	if( m_flMouseFadeOutTime > 0.0f )
+	{
+		if( m_flMouseFadeOutTime <= flCurrentFrameTime )
+		{
+			// mouse is full faded out so lets just not draw it
+			m_flOpacity = 0.0f;
+			m_flMouseFadeOutTime = 0.0f;
+		}
+		else
+		{
+			Vector2D vecReturn;
+			m_Bezier.Evaluate( clamp( (m_flMouseFadeOutTime - flCurrentFrameTime) / k_flMouseFadeTime, 0.0f, 1.0f ), vecReturn );
+			m_flOpacity = vecReturn.y;
+		}
+	}
+	else if( m_flMouseFadeInTime > flCurrentFrameTime )
+	{
+		// in the process of fading, lets scale our opacity
+		Vector2D vecReturn;
+		m_Bezier.Evaluate( clamp( 1.0 - (m_flMouseFadeInTime - flCurrentFrameTime) / k_flMouseFadeTime, 0.0f, 1.0f ), vecReturn );
+		m_flOpacity = vecReturn.y;
+	}
+	else
+	{
+		m_flOpacity = 1.0f;
+		m_flMouseFadeInTime = 0.0f;
+	}
+}
+
+
+//-----------------------------------------------------------------------------
 // Purpose: update the fade in and out times based on mouse activity, doesn't control the actual visibility of the cursor, the render thread does that
 //-----------------------------------------------------------------------------
 void CMouseCursorRender::RunFrame( Vector2D vecMousePosition, bool bInWindow, bool bMouseClicked, bool bMouseMoved, bool bGamepadActiveThisFrame, bool bKeyboardActiveThisFrame )

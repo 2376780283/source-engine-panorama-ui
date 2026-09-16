@@ -426,6 +426,16 @@ void HideHardwareCursor()
 //-----------------------------------------------------------------------------
 void ActivateCurrentCursor()
 {
+	// SE port: while a hosted panorama UI owns the mouse (CMatSystemSurface::LockCursor(), driven by
+	// CPanoramaEngineHandler::SetGameInputFlags) VGUI has to leave the cursor completely alone.  In CS:GO
+	// the cursor is per input context, so the game's context cannot clobber the UI's (vguimatsurface/
+	// Cursor.cpp:413 there); this tree has a single global cursor, and the lock is the equivalent "keep
+	// out" flag.  Without this check, IE_SetCursor -> ActivateCurrentCursor() (vguimatsurface/Input.cpp)
+	// hid the pointer again on every mouse move, because VGUI has no panorama panels and therefore keeps
+	// choosing vgui::dc_none.
+	if ( s_bCursorLocked )
+		return;
+
 	if( s_bSoftwareCursorActive )
 	{
 		HideHardwareCursor();

@@ -1302,6 +1302,55 @@ void CInputSystem::RemoveUIEventListener()
 	SE_InputProbe( "REMOVE listener -> count=%d\n", m_nUIEventClientCount );
 }
 
+
+//-----------------------------------------------------------------------------
+// SE port (CS:GO addition): the cursor side of the input system.
+//
+// panorama's Source 2 top level window maps a panel's cursor style onto one of the standard cursors and
+// hands it over here (panorama/source2/uitoplevelwindowsource2.cpp::SetMouseCursor:
+// g_pInputSystem->GetStandardCursor() + SetCursorIcon(), the PANORAMA_USE_S1WRAPPER branch).  The base
+// class only had no-op stubs that returned INPUT_CURSOR_HANDLE_INVALID, so nothing ever set a cursor and
+// a hosted panorama UI could not put a pointer on screen.  Visibility is a separate thing (that is
+// ::ShowCursor, and CS:GO leaves it to IInputStackSystem::SetCursorVisible) - the engine does it for the
+// UI in CPanoramaEngineHandler::SetGameInputFlags().
+//-----------------------------------------------------------------------------
+InputCursorHandle_t CInputSystem::GetStandardCursor( InputStandardCursor_t id )
+{
+	LPCTSTR pszCursor = IDC_ARROW;
+
+	switch ( id )
+	{
+		case INPUT_CURSOR_NONE: return INPUT_CURSOR_HANDLE_INVALID; // "no cursor" is the invalid handle
+		case INPUT_CURSOR_ARROW:       pszCursor = IDC_ARROW;       break;
+		case INPUT_CURSOR_IBEAM:       pszCursor = IDC_IBEAM;       break;
+		case INPUT_CURSOR_HOURGLASS:   pszCursor = IDC_WAIT;        break;
+		case INPUT_CURSOR_CROSSHAIR:   pszCursor = IDC_CROSS;       break;
+		case INPUT_CURSOR_WAITARROW:   pszCursor = IDC_APPSTARTING; break;
+		case INPUT_CURSOR_UP:          pszCursor = IDC_UPARROW;     break;
+		case INPUT_CURSOR_SIZE_NW_SE:  pszCursor = IDC_SIZENWSE;    break;
+		case INPUT_CURSOR_SIZE_NE_SW:  pszCursor = IDC_SIZENESW;    break;
+		case INPUT_CURSOR_SIZE_W_E:    pszCursor = IDC_SIZEWE;      break;
+		case INPUT_CURSOR_SIZE_N_S:    pszCursor = IDC_SIZENS;      break;
+		case INPUT_CURSOR_SIZE_ALL:    pszCursor = IDC_SIZEALL;     break;
+		case INPUT_CURSOR_NO:          pszCursor = IDC_NO;          break;
+		case INPUT_CURSOR_HAND:        pszCursor = IDC_HAND;        break;
+		default:                       pszCursor = IDC_ARROW;       break;
+	}
+
+	return (InputCursorHandle_t)::LoadCursor( NULL, pszCursor );
+}
+
+void CInputSystem::SetCursorIcon( InputCursorHandle_t hCursor )
+{
+	// The invalid handle means the UI wants no cursor over the panel under the mouse (INPUT_CURSOR_NONE).
+	::SetCursor( (HCURSOR)hCursor );
+}
+
+void CInputSystem::ResetCursorIcon()
+{
+	::SetCursor( NULL );
+}
+
 //-----------------------------------------------------------------------------
 // Generates LocateMouseClick messages
 //-----------------------------------------------------------------------------

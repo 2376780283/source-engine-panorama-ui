@@ -1356,6 +1356,7 @@ CSource2Surface::CSource2Surface( const char *pName )
 	m_SurfaceName = pName;
 	m_flScaleFactor = 1.0;
 	m_pCursorRender = NULL;
+	m_pSEPortCursorWindow = NULL;
 	m_flCurrentRenderFrameTime = 0.0;
 	m_flLastPaintFrameTime = 0.0;
 	m_flScaleBackbufferX = 1.0f;
@@ -2973,6 +2974,146 @@ void CSource2Surface::DrawTexturedRect( const RenderTexturedRectRenderCommand_t 
 
 
 //-----------------------------------------------------------------------------
+// Purpose: draw the panorama mouse cursor into the layer EndFrame() is still compositing
+//-----------------------------------------------------------------------------
+//
+// SE port: this is the port of CD3D10D2DSurface::DrawMouseCursor()/COpenGLSurface::DrawMouseCursor()
+// for the Source 1 material system.  It is called from EndFrame(), which runs while the outermost
+// composition layer is still open, so the cursor ends up in the frame the way CS:GO draws it.
+//
+// It only does anything for a window created with bUseCustomMouseCursor = true, because that is what
+// makes CUIRenderEngine::EndFrame() put the cursor image + hotspot into the end-frame command.  CS:GO
+// passes true only for the Steam/VR overlay windows (panorama/uitoplevelwindowoverlay.cpp); its menu and
+// HUD windows - like this port's - pass false, and then CTopLevelWindowSource2::SetMouseCursor() maps the
+// panel's cursor style onto a standard OS cursor instead (IInputSystem::GetStandardCursor/SetCursorIcon).
+//
+// Note that in a SOURCE2_PANORAMA build (CS:GO and this port alike) CMouseCursorRender is never created -
+// uitoplevelwindow.cpp:43-47 leaves m_pCursorRender null - so this path is dormant for both; it is kept
+// because it is the reference implementation the port would need if a custom cursor ever gets wanted.
+//
+// The cursor texture is one of panorama/images/cursors/{arrow,ibeam,hand}, loaded by
+// CMouseCursorTexture; the position in surface space, the fade opacity and the visibility all come
+// from CMouseCursorRender, which the window updates every frame from the main thread.
+//-----------------------------------------------------------------------------
+void CSource2Surface::DrawMouseCursor( const EndFrameRenderCommand_t &renderCommand )
+{
+	if ( !m_pCursorRender )
+		return;
+
+	// Pump the render side of the cursor state.  When the window handle is known this is exactly what the
+	// other back ends do - the cursor follows the hardware position, which is also what makes the pointer
+	// track the mouse when the input events themselves are not reaching the UI yet.  Without it (before
+	// CTopLevelWindowSource2::RenderWindow() has handed it over) fall back to the position the input engine
+	// gave the window - see mousecursor.h.
+	if ( m_pSEPortCursorWindow )
+	{
+#if defined( WIN32 )
+		m_pCursorRender->RunRenderFrame( (HWND)m_pSEPortCursorWindow, Plat_FloatTime(), GetSurfaceWidth(), GetSurfaceHeight(), m_bEnforceAspectRatio );
+#elif defined( POSIX )
+		m_pCursorRender->RunRenderFrame( (SDL_Window *)m_pSEPortCursorWindow, Plat_FloatTime(), GetSurfaceWidth(), GetSurfaceHeight(), m_bEnforceAspectRatio );
+#endif
+	}
+	else
+	{
+		m_pCursorRender->RunRenderFrameFromMainThreadPosition( Plat_FloatTime() );
+	}
+
+	if ( !m_pCursorRender->BCursorVisible() || m_stackCompositionLayers.Count() == 0 )
+		return;
+
+	IUITexture *pTexture = renderCommand.mouse_cursor_texture.GetTexture();
+	if ( !pTexture || !pTexture->BIsReady() )
+		return;
+
+	CSource2CompositionLayer *pLayer = m_stackCompositionLayers[ m_stackCompositionLayers.Count() - 1 ];
+	if ( !pLayer->BIsDrawing() )
+		return;
+
+	HRenderTexture hRenderTexture = RENDER_TEXTURE_HANDLE_INVALID;
+	float flOriginalWidthScale = 1.0f;
+	float flOriginalHeightScale = 1.0f;
+	CSource2UITexture *pSource2UITexture = dynamic_cast< CSource2UITexture * >( pTexture );
+	if ( pSource2UITexture )
+	{
+		hRenderTexture = pSource2UITexture->GetTextureHandle();
+		flOriginalWidthScale = pSource2UITexture->GetOriginalWidthScale();
+		flOriginalHeightScale = pSource2UITexture->GetOriginalHeightScale();
+
+#ifdef PANORAMA_USE_S1WRAPPER
+#ifdef PANORAMA_S1_NPO2_NO_TEXCOORDSCALE
+		flOriginalWidthScale = 1.0f;
+		flOriginalHeightScale = 1.0f;
+#endif
+#endif
+	}
+	else
+	{
+		CSource2DoubleBufferedTexture *pSource2DoubleBufferedTexture = dynamic_cast< CSource2DoubleBufferedTexture * >( pTexture );
+		if ( pSource2DoubleBufferedTexture )
+			hRenderTexture = pSource2DoubleBufferedTexture->GetTextureHandle();
+	}
+
+	if ( hRenderTexture == RENDER_TEXTURE_HANDLE_INVALID )
+		return;
+
+	const float flOpacity = m_pCursorRender->GetCursorOpacity();
+	Vector2D pt = m_pCursorRender->GetRenderCursorPosition();
+
+	const float flCursorWidth = pTexture->GetOriginalWidth() * GetWindowScaleFactor();
+	const float flCursorHeight = pTexture->GetOriginalHeight() * GetWindowScaleFactor();
+
+	// the hotspot is the normalised (0..1) point of the image that sits under the pointer
+	pt.x -= renderCommand.mouse_cursor_hotspot.x * flCursorWidth;
+	pt.y -= renderCommand.mouse_cursor_hotspot.y * flCursorHeight;
+
+	FancyQuadParameters_t FancyParam( 0 );
+	FancyParam.m_flZ = 0.0f;
+	FancyParam.m_flVertexMin[ 0 ] = pt.x;
+	FancyParam.m_flVertexMin[ 1 ] = pt.y;
+	FancyParam.m_flVertexMax[ 0 ] = pt.x + flCursorWidth;
+	FancyParam.m_flVertexMax[ 1 ] = pt.y + flCursorHeight;
+	FancyParam.m_flTexCoordMin[ 0 ] = 0.0f;
+	FancyParam.m_flTexCoordMin[ 1 ] = 0.0f;
+	FancyParam.m_flTexCoordMax[ 0 ] = flOriginalWidthScale;
+	FancyParam.m_flTexCoordMax[ 1 ] = flOriginalHeightScale;
+
+	// A solid white brush scaled by the cursor opacity.  The colour the quad tool takes is
+	// premultiplied, and at the normal opacity of 1 this is plain white - so it is right for both
+	// premultiplied and straight alpha cursor images (the fade then rides on the alpha).
+	FillBrush_t brush;
+	V_memset( &brush, 0, sizeof( brush ) );
+	brush.eFillBrushType = k_EFillBrushType_Color;
+	brush.color_rgba = 0xFFFFFFFF;
+	brush.opacity = flOpacity;
+
+	FancyQuadBrush_t FancyBrush;
+	SetFancyQuadFillBrush( FancyBrush, brush, 0.0f, 0.0f );
+
+	FancyQuadDraw_t fancyQuadDraw;
+	fancyQuadDraw.m_hTexture0 = hRenderTexture;
+	fancyQuadDraw.m_flTexture0TexCoordScale[ 0 ] = 1.0f;
+	fancyQuadDraw.m_flTexture0TexCoordScale[ 1 ] = 1.0f;
+	fancyQuadDraw.m_nWide = pLayer->GetWidth();
+	fancyQuadDraw.m_nTall = pLayer->GetHeight();
+	fancyQuadDraw.m_pQuadParameters = &FancyParam;
+	fancyQuadDraw.m_pQuadBrush = &FancyBrush;
+	fancyQuadDraw.m_flTextureWidth = pTexture->GetOriginalWidth();
+	fancyQuadDraw.m_flTextureHeight = pTexture->GetOriginalHeight();
+	fancyQuadDraw.m_bTexIsNotPremul = pTexture->GetAlphaChannelType() != k_EAlphaChannelType_PreMultiplied;
+	fancyQuadDraw.m_bClipToLayer = true;
+	fancyQuadDraw.m_pVMatrix = pLayer->AccessPushedMatrix();
+
+	DrawFancyQuad( &fancyQuadDraw );
+
+	// put the layer back into its normal state, exactly like the end of DrawTexturedRect does
+	if ( m_stackCompositionLayers.Count() == 1 )
+		pLayer->PushCliplayersAndBeginDraw( m_flScaleBackbufferX, m_flScaleBackbufferY, m_flTranslateBackbufferX, m_flTranslateBackbufferY );
+	else
+		pLayer->PushCliplayersAndBeginDraw( 1.0f, 1.0f, 0.0f, 0.0f );
+}
+
+
+//-----------------------------------------------------------------------------
 // Purpose: Set up a FancyQuadBrush parameter structure from a FillBrush_t
 //-----------------------------------------------------------------------------
 void CSource2Surface::SetFancyQuadFillBrush( FancyQuadBrush_t &FancyBrush, const FillBrush_t &brush, float offsetx, float offsety )
@@ -4016,18 +4157,13 @@ void CSource2Surface::EndFrame( const EndFrameRenderCommand_t &renderCommand )
 		pLayer->ActivateRenderTarget();
 
 		// render the mouse cursor into the main FBO
-#if 0
-		int32 nMouseTextureID = 0;
-		if ( renderMsg.BodyConst().has_mouse_cursor_texture_id() )
-			nMouseTextureID = renderCommand.BodyConst().mouse_cursor_texture_id();
-		if ( nMouseTextureID != 0 )
-		{
-			Vector2D ptHotspot;
-			ptHotspot.x = renderCommand.BodyConst().mouse_cursor_hotspot_x();
-			ptHotspot.y = renderCommand.BodyConst().mouse_cursor_hotspot_y();
-			DrawMouseCursor( nMouseTextureID, ptHotspot );
-		}
-#endif
+		//
+		// SE port: this used to be compiled out, because the Source2 code below reads the cursor texture
+		// and hotspot out of the render message protobuf (renderMsg.BodyConst()...), which this tree's
+		// render command list does not have.  It carries the same information as plain members instead
+		// (EndFrameRenderCommand_t::mouse_cursor_texture / mouse_cursor_hotspot, filled in by
+		// CUIRenderEngine::EndFrame()) - see CSource2Surface::DrawMouseCursor.
+		DrawMouseCursor( renderCommand );
 
 		if ( s_convarPanoramaRenderStats.GetBool() )
 		{
