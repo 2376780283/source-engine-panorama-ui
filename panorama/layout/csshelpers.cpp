@@ -1693,6 +1693,22 @@ bool CSSHelpers::BParseNamedColor( Color *pColor, const char *pchString, const c
 		if ( nCompareResult == 0 )
 		{
 			*pColor = s_namedColors[ iMid ].color;
+
+			// SE port: the table above is written for CS:GO's Color class, where Color( r, g, b ) leaves the
+			// alpha at 255 (D:\CSGO2019\public\color.h: "void SetColor( int _r, int _g, int _b, int _a = 255 )").
+			// This tree compiles the same table against Source 1's Color, whose alpha defaults to *zero*
+			// (public/Color.h: "void SetColor(int _r, int _g, int _b, int _a = 0)"), so every named colour
+			// came out fully transparent.
+			//
+			// That is not a theoretical difference: csgostyles.css styles the button labels of the generic
+			// popup with "color: White" (.PopupButton Label), and with the transparent white the labels laid
+			// the text out at the right size but painted nothing at all - "the popup buttons have no text".
+			// Named colours are opaque per CSS Color 4; the only exception is the table's "transparent" entry.
+			if ( V_strcmp( s_namedColors[ iMid ].pszName, "transparent" ) != 0 )
+			{
+				pColor->SetColor( pColor->r(), pColor->g(), pColor->b(), 255 );
+			}
+
 			if ( pchAfterParse )
 				*pchAfterParse = pchAfterIdentifier;
 			return true;
