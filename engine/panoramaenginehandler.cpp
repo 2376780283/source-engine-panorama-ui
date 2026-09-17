@@ -254,6 +254,28 @@ bool SE_PortHandlePanoramaEscape()
 }
 
 //-----------------------------------------------------------------------------
+// SE port (settings keyboard binder): CS:GO's input route gives the key binder the raw event before
+// anything else (keys.cpp::PanoramaHandleInputEvent -> g_ClientDLL->HandleBindWidgetInputCapture).
+// The implementation is in panoramauiclient.dll (panoramauiclient/se_keybinder.cpp); same
+// GetProcAddress bridge as SE_PortHandlePanoramaEscape above.
+//-----------------------------------------------------------------------------
+bool SE_PortHandleKeyBinderInput( const InputEvent_t &inputEvent )
+{
+	typedef bool ( *SEPortKeyBinderInputFn )( const InputEvent_t & );
+	static SEPortKeyBinderInputFn s_pfnSEKeyBinderInput = NULL;
+	static bool s_bSEKeyBinderResolved = false;
+	if ( !s_bSEKeyBinderResolved )
+	{
+		s_bSEKeyBinderResolved = true;
+		HMODULE hPanoramaModule = GetModuleHandleA( "panoramauiclient.dll" );
+		if ( hPanoramaModule )
+			s_pfnSEKeyBinderInput = (SEPortKeyBinderInputFn)GetProcAddress( hPanoramaModule, "SE_PortKeyBinderHandleInputEvent" );
+	}
+
+	return ( s_pfnSEKeyBinderInput != NULL ) && s_pfnSEKeyBinderInput( inputEvent );
+}
+
+//-----------------------------------------------------------------------------
 // LessFunc for rendering view order
 //-----------------------------------------------------------------------------
 bool CPanoramaEngineHandler::ViewPriorityOrder( CPanoramaEngineHandler::ViewEntry_t const &lhs, CPanoramaEngineHandler::ViewEntry_t const &rhs, void *pCtx )

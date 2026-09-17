@@ -1145,7 +1145,9 @@ template <> void V8ParamToPanoramaType< IUIPanel * >( const v8::Handle<v8::Value
 	}
 }
 
-#ifndef PANORAMA_EXPORTS
+// SE port fix (2026-09-16): these definitions used to be inside #ifndef PANORAMA_EXPORTS.  Since every
+// panorama module of this port is built with that define, they were compiled nowhere and JavaScript
+// panel arguments hit the primary template (a no-op) instead - see the note in public/panorama/uievent.h.
 template <> void V8ParamToPanoramaType< CPanel2D * >( const v8::Handle<v8::Value> &pValueIn, CPanel2D **out )
 {
 	IUIPanel *pUIPanelOut = NULL;
@@ -1161,7 +1163,6 @@ template <> void V8ParamToPanoramaType< const CPanel2D * >( const v8::Handle<v8:
 
 	*out = pUIPanelOut ? (CPanel2D*)pUIPanelOut->ClientPtr() : NULL;
 }
-#endif 
 
 
 

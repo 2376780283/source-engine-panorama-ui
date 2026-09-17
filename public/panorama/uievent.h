@@ -330,10 +330,15 @@ template <> void V8ParamToPanoramaType< uint64 >( const v8::Handle<v8::Value> &p
 template <> void V8ParamToPanoramaType< bool >( const v8::Handle<v8::Value> &pValueIn, bool *out );
 template <> void V8ParamToPanoramaType< IUIPanel * >( const v8::Handle<v8::Value> &pValueIn, IUIPanel **out );
 template <> void V8ParamToPanoramaType< IUIWindow * >( const v8::Handle<v8::Value> &pValueIn, IUIWindow **out );
-#ifndef PANORAMA_EXPORTS
+// SE port fix (2026-09-16): these two used to sit inside #ifndef PANORAMA_EXPORTS (CS:GO defines that
+// only for the framework DLL and lets the client module provide the definitions).  Every panorama
+// module of this port is built WITH PANORAMA_EXPORTS, so the specialisations were compiled nowhere and
+// each JavaScript call taking a panel argument resolved to the primary template above - which does
+// nothing - leaving the C++ parameter uninitialised.  settingsmenu_gamesettings.js's
+// clanTagDropdown.AddOption( optionLabel ) was the first one to crash on it (CDropDownMenu::AddOption,
+// dropdown.cpp:616, access at address 4); the layout's MoveChildBefore warnings were the same bug.
 template <> void V8ParamToPanoramaType< CPanel2D * >( const v8::Handle<v8::Value> &pValueIn, CPanel2D **out );
 template <> void V8ParamToPanoramaType< const CPanel2D * >( const v8::Handle<v8::Value> &pValueIn, const CPanel2D **out );
-#endif
 template <> void V8ParamToPanoramaType< IUIPanelStyle * >( const v8::Handle<v8::Value> &pValueIn, IUIPanelStyle **out );
 #ifdef PANORAMA_EXPORTS
 template <> void V8ParamToPanoramaType< CPanelStyle * >( const v8::Handle<v8::Value> &pValueIn, CPanelStyle **out );

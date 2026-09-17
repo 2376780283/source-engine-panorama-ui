@@ -755,6 +755,15 @@ bool PanoramaHandleInputEvent( const InputEvent_t &event )
 		return false;
 	}
 
+	// SE port (settings keyboard binder): CS:GO asks its client DLL first
+	// (g_ClientDLL->HandleBindWidgetInputCapture), because an armed CSGOSettingsKeyBinder has to
+	// swallow the raw event - otherwise the key it is being bound to also reaches the game.  Here the
+	// same code lives in panoramauiclient.dll; the call is a no-op unless a binder row is armed.
+	if ( SE_PortHandleKeyBinderInput( event ) )
+	{
+		return true;
+	}
+
 	InputEvent_t ev2 = event;
 	ev2.m_hWnd = (PlatWindow_t)game->GetMainWindow();
 	if ( PanoramaEngineHandler().ProcessUserInput( ev2 ) )

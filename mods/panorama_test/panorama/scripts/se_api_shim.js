@@ -334,6 +334,126 @@
 	seDefine("MyPersonaAPI.HasPrestige", function () { return false; });
 	seDefine("MyPersonaAPI.GetCurrentLevel", function () { return 2; });
 
+	// The player card / friend tiles assign the value of MyPersonaAPI.GetXuid() straight into the
+	// avatar panel:
+	//
+	//     avatar.js::_SetImage -> elImage.steamid = xuid      (CSGOAvatarImage's "steamid" accessor)
+	//
+	// A placeholder function object would reach that C++ string setter, where "[]" (the stub's
+	// toString) is not a usable id, and every card would fall back to the same picture.  Answering a
+	// real-looking 64-bit id keeps the JS contract ("xuid is a string of digits") intact and makes the
+	// avatar path deterministic:
+	//
+	//     materials/panorama/images/avatars/76561198000000001.png   <- this account's avatar
+	//     materials/panorama/images/avatars/local.png               <- everyone else
+	//
+	// (The port's CSGOAvatarImage never talks to Steam; it looks for a file, see
+	// panorama/seport/gameclient/cstrike15/panorama/csgo_avatarimage.cpp.)
+	seDefine("MyPersonaAPI.GetXuid", function () { return "76561198000000001"; });
+	seDefine("MyPersonaAPI.GetAccountID", function () { return 12345678; });
+
+	// ------------------------------------------------------------------------------------------
+	// The player card (layout/playercard.xml, loaded by friendslist.js into the top of the sidebar
+	// and by context_menu_playercard.js) reads a whole profile through FriendsListAPI/InventoryAPI.
+	// Every call below answers a stub object unless it is defined here, and a stub object is caught
+	// three different ways by playercard.js:
+	//
+	//   * "elNameLabel.text = FriendsListAPI.GetFriendName( xuid )" - the name label ends up with
+	//     "[object ...]" (or the assignment throws), i.e. the card has an avatar and no name;
+	//   * "if ( !flairItems )" - a truthy count walks into a loop that builds one <Image> per entry,
+	//     each with src "file://{images_econ}[]_small.png": a picture that cannot load;
+	//   * "!teamName || !tournamentName" - both truthy, so the card shows the team/tournament row
+	//     with an image path built from "undefined" and a label set to an object.
+	//
+	// So the answers here are the local profile this port can actually have: a name, level 2 (the
+	// same level MyPersonaAPI.GetCurrentLevel() reports), and "0 / empty" for everything that is
+	// econ-backed.  The zeroes are not placeholders - they are what makes playercard.js take its
+	// "hide this row" branch instead of building a broken image.
+	//
+	// NOTE: this content version hides the level/XP/rank rows itself (playercard.js: _SetRank(),
+	// _SetAllSkillGroups() and _SetPrimeUpsell() all begin with "addClass('hidden'); return;"), so
+	// those are not missing data down here - CS:GO does not show them either.  What is left to fill
+	// is the name.
+	var SE_LOCAL_PLAYER_NAME = "本地玩家";
+	seDefine("FriendsListAPI.GetFriendName", function (xuid) { return SE_LOCAL_PLAYER_NAME; });
+	seDefine("FriendsListAPI.GetFriendLevel", function (xuid) { return 2; });
+	seDefine("FriendsListAPI.GetFriendXp", function (xuid) { return 0; });
+	// 0 display items -> playercard.js hides the flair carousel instead of building images from the
+	// econ tree, which this port has no images for.
+	seDefine("FriendsListAPI.GetFriendDisplayItemDefCount", function (xuid) { return 0; });
+	seDefine("FriendsListAPI.GetFriendDisplayItemDefFeatured", function (xuid) { return 0; });
+	seDefine("FriendsListAPI.GetFriendDisplayItemDefByIndex", function (xuid, i) { return 0; });
+	// no rank data -> -1 is "still loading" to playercard.js, 0 wins keeps it out of the win texts.
+	seDefine("FriendsListAPI.GetFriendCompetitiveRank", function (xuid, type) { return -1; });
+	seDefine("FriendsListAPI.GetFriendCompetitiveWins", function (xuid, type) { return 0; });
+	seDefine("FriendsListAPI.GetFriendMedalRankByType", function (xuid, type) { return 0; });
+	// 1 commendation of each kind -> the three thumbs stay visible with a count in the label (0 would
+	// hide them; the generic stub object made them visible but put an object where the count goes).
+	seDefine("FriendsListAPI.GetFriendCommendations", function (xuid, key) { return 1; });
+	// prime badge: shown (the generic stub made it show too, so this keeps the card the user is used to).
+	seDefine("FriendsListAPI.GetFriendPrimeEligible", function (xuid) { return true; });
+	seDefine("FriendsListAPI.GetFriendRelationship", function (xuid) { return "friend"; });
+	seDefine("FriendsListAPI.GetFriendStatusBucket", function (xuid) { return ""; });
+	seDefine("FriendsListAPI.GetFriendStatus", function (xuid) { return ""; });
+
+	// "0" is the item id this port uses for "no item"; GetItemInventoryImage("") makes the callers
+	// build "file://{images_econ}_small.png" no more - see _SetPlayerBackground/_MakeFlairCarouselPages.
+	seDefine("InventoryAPI.GetFauxItemIDFromDefAndPaintIndex", function (def, paint) { return "0"; });
+	seDefine("InventoryAPI.GetItemInventoryImage", function (itemid) { return ""; });
+	seDefine("InventoryAPI.GetItemName", function (itemid) { return ""; });
+	seDefine("InventoryAPI.GetItemRarityColor", function (itemid) { return ""; });
+	seDefine("InventoryAPI.GetFlairItemId", function (xuid) { return "0"; });
+	seDefine("InventoryAPI.GetMaxLevel", function () { return 40; });
+
+	// -1 = "no rank for this type", which is also what keeps MyPersonaAPI.GetPipRankWins( "Competitive" )
+	// from opening the skill-group block in _FillOutFriendCard().
+	seDefine("MyPersonaAPI.GetPipRankWins", function (type) { return -1; });
+	seDefine("MyPersonaAPI.GetXpPerLevel", function () { return 5000; });
+	seDefine("MyPersonaAPI.GetLauncherType", function () { return "steam"; });
+	// empty team/tournament -> the card hides its "official team" row instead of showing "undefined".
+	seDefine("MyPersonaAPI.GetMyOfficialTeamName", function () { return ""; });
+	seDefine("MyPersonaAPI.GetMyOfficialTeamTag", function () { return ""; });
+	seDefine("MyPersonaAPI.GetMyOfficialTournamentName", function () { return ""; });
+
+	// avatar.js::_SetTeamColor -> PartyListAPI.GetPartyMemberSetting( xuid, 'game/teamcolor' ):
+	// a number (not "") keeps the team colour triangle on the avatar - TeamColor.GetTeamColor() maps
+	// 1..4 to an RGB triple.  A stub object here produced a wash colour built from "undefined".
+	seDefine("PartyListAPI.GetPartyMemberSetting", function (xuid, key) { return 1; });
+
+	// ------------------------------------------------------------------------------------------
+	// No lobby, no party - which in this build is the truth (there is no GC connection, and the
+	// friends/party data is local).
+	//
+	// This matters far more than it looks: party.js::_IsSessionActive() asks LobbyAPI.IsSessionActive()
+	// on startup, and with a *truthy* placeholder it believes the player is in a party.  The friends
+	// sidebar then switches from the local player card to the party member list:
+	//
+	//     party.js::_UpdateMembersList() -> $('#PartyList').RemoveClass('hidden')
+	//                                   -> friendsList.HideLocalPlayer( true )   // collapses your card
+	//
+	// i.e. the player card (the panel the top-right avatar lives in) is hidden, its avatar is never
+	// laid out - the card area shows the party UI instead, with counts built from more placeholders
+	// ("[]/5").  Answering "no session" here makes the script take its own early-out, which is also the
+	// path that *shows* the card again: HideLocalPlayer( false ).
+	//
+	// (See docs/csgo_panorama_port_pitfalls.md: a truthy stub is not a neutral value - it picks the
+	// branch that says "the game has data".)
+	seDefine("LobbyAPI.IsSessionActive", function () { return false; });
+	seDefine("LobbyAPI.BIsHost", function () { return false; });
+	seDefine("LobbyAPI.GetHostSteamID", function () { return ""; });
+	// GetCount() is what fills the "N/5" party label; with no session the party block stays hidden, but
+	// answer a number anyway so any other caller gets a number and not an object.
+	seDefine("PartyListAPI.GetCount", function () { return 1; });
+	seDefine("PartyListAPI.GetPartySessionUiThreshold", function () { return 5; });
+	seDefine("PartyListAPI.GetXuidByIndex", function (i) { return i === 0 ? "76561198000000001" : "0"; });
+	// avatar.js::_UpdateTalkingState polls this while the avatar is shown.
+	seDefine("PartyListAPI.GetFriendIsTalking", function (xuid) { return false; });
+	seDefine("SessionUtil.GetMaxLobbySlotsForGameMode", function (mode) { return 5; });
+	seDefine("SessionUtil.GetNumWinsNeededForRank", function (type) { return 10; });
+	// no medal data at all -> the medals block loops zero times.
+	seDefine("MedalsAPI.GetAchievementMedalTypesCount", function () { return 0; });
+	seDefine("MyPersonaAPI.GetAccountID", function () { return 12345678; });
+
 	// The persona/competitive answers that decide whether CS:GO throws a *modal window at the player*
 	// whose buttons include "Quit".  Every one of them sits behind a truthiness test in mainmenu.js,
 	// so the generic stub object turns "this port has no data" into "there is a problem", and the

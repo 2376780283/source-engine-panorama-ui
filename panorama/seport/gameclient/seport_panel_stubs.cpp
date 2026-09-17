@@ -203,69 +203,6 @@ CSEPortStub_ItemPreviewDebug::CSEPortStub_ItemPreviewDebug( CPanel2D *pParent, c
 }
 
 // ============================================================================
-// CSGOAvatarImage  (CS:GO: CCSGO_AvatarImage + CCSGO_AvatarImageMgr)
-// ============================================================================
-REGISTER_PANEL2D_FACTORY( CSEPortStub_CSGOAvatarImage, CSGOAvatarImage )
-
-CSEPortStub_CSGOAvatarImage::CSEPortStub_CSGOAvatarImage( CPanel2D *pParent, const char *pchID )
-: BaseClass( pParent, pchID )
-{
-}
-
-bool CSEPortStub_CSGOAvatarImage::BSetProperty( CPanoramaSymbol symName, const char *pchValue )
-{
-	static const CPanoramaSymbol k_symDefaultSrc( "defaultsrc" );
-	static const CPanoramaSymbol k_symScaling( "scaling" );
-	static const char *s_pchSwallowed[] = { "steamid", "accountid", "notifyavatarloaded" };
-
-	// "defaultsrc" is the art to show while the Steam avatar loads - and that is all this stub ever
-	// shows, so honour it by asking the base image panel for that image.
-	if ( symName == k_symDefaultSrc )
-	{
-		SetImage( pchValue );
-		return true;
-	}
-
-	if ( symName == k_symScaling )
-	{
-		SetScaling( CPanoramaSymbol( pchValue ) );
-		return true;
-	}
-
-	if ( SE_PortStubIsProperty( symName, s_pchSwallowed, V_ARRAYSIZE( s_pchSwallowed ) ) )
-		return true;
-
-	return BaseClass::BSetProperty( symName, pchValue );
-}
-
-void CSEPortStub_CSGOAvatarImage::SetupJavascriptObjectTemplate()
-{
-	BaseClass::SetupJavascriptObjectTemplate();
-
-	RegisterJSAccessor( "steamid", PANORAMA_DELEGATE( &CSEPortStub_CSGOAvatarImage::JSGetSteamID ), PANORAMA_DELEGATE( &CSEPortStub_CSGOAvatarImage::JSSetSteamID ) );
-	RegisterJSAccessor( "accountid", PANORAMA_DELEGATE( &CSEPortStub_CSGOAvatarImage::JSGetAccountID ), PANORAMA_DELEGATE( &CSEPortStub_CSGOAvatarImage::JSSetAccountID ) );
-
-	RegisterJSMethod( "Clear", PANORAMA_DELEGATE( &CSEPortStub_CSGOAvatarImage::Clear ) );
-	RegisterJSMethod( "SetNotifiyAvatarLoaded", PANORAMA_DELEGATE( &CSEPortStub_CSGOAvatarImage::SetNotifyAvatarLoaded ) );
-	RegisterJSMethod( "SetDefaultImage", PANORAMA_DELEGATE( &CSEPortStub_CSGOAvatarImage::SetDefaultImage ) );
-}
-
-void CSEPortStub_CSGOAvatarImage::SetDefaultImage( const char *pchImageURL )
-{
-	SetImage( pchImageURL );
-}
-
-CUtlString CSEPortStub_CSGOAvatarImage::JSGetSteamID() const
-{
-	return CUtlString( "" );
-}
-
-CUtlString CSEPortStub_CSGOAvatarImage::JSGetAccountID() const
-{
-	return CUtlString( "" );
-}
-
-// ============================================================================
 // CSGOChat  (CS:GO: CCSGO_Chat + the friends list / lobby UI components)
 // ============================================================================
 REGISTER_PANEL2D_FACTORY( CSEPortStub_CSGOChat, CSGOChat )

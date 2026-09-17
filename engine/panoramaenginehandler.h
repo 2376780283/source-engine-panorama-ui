@@ -205,4 +205,12 @@ bool SE_PortIsPanoramaMenuActive();
 // is the GameUI (the "task B" item) this can move back where CS:GO has it.
 bool SE_PortHandlePanoramaEscape();
 
+// SE port (settings keyboard binder): CS:GO's engine/keys.cpp::PanoramaHandleInputEvent() first calls
+// g_ClientDLL->HandleBindWidgetInputCapture( event ) - while a CSGOSettingsKeyBinder row is armed, the
+// binder swallows the raw key/mouse event so the key cannot also reach the game.  This port has no CS:GO
+// client DLL, but the same code is in panoramauiclient.dll, so this forwards to its
+// SE_PortKeyBinderHandleInputEvent() export.  Returns true when the event was consumed; false (also when
+// no binder is armed) lets the engine carry on.  Implemented in engine/panoramaenginehandler.cpp.
+bool SE_PortHandleKeyBinderInput( const InputEvent_t &inputEvent );
+
 #endif // PANORAMAENGINEHANDLER_H

@@ -116,31 +116,6 @@ public:
 };
 
 //-----------------------------------------------------------------------------
-// Purpose: a player avatar.  CS:GO: CCSGO_AvatarImage, type "CSGOAvatarImage".  The real class asks
-//          IAvatarImageMgr / ISteamFriends for the Steam avatar; this stub is an image panel that
-//          displays the default art the content supplies ("defaultsrc", SetDefaultImage( ... )).
-//-----------------------------------------------------------------------------
-class CSEPortStub_CSGOAvatarImage : public panorama::CImagePanel
-{
-	DECLARE_PANEL2D( CSEPortStub_CSGOAvatarImage, panorama::CImagePanel );
-
-public:
-	CSEPortStub_CSGOAvatarImage( panorama::CPanel2D *pParent, const char *pchID );
-
-	virtual bool BSetProperty( panorama::CPanoramaSymbol symName, const char *pchValue ) OVERRIDE;
-	virtual void SetupJavascriptObjectTemplate() OVERRIDE;
-
-	void SetDefaultImage( const char *pchImageURL );
-	void Clear() {}						// the avatar is never loaded, so there is nothing to unload
-	void SetNotifyAvatarLoaded( bool ) {}
-
-	CUtlString JSGetSteamID() const;
-	void JSSetSteamID( CUtlString ) {}
-	CUtlString JSGetAccountID() const;
-	void JSSetAccountID( CUtlString ) {}
-};
-
-//-----------------------------------------------------------------------------
 // Purpose: the party chat container.  CS:GO: CCSGO_Chat, type "CSGOChat".  It needs the matchmaking
 //          framework and the friends-list/lobby UI components, so it is a container here.
 //-----------------------------------------------------------------------------
