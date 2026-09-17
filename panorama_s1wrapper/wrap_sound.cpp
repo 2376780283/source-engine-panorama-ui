@@ -246,17 +246,22 @@ public:
 
 IAudioOutputStream	*CSoundSystem::CreateOutputStream( uint nSampleRate, uint nChannels, uint nBits )
 {
-	// SE port TODO: this engine's IEngineSound has no output-stream API (CS:GO added it for
-	// the video player's audio).  Returning NULL disables video sound for now.
-	( void )nSampleRate;
-	( void )nChannels;
-	( void )nBits;
-	return NULL;
+	// SE port: the engine side lives in engine/audio/snd_outputstream.cpp and is reached through
+	// IEngineSound::CreateOutputStream() (appended to public/engine/IEngineSound.h); the mixer picks
+	// the stream up from MIX_PaintChannels().  Kept as a thin forwarder so the wrapper stays a shim.
+	if ( !g_pEnginesound )
+	{
+		Warning( "SE port: CreateOutputStream() with no engine sound system\n" );
+		return NULL;
+	}
+	return g_pEnginesound->CreateOutputStream( nSampleRate, nChannels, nBits );
 }
 
 void CSoundSystem::DestroyOutputStream( IAudioOutputStream *pOutputStream )
 {
-	( void )pOutputStream;
+	if ( !g_pEnginesound || !pOutputStream )
+		return;
+	g_pEnginesound->DestroyOutputStream( pOutputStream );
 }
 
 CSoundSystem g_SoundSystem;

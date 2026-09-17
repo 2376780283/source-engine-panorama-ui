@@ -5,7 +5,11 @@
 
 #include "stdafx.h"
 #include "uifontfileloaderwin32.h"
-#include "uienginewin32.h"
+// SE port: CS:GO included "uienginewin32.h" here, which drags in D3D10/D3D11/D2D/OpenVR (that is
+// one of the reasons the win32 text files are $ExcludedFromBuild in panorama.vpc).  This TU
+// references no symbol from it.
+#include "filesystem.h"     // SE port: g_pFullFileSystem->ReadFile() replaces the LoadFileIntoBuffer() global
+#include "valvefont.h"     // SE port: ValveFont::DecodeFont() - common/valvefont.h
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include <tier0/memdbgon.h>
@@ -43,7 +47,24 @@ UIFontFileStream::UIFontFileStream( int iIdentifier ) :
 	}
 	else
 	{
-		m_bFileLoaded = LoadFileIntoBuffer( pIdentifier->symFontFileOrPackage.String(), m_bufFileData, false );
+		// SE port: CS:GO's build got LoadFileIntoBuffer() from the Steam client UI; here the
+		// engine's file system provides the same thing.  The path is absolute by the time it gets
+		// here - CUIEngine::RegisterCustomFontPath() resolves it with RelativePathToFullPath() and
+		// CBaseFileSystem opens absolute paths directly.
+		m_bufFileData.SetBufferType( false, false );
+		m_bFileLoaded = g_pFullFileSystem->ReadFile( pIdentifier->symFontFileOrPackage.String(), NULL, m_bufFileData );
+
+		// SE port: CS:GO ships its Panorama fonts as Valve Font containers ("*.vfont", see
+		// common/valvefont.h - a SimpleCodec-obfuscated TTF followed by a "VFONT1" tag), which its
+		// Windows build registered through the pango/fontconfig loader.  This port's text backend
+		// is DirectWrite, so the container is decoded here and DWrite gets the TrueType data.
+		if ( m_bFileLoaded && V_striEndsWith( pIdentifier->symFontFileOrPackage.String(), ".vfont" ) )
+		{
+			m_bFileLoaded = ValveFont::DecodeFont( m_bufFileData );
+			if ( !m_bFileLoaded )
+				Warning( "UIFontFileStream: failed to decode Valve Font container \"%s\"\n",
+						 pIdentifier->symFontFileOrPackage.String() );
+		}
 	}
 }
 
@@ -427,7 +448,9 @@ HRESULT STDMETHODCALLTYPE UIFontFileEnumerator::MoveNext( OUT BOOL* hasCurrentFi
 			{
 				if ( !m_pDirIterator->BCurrentIsDir() )
 				{
-					if( V_stristr( m_pDirIterator->CurrentFileName(), ".ttf" ) != NULL || V_stristr( m_pDirIterator->CurrentFileName(), ".otf" ) != NULL )
+					// SE port: ".vfont" (the Valve Font containers CS:GO's Windows content actually ships)
+					// is handled exactly like a loose .ttf/.otf here; UIFontFileStream decodes it.
+					if( V_stristr( m_pDirIterator->CurrentFileName(), ".ttf" ) != NULL || V_stristr( m_pDirIterator->CurrentFileName(), ".otf" ) != NULL || V_stristr( m_pDirIterator->CurrentFileName(), ".vfont" ) != NULL )
 					{
 						CUtlString strFullPath = m_strFontPath;
 						strFullPath += m_pDirIterator->CurrentFileName();

@@ -202,6 +202,100 @@ ConVar s_convarPanoramaFBOAllocBatch( "@panorama_fbo_alloc_batch", "10");
 
 ConVar s_convarPanoramaDisableBlur( "@panorama_disable_blur", "0", FCVAR_DEVELOPMENTONLY | FCVAR_CHEAT );
 ConVar s_convarPanoramaDisableBoxShadow( "@panorama_disable_box_shadow", "0", FCVAR_DEVELOPMENTONLY | FCVAR_CHEAT );
+
+//-----------------------------------------------------------------------------
+// SE port: the backdrop blur ("blurrects", CS:GO's CSGOBlurTarget).
+//
+// CS:GO renders every composition layer into its own render target, so the blur passes can sample
+// "what is behind the UI" out of the layer's own texture.  This port draws layer content straight
+// into the parent target, so the passes sampled a texture nothing had written - measured on the stock
+// main menu: with them enabled the screen filled with the texture wrapper's error texture (the magenta
+// checkerboard) or the content got painted over.
+//
+// 2026-09-16: the per-layer render targets landed (PushCompositingLayer/ActivateRenderTargetAndClear,
+// commit 44c35c1e), and the CS:GO main menu is unusable without this path - the backdrop panels
+// (#MainMenuCore / #MainMenuBackground, both CSGOBlurTarget) are what blur *and darken* the video
+// behind the UI.  Skipping the passes leaves the raw, bright video on screen, which is the washed-out
+// white look ("泛白"), while enabling them produced the magenta checkerboard.  This is now the
+// experiment that decides which half is still missing; the convar stays as the explicit override.
+//-----------------------------------------------------------------------------
+// Skipped by default again: with the passes on, the fast-gaussian backdrop path (the two 1280x699
+// CSGOBlurTarget layers, "fastgaussian( 8, 8, 5 )") covers the whole screen with the texture wrapper's
+// error texture (magenta checkerboard) instead of the blurred backdrop - see build/_verify_wash_bluron*
+// and the BLURFAST/BLURCOPY lines in D:\cstrike\se_blurprobe.txt.  Flip this to true to work on it.
+//
+// 2026-09-17: PARKED.  The passes are left off and the root cause is still unknown after the full
+// investigation (see docs/csgo_panorama_port_pitfalls.md, "Backdrop blur - unresolved").  Everything
+// ruled out so far: the 15 blur/composite functions are byte-identical to CS:GO, the shaders match,
+// the layer render targets exist, the scratch RT size is fixed, the sampler bindings are correct, and
+// the CS:GO blur-rect lookup was ported verbatim.  Disabling the passes at least leaves a UI that can
+// be used, so the port ships without backdrop blur until someone picks the thread back up.
+//-----------------------------------------------------------------------------
+static bool SE_PortSupportsBlurPasses() { return false; }   // PARKED - root cause unknown, see note above
+
+//-----------------------------------------------------------------------------
+// SE port (2026-09-16): the backdrop-blur layer hacks this port used to carry are the reason the CS:GO
+// main menu backdrop came out washed white and stopped refreshing.
+//
+// CS:GO renders every composition layer into its own render target:
+//   ClearCompositingLayer() -> CSource2CompositionLayer::Clear() -> ActivateRenderTargetAndClear()
+// binds *and clears* the layer's target right before PushCliplayersAndBeginDraw() runs, the layer's
+// content is drawn into it, and PopCompositingLayer() composites that target onto the parent.
+//
+// This port additionally copied the back buffer into the layer target inside PushCliplayersAndBeginDraw()
+// and re-bound the back buffer in PopClipLayersAndFlush().  That copy put the previous frame's back
+// buffer back into a target which had just been cleared, so the opaque composite of #MainMenuCore /
+// #MainMenuBackground redrew the menu on top of itself every frame (measured against an ffmpeg frame of
+// the same video: a uniform +60..67 per pixel, ~26% white), and after the popup that forced full
+// repaints went away the backdrop stopped updating altogether.
+//
+// Neither hunk exists in CS:GO, so 0 (the default) follows CS:GO.  Set it to 1 to get the old behaviour
+// back without rebuilding, for A/B.
+ConVar se_port_backdrop_blit( "se_port_backdrop_blit", "0", FCVAR_ARCHIVE,
+	"SE port: 1 = old backdrop-blur layer hacks (copy the back buffer into the layer render target), 0 = CS:GO behaviour" );
+static bool SE_PortBackdropBlit() { return se_port_backdrop_blit.GetBool(); }
+
+//-----------------------------------------------------------------------------
+// SE port experiment (2026-09-16): "is the washed-out backdrop an alpha problem?"
+//
+// The main menu backdrop comes out roughly 60/255 brighter than the movie under it, and the panels
+// that ask for a blur come out as a flat light rectangle.  CS:GO composites an -s2-mix-blend-mode:
+// opaque layer as a plain replace (BLENDSTATE_MIX_OPAQUE = ONE/ZERO); this switch forces *every*
+// composite layer through that state, so "the layers are blended with the wrong alpha" can be told
+// apart from "the layer content itself is wrong" without rebuilding.  0 (default) = CS:GO behaviour.
+//-----------------------------------------------------------------------------
+ConVar se_probe_force_opaque( "se_probe_force_opaque", "0", 0,
+	"SE port: 1 = draw every composite layer with the opaque (replace) blend state" );
+static bool SE_PortForceOpaqueLayers() { return se_probe_force_opaque.GetBool(); }
+
+//-----------------------------------------------------------------------------
+// SE port diagnostic (2026-09-16): composition layer lifecycle.
+//
+// Question this answers: the main menu backdrop draws the video every frame (52k texType=3 draws were
+// counted) yet the screen keeps showing one frozen frame.  Either the layer's render target is reused
+// from the reserved-layer cache without being re-rendered, or the composite that should put it back on
+// screen does not run.  These three probes say which.
+//-----------------------------------------------------------------------------
+static void SE_LayerProbe( const char *pFmt, ... )
+{
+	FILE *fp = fopen( "D:\\cstrike\\se_ui_probe.txt", "a" );
+	if ( !fp )
+		return;
+
+	va_list args;
+	va_start( args, pFmt );
+	vfprintf( fp, pFmt, args );
+	va_end( args );
+
+	fflush( fp );
+	fclose( fp );
+}
+
+static bool SE_LayerProbeThis( int &nCounter, int nHead )
+{
+	++nCounter;
+	return ( nCounter <= nHead ) || ( ( nCounter % 240 ) == 0 );
+}
 ConVar s_convarPanoramaDisableRenderCallbacks( "@panorama_disable_render_callbacks", "0", FCVAR_DEVELOPMENTONLY | FCVAR_CHEAT );
 ConVar s_convarPanoramaDisableDrawFancyQuad( "@panorama_disable_draw_fancy_quad", "0", FCVAR_DEVELOPMENTONLY | FCVAR_CHEAT );
 ConVar s_convarPanoramaDisableLayerClear( "@panorama_disable_layer_clear", "0", FCVAR_DEVELOPMENTONLY | FCVAR_CHEAT );
@@ -842,18 +936,11 @@ void CSource2CompositionLayer::PushCliplayersAndBeginDraw( float flScaleX, float
 		m_flTranslateLayerY = flTranslateY;
 	}
 
-	// SE port: a "backdrop blur" layer - CS:GO's CSGOBlurTarget, which this port substitutes with a plain
-	// Panel - blurs what is behind the UI.  Panel content is only ever composited through the layer's own
-	// render target, and this port never bound one, so the layer stayed empty and its composite sampled an
-	// empty target (white in D3D9): that is what turned the whole CS:GO main menu white.
-	//
-	// So for a blur layer: copy the back buffer into the layer target - that copy is the blur's source,
-	// and it is exactly what CS:GO's CSGOBlurTarget panel does - then bind the target so the layer's own
-	// content (and the blur passes) land in it.
-	//
-	// Only blur layers are switched over.  Every other layer keeps drawing straight into the back buffer
-	// as before, which keeps the blast radius of this change to the backdrop layers.
-	if ( !m_bIsBackBuffer && m_hRenderTarget.IsValid() && BSEPortHasBlur() && m_pParentSurface && m_pParentSurface->m_pRenderContext )
+	// SE port: a "backdrop blur" layer - CS:GO's CSGOBlurTarget - blurs what is behind the UI.  The copy
+	// below is the *old* port behaviour and is off by default now; see SE_PortBackdropBlit().  CS:GO binds
+	// (and clears) the layer's own target in ClearCompositingLayer() -> Clear() before this runs, so this
+	// copy only overwrote a freshly cleared target with the previous frame.
+	if ( SE_PortBackdropBlit() && !m_bIsBackBuffer && m_hRenderTarget.IsValid() && BSEPortHasBlur() && m_pParentSurface && m_pParentSurface->m_pRenderContext )
 	{
 		m_pParentSurface->m_pRenderContext->CopyBackBufferToTexture( m_hRenderTarget );
 
@@ -875,7 +962,9 @@ void CSource2CompositionLayer::PopClipLayersAndFlush()
 
 	// SE port: undo the target binding PushCliplayersAndBeginDraw did for a blur layer (see the note
 	// there).  BindRenderTargets() pops the previous target when the descriptor is the back buffer.
-	if ( !m_bIsBackBuffer && m_hRenderTarget.IsValid() && BSEPortHasBlur() && m_pParentSurface && m_pParentSurface->m_pRenderContext )
+	// Off by default: it is part of the old backdrop hack and it corrupted the parent layer's target
+	// whenever the parent was itself a layer (PopCompositingLayer re-activates the parent target itself).
+	if ( SE_PortBackdropBlit() && !m_bIsBackBuffer && m_hRenderTarget.IsValid() && BSEPortHasBlur() && m_pParentSurface && m_pParentSurface->m_pRenderContext )
 	{
 		RenderTargetDesc_t rtBackBuffer( HRenderTexture( &CRenderContext::m_backBufferResourceData ), RENDER_TEXTURE_HANDLE_INVALID, RENDER_SRGB );
 		m_pParentSurface->m_pRenderContext->BindRenderTargets( rtBackBuffer );
@@ -1356,6 +1445,7 @@ CSource2Surface::CSource2Surface( const char *pName )
 	m_SurfaceName = pName;
 	m_flScaleFactor = 1.0;
 	m_pCursorRender = NULL;
+	m_pSEPortCursorWindow = NULL;
 	m_flCurrentRenderFrameTime = 0.0;
 	m_flLastPaintFrameTime = 0.0;
 	m_flScaleBackbufferX = 1.0f;
@@ -1753,6 +1843,31 @@ void CSource2Surface::DrawTexturedQuadInternal( HMaterial hMaterial, CRenderAttr
 	Vector4D vWidth, vHeight;
 	pRenderAttributes->GetValue( &vWidth, ATTR_ViewportWidth );
 	pRenderAttributes->GetValue( &vHeight, ATTR_ViewportHeight );
+
+	// SE port (TEMPORARY, 2026-09-16): a quad drawn with an invalid texture is what paints the magenta
+	// checkerboard (the texture wrapper's error texture).  Log where that happens.  Delete with the rest
+	// of the backdrop-blur diagnosis.
+	if ( !hTextureID.IsValid() )
+	{
+		static int s_nSEInvalidTexProbe = 0;
+		if ( s_nSEInvalidTexProbe < 30 )
+		{
+			++s_nSEInvalidTexProbe;
+
+			FILE *fpTex = fopen( "D:\\cstrike\\se_blurprobe.txt", "a" );
+			if ( fpTex )
+			{
+				fprintf( fpTex, "INVALIDTEX #%d quad=%.0f,%.0f-%.0f,%.0f viewport=%.0fx%.0f blurAttr=? downSizeAttr=?",
+					s_nSEInvalidTexProbe,
+					pBasicQuad->m_vPosition[0].x, pBasicQuad->m_vPosition[0].y,
+					pBasicQuad->m_vPosition[2].x, pBasicQuad->m_vPosition[2].y,
+					vWidth.x, vHeight.x );
+				fputc( '\n', fpTex );
+				fflush( fpTex );
+				fclose( fpTex );
+			}
+		}
+	}
 
 	// use a local copy since we're transforming the positions on the CPU instead of GPU
 	PreXFormBasicQuadPositions( pRenderAttributes, pBasicQuad, vWidth.x, vHeight.x );
@@ -2246,6 +2361,35 @@ void CSource2Surface::DrawFancyQuad( const FancyQuadDraw_t *pFancyQuadDraw )
 
 		renderAttributes.SetIntValue( ATTR_D_TEXTURETYPE, nType );
 		renderAttributes.SetIntValue( ATTR_D_PREMULTIPLY_ALPHA, pFancyQuadDraw->m_bTexIsNotPremul && !pFancyQuadBrush->m_bAlphaOnlyTexture );
+
+		// SE port TEMPORARY bring-up probe (2026-09-17, washed-out main menu): report the big quads and
+		// their *final* brush colour.  m_flColor is what the pixel shader starts from, so a colour whose
+		// rgb is far above its alpha means the premultiply step did not happen while the blend state
+		// (BLENDSTATE_PREMULT_ALPHA = ONE, ONE_MINUS_SRC_ALPHA) expects it - which brightens the whole
+		// screen.  Remove once the washed-out look is fixed.
+		{
+			static int s_nSEQuadProbe = 0;
+			const int nProbeW = ( pFancyQuadDraw->m_nWide == -1 ) ? (int)pLayer->GetWidth() : pFancyQuadDraw->m_nWide;
+			const int nProbeH = ( pFancyQuadDraw->m_nTall == -1 ) ? (int)pLayer->GetHeight() : pFancyQuadDraw->m_nTall;
+			if ( s_nSEQuadProbe < 300 && ( nProbeW * nProbeH ) > 200000 )
+			{
+				++s_nSEQuadProbe;
+				FILE *fpProbe = fopen( "D:\\cstrike\\se_ui_probe.txt", "a" );
+				if ( fpProbe )
+				{
+					fprintf( fpProbe, "FANCYQUAD #%d size=%dx%d texType=%d premul=%d texIsNotPremul=%d alphaOnlyTex=%d col=(%.3f,%.3f,%.3f,%.3f) gradStops=%d radial=%d hsv=%.2f/%.2f/%.2f/%.2f blend=%d layerMix=%d\n",
+						s_nSEQuadProbe, nProbeW, nProbeH, nType,
+						pFancyQuadDraw->m_bTexIsNotPremul && !pFancyQuadBrush->m_bAlphaOnlyTexture ? 1 : 0,
+						pFancyQuadDraw->m_bTexIsNotPremul ? 1 : 0, pFancyQuadBrush->m_bAlphaOnlyTexture ? 1 : 0,
+						pFancyQuadBrush->m_flColor[0][0], pFancyQuadBrush->m_flColor[0][1], pFancyQuadBrush->m_flColor[0][2], pFancyQuadBrush->m_flColor[0][3],
+						pFancyQuadBrush->m_nGradientStops, pFancyQuadBrush->m_bIsRadialGradient ? 1 : 0,
+						pFancyQuadDraw->m_flHueShift, pFancyQuadDraw->m_flSaturation, pFancyQuadDraw->m_flBrightness, pFancyQuadDraw->m_flContrast,
+						(int)m_hCurrentBlendState, (int)pLayer->GetMixBlendMode() );
+					fflush( fpProbe );
+					fclose( fpProbe );
+				}
+			}
+		}
 
 		renderAttributes.SetVMatrixValue( ATTR_MatTransform, pFancyQuadDraw->m_pVMatrix ? pFancyQuadDraw->m_pVMatrix->Transpose() : VMatrix::GetIdentityMatrix().Transpose() );
 
@@ -2973,6 +3117,146 @@ void CSource2Surface::DrawTexturedRect( const RenderTexturedRectRenderCommand_t 
 
 
 //-----------------------------------------------------------------------------
+// Purpose: draw the panorama mouse cursor into the layer EndFrame() is still compositing
+//-----------------------------------------------------------------------------
+//
+// SE port: this is the port of CD3D10D2DSurface::DrawMouseCursor()/COpenGLSurface::DrawMouseCursor()
+// for the Source 1 material system.  It is called from EndFrame(), which runs while the outermost
+// composition layer is still open, so the cursor ends up in the frame the way CS:GO draws it.
+//
+// It only does anything for a window created with bUseCustomMouseCursor = true, because that is what
+// makes CUIRenderEngine::EndFrame() put the cursor image + hotspot into the end-frame command.  CS:GO
+// passes true only for the Steam/VR overlay windows (panorama/uitoplevelwindowoverlay.cpp); its menu and
+// HUD windows - like this port's - pass false, and then CTopLevelWindowSource2::SetMouseCursor() maps the
+// panel's cursor style onto a standard OS cursor instead (IInputSystem::GetStandardCursor/SetCursorIcon).
+//
+// Note that in a SOURCE2_PANORAMA build (CS:GO and this port alike) CMouseCursorRender is never created -
+// uitoplevelwindow.cpp:43-47 leaves m_pCursorRender null - so this path is dormant for both; it is kept
+// because it is the reference implementation the port would need if a custom cursor ever gets wanted.
+//
+// The cursor texture is one of panorama/images/cursors/{arrow,ibeam,hand}, loaded by
+// CMouseCursorTexture; the position in surface space, the fade opacity and the visibility all come
+// from CMouseCursorRender, which the window updates every frame from the main thread.
+//-----------------------------------------------------------------------------
+void CSource2Surface::DrawMouseCursor( const EndFrameRenderCommand_t &renderCommand )
+{
+	if ( !m_pCursorRender )
+		return;
+
+	// Pump the render side of the cursor state.  When the window handle is known this is exactly what the
+	// other back ends do - the cursor follows the hardware position, which is also what makes the pointer
+	// track the mouse when the input events themselves are not reaching the UI yet.  Without it (before
+	// CTopLevelWindowSource2::RenderWindow() has handed it over) fall back to the position the input engine
+	// gave the window - see mousecursor.h.
+	if ( m_pSEPortCursorWindow )
+	{
+#if defined( WIN32 )
+		m_pCursorRender->RunRenderFrame( (HWND)m_pSEPortCursorWindow, Plat_FloatTime(), GetSurfaceWidth(), GetSurfaceHeight(), m_bEnforceAspectRatio );
+#elif defined( POSIX )
+		m_pCursorRender->RunRenderFrame( (SDL_Window *)m_pSEPortCursorWindow, Plat_FloatTime(), GetSurfaceWidth(), GetSurfaceHeight(), m_bEnforceAspectRatio );
+#endif
+	}
+	else
+	{
+		m_pCursorRender->RunRenderFrameFromMainThreadPosition( Plat_FloatTime() );
+	}
+
+	if ( !m_pCursorRender->BCursorVisible() || m_stackCompositionLayers.Count() == 0 )
+		return;
+
+	IUITexture *pTexture = renderCommand.mouse_cursor_texture.GetTexture();
+	if ( !pTexture || !pTexture->BIsReady() )
+		return;
+
+	CSource2CompositionLayer *pLayer = m_stackCompositionLayers[ m_stackCompositionLayers.Count() - 1 ];
+	if ( !pLayer->BIsDrawing() )
+		return;
+
+	HRenderTexture hRenderTexture = RENDER_TEXTURE_HANDLE_INVALID;
+	float flOriginalWidthScale = 1.0f;
+	float flOriginalHeightScale = 1.0f;
+	CSource2UITexture *pSource2UITexture = dynamic_cast< CSource2UITexture * >( pTexture );
+	if ( pSource2UITexture )
+	{
+		hRenderTexture = pSource2UITexture->GetTextureHandle();
+		flOriginalWidthScale = pSource2UITexture->GetOriginalWidthScale();
+		flOriginalHeightScale = pSource2UITexture->GetOriginalHeightScale();
+
+#ifdef PANORAMA_USE_S1WRAPPER
+#ifdef PANORAMA_S1_NPO2_NO_TEXCOORDSCALE
+		flOriginalWidthScale = 1.0f;
+		flOriginalHeightScale = 1.0f;
+#endif
+#endif
+	}
+	else
+	{
+		CSource2DoubleBufferedTexture *pSource2DoubleBufferedTexture = dynamic_cast< CSource2DoubleBufferedTexture * >( pTexture );
+		if ( pSource2DoubleBufferedTexture )
+			hRenderTexture = pSource2DoubleBufferedTexture->GetTextureHandle();
+	}
+
+	if ( hRenderTexture == RENDER_TEXTURE_HANDLE_INVALID )
+		return;
+
+	const float flOpacity = m_pCursorRender->GetCursorOpacity();
+	Vector2D pt = m_pCursorRender->GetRenderCursorPosition();
+
+	const float flCursorWidth = pTexture->GetOriginalWidth() * GetWindowScaleFactor();
+	const float flCursorHeight = pTexture->GetOriginalHeight() * GetWindowScaleFactor();
+
+	// the hotspot is the normalised (0..1) point of the image that sits under the pointer
+	pt.x -= renderCommand.mouse_cursor_hotspot.x * flCursorWidth;
+	pt.y -= renderCommand.mouse_cursor_hotspot.y * flCursorHeight;
+
+	FancyQuadParameters_t FancyParam( 0 );
+	FancyParam.m_flZ = 0.0f;
+	FancyParam.m_flVertexMin[ 0 ] = pt.x;
+	FancyParam.m_flVertexMin[ 1 ] = pt.y;
+	FancyParam.m_flVertexMax[ 0 ] = pt.x + flCursorWidth;
+	FancyParam.m_flVertexMax[ 1 ] = pt.y + flCursorHeight;
+	FancyParam.m_flTexCoordMin[ 0 ] = 0.0f;
+	FancyParam.m_flTexCoordMin[ 1 ] = 0.0f;
+	FancyParam.m_flTexCoordMax[ 0 ] = flOriginalWidthScale;
+	FancyParam.m_flTexCoordMax[ 1 ] = flOriginalHeightScale;
+
+	// A solid white brush scaled by the cursor opacity.  The colour the quad tool takes is
+	// premultiplied, and at the normal opacity of 1 this is plain white - so it is right for both
+	// premultiplied and straight alpha cursor images (the fade then rides on the alpha).
+	FillBrush_t brush;
+	V_memset( &brush, 0, sizeof( brush ) );
+	brush.eFillBrushType = k_EFillBrushType_Color;
+	brush.color_rgba = 0xFFFFFFFF;
+	brush.opacity = flOpacity;
+
+	FancyQuadBrush_t FancyBrush;
+	SetFancyQuadFillBrush( FancyBrush, brush, 0.0f, 0.0f );
+
+	FancyQuadDraw_t fancyQuadDraw;
+	fancyQuadDraw.m_hTexture0 = hRenderTexture;
+	fancyQuadDraw.m_flTexture0TexCoordScale[ 0 ] = 1.0f;
+	fancyQuadDraw.m_flTexture0TexCoordScale[ 1 ] = 1.0f;
+	fancyQuadDraw.m_nWide = pLayer->GetWidth();
+	fancyQuadDraw.m_nTall = pLayer->GetHeight();
+	fancyQuadDraw.m_pQuadParameters = &FancyParam;
+	fancyQuadDraw.m_pQuadBrush = &FancyBrush;
+	fancyQuadDraw.m_flTextureWidth = pTexture->GetOriginalWidth();
+	fancyQuadDraw.m_flTextureHeight = pTexture->GetOriginalHeight();
+	fancyQuadDraw.m_bTexIsNotPremul = pTexture->GetAlphaChannelType() != k_EAlphaChannelType_PreMultiplied;
+	fancyQuadDraw.m_bClipToLayer = true;
+	fancyQuadDraw.m_pVMatrix = pLayer->AccessPushedMatrix();
+
+	DrawFancyQuad( &fancyQuadDraw );
+
+	// put the layer back into its normal state, exactly like the end of DrawTexturedRect does
+	if ( m_stackCompositionLayers.Count() == 1 )
+		pLayer->PushCliplayersAndBeginDraw( m_flScaleBackbufferX, m_flScaleBackbufferY, m_flTranslateBackbufferX, m_flTranslateBackbufferY );
+	else
+		pLayer->PushCliplayersAndBeginDraw( 1.0f, 1.0f, 0.0f, 0.0f );
+}
+
+
+//-----------------------------------------------------------------------------
 // Purpose: Set up a FancyQuadBrush parameter structure from a FillBrush_t
 //-----------------------------------------------------------------------------
 void CSource2Surface::SetFancyQuadFillBrush( FancyQuadBrush_t &FancyBrush, const FillBrush_t &brush, float offsetx, float offsety )
@@ -3542,9 +3826,11 @@ void CSource2Surface::DrawTextRegionRange( CSource2CompositionLayer *pLayer, flo
 	fancyQuadDraw.m_pQuadBrush = &FancyBrush;
 	fancyQuadDraw.m_flTextureWidth = maskRange.m_flTextureWidth;
 	fancyQuadDraw.m_flTextureHeight = maskRange.m_flTextureHeight;
-	// SE port (diagnostic): route the text mask through the fancy shader's RGBA texture variant instead
-	// of the alpha-texture one.
-	fancyQuadDraw.m_bIsAlphaTexture = false;
+	// CS:GO's original: text masks are 8-bit alpha textures, so the fancy shader must take its coverage
+	// from the texture's alpha instead of its RGB.  (The port used to force this to false as a bring-up
+	// diagnostic, which drew every glyph with the RGBA path and made the whole UI's text look thin, dark
+	// and squashed.)
+	fancyQuadDraw.m_bIsAlphaTexture = true;
 	fancyQuadDraw.m_bRawCoords = true;
 	fancyQuadDraw.m_bClipToLayer = true;
 	fancyQuadDraw.m_pVMatrix = pLayer->AccessPushedMatrix();
@@ -4014,18 +4300,13 @@ void CSource2Surface::EndFrame( const EndFrameRenderCommand_t &renderCommand )
 		pLayer->ActivateRenderTarget();
 
 		// render the mouse cursor into the main FBO
-#if 0
-		int32 nMouseTextureID = 0;
-		if ( renderMsg.BodyConst().has_mouse_cursor_texture_id() )
-			nMouseTextureID = renderCommand.BodyConst().mouse_cursor_texture_id();
-		if ( nMouseTextureID != 0 )
-		{
-			Vector2D ptHotspot;
-			ptHotspot.x = renderCommand.BodyConst().mouse_cursor_hotspot_x();
-			ptHotspot.y = renderCommand.BodyConst().mouse_cursor_hotspot_y();
-			DrawMouseCursor( nMouseTextureID, ptHotspot );
-		}
-#endif
+		//
+		// SE port: this used to be compiled out, because the Source2 code below reads the cursor texture
+		// and hotspot out of the render message protobuf (renderMsg.BodyConst()...), which this tree's
+		// render command list does not have.  It carries the same information as plain members instead
+		// (EndFrameRenderCommand_t::mouse_cursor_texture / mouse_cursor_hotspot, filled in by
+		// CUIRenderEngine::EndFrame()) - see CSource2Surface::DrawMouseCursor.
+		DrawMouseCursor( renderCommand );
 
 		if ( s_convarPanoramaRenderStats.GetBool() )
 		{
@@ -5123,6 +5404,41 @@ void CSource2Surface::DrawGaussianRTtoRT( CRenderAttributes &renderAttributes, B
 void CSource2Surface::CopyBlurRectsToRT(CRenderAttributes &renderAttributes, BlurRT_t &dst, BlurRT_t &src, bool bUpsizeInCopy)
 {
 	int nRect = renderAttributes.GetNumSourceBlurRects();
+
+	// SE port (TEMPORARY, 2026-09-16): the blur-rect copy is the step that puts the blurred backdrop back
+	// into the layer target.  Log what it is asked to copy.
+	{
+		static int s_nSECopyRectsProbe = 0;
+		if ( s_nSECopyRectsProbe < 40 )
+		{
+			++s_nSECopyRectsProbe;
+
+			Vector4D vecTarget( 0, 0, 0, 0 );
+			renderAttributes.GetTargetBlurRect( &vecTarget, NULL );
+
+			Vector4D vecSource( 0, 0, 0, 0 );
+			VMatrix matSource;
+			if ( nRect )
+				renderAttributes.GetSourceBlurRect( &vecSource, &matSource, 0 );
+
+			FILE *fpCopy = fopen( "D:\\cstrike\\se_blurprobe.txt", "a" );
+			if ( fpCopy )
+			{
+				fprintf( fpCopy,
+					"BLURCOPY #%d rects=%d upsize=%d dst=%.0fx%.0f(rt %.0fx%.0f, tex %llx) src=%.0fx%.0f(rt %.0fx%.0f, tex %llx) target=%.0f,%.0f-%.0f,%.0f source0=%.0f,%.0f-%.0f,%.0f",
+					s_nSECopyRectsProbe, nRect, (int)bUpsizeInCopy,
+					dst.m_flWindowW, dst.m_flWindowH, dst.m_flRTW, dst.m_flRTH,
+					(unsigned long long)( dst.m_pRenderTex && dst.m_pRenderTex->IsValid() ? dst.m_pRenderTex->GetResourceHandle() : 0 ),
+					src.m_flWindowW, src.m_flWindowH, src.m_flRTW, src.m_flRTH,
+					(unsigned long long)( src.m_pRenderTex && src.m_pRenderTex->IsValid() ? src.m_pRenderTex->GetResourceHandle() : 0 ),
+					vecTarget.x, vecTarget.y, vecTarget.z, vecTarget.w,
+					vecSource.x, vecSource.y, vecSource.z, vecSource.w );
+				fputc( '\n', fpCopy );
+				fflush( fpCopy );
+				fclose( fpCopy );
+			}
+		}
+	}
 	if ( nRect )
 	{
 		Vector4D offset;
@@ -5215,6 +5531,33 @@ void CSource2Surface::ApplyGaussianBlur( CRenderAttributes &renderAttributes,  C
 	HRenderTexture layerRenderTex;
 	RenderTargetDesc_t layerRTDesc;
 	pLayer->GetRenderTargetHandleAndDesc( layerRenderTex, layerRTDesc );
+
+	// SE port (TEMPORARY, 2026-09-16): the blur passes were switched back on to find out which half of the
+	// backdrop-blur path is still missing.  This says which layer is being blurred and whether the texture
+	// the passes start from (the layer's own render target) is real.  The magenta checkerboard on screen
+	// would be the texture wrapper's error texture, i.e. the passes sampling something invalid.
+	{
+		static int s_nSEBlurApplyProbe = 0;
+		if ( s_nSEBlurApplyProbe < 40 )
+		{
+			++s_nSEBlurApplyProbe;
+
+			FILE *fpBlur = fopen( "D:\\cstrike\\se_blurprobe.txt", "a" );
+			if ( fpBlur )
+			{
+				fprintf( fpBlur,
+					"BLURAPPLY #%d layer=%p ctx=%llx backbuffer=%d offscreen=%d size=%.0fx%.0f rtValid=%d rtScale=%.3f/%.3f rects=%d passes=%.1f stddev=%.1f/%.1f scratch0valid=%d scratch0=%dx%d\n",
+					s_nSEBlurApplyProbe, pLayer, (unsigned long long)pLayer->GetContextID(),
+					(int)pLayer->BIsBackbuffer(), (int)pLayer->BOffscreen(),
+					pLayer->GetWidth(), pLayer->GetHeight(),
+					(int)layerRenderTex.IsValid(), pLayer->GetRTOriginalWidthScale(), pLayer->GetRTOriginalHeightScale(),
+					renderAttributes.GetNumSourceBlurRects(), flBlurPasses, flBlurStdDevHor, flBlurStdDevVer,
+					(int)scratchRenderTex0.IsValid(), scratchTexDesc0 ? scratchTexDesc0->m_nWidth : 0, scratchTexDesc0 ? scratchTexDesc0->m_nHeight : 0 );
+				fflush( fpBlur );
+				fclose( fpBlur );
+			}
+		}
+	}
 
 	// Setup Blur_t's for the RTs. and for the layer
 	BlurRT_t blurRT0( &scratchRenderTex0, &scratchRTDesc0,
@@ -5374,6 +5717,8 @@ void CSource2Surface::ApplyFastGaussianBlur( CRenderAttributes &renderAttributes
 {
 	if ( flBlurPasses < 1.0 ) return;
 
+	// SE port (TEMPORARY, 2026-09-16): bisect switch - see the comment in ApplyFastGaussianBlur below.
+
 	uint64 nlayerID = pLayer->GetContextID();
 
 	// Eco vars
@@ -5408,6 +5753,32 @@ void CSource2Surface::ApplyFastGaussianBlur( CRenderAttributes &renderAttributes
 	HRenderTexture layerRenderTex;
 	RenderTargetDesc_t layerRTDesc;
 	pLayer->GetRenderTargetHandleAndDesc( layerRenderTex, layerRTDesc );
+
+	// SE port (TEMPORARY, 2026-09-16): same diagnosis as ApplyGaussianBlur, for the fast-gaussian path.
+	{
+		static int s_nSEBlurFastProbe = 0;
+		if ( s_nSEBlurFastProbe < 40 )
+		{
+			++s_nSEBlurFastProbe;
+
+			FILE *fpBlur = fopen( "D:\\cstrike\\se_blurprobe.txt", "a" );
+			if ( fpBlur )
+			{
+				fprintf( fpBlur,
+					"BLURFAST #%d layer=%p ctx=%llx backbuffer=%d offscreen=%d size=%.0fx%.0f rtValid=%d rects=%d passes=%.2f stddev=%.1f/%.1f type=%d layerRT=%llx scratch0=%llx scratch1=%llx",
+					s_nSEBlurFastProbe, pLayer, (unsigned long long)pLayer->GetContextID(),
+					(int)pLayer->BIsBackbuffer(), (int)pLayer->BOffscreen(),
+					pLayer->GetWidth(), pLayer->GetHeight(), (int)layerRenderTex.IsValid(),
+					renderAttributes.GetNumSourceBlurRects(), flBlurPasses, flBlurStdDevHor, flBlurStdDevVer, (int)blurType,
+					(unsigned long long)layerRenderTex.GetResourceHandle(),
+					(unsigned long long)scratchRenderTex0.GetResourceHandle(),
+					(unsigned long long)scratchRenderTex1.GetResourceHandle() );
+				fputc( '\n', fpBlur );
+				fflush( fpBlur );
+				fclose( fpBlur );
+			}
+		}
+	}
 
 	// Setup Blur_t's for the RTs. and for the layer
 	BlurRT_t blurRT0( &scratchRenderTex0, &scratchRTDesc0,
@@ -5860,7 +6231,7 @@ void CSource2Surface::PopCompositingLayer( const PopCompositingLayerRenderComman
 		}
 
 		// If we have blur (and we redrew), then draw into another layer for blur first
-		if ( bLayerRedraw && flBlurPasses > 0.0f && (flBlurStdDevHor > 0.0f || flBlurStdDevVer > 0.0f) && !s_convarPanoramaDisableBlur.GetBool() )
+		if ( bLayerRedraw && flBlurPasses > 0.0f && (flBlurStdDevHor > 0.0f || flBlurStdDevVer > 0.0f) && !s_convarPanoramaDisableBlur.GetBool() && SE_PortSupportsBlurPasses() )
 		{
 			VPROF( "CSource2CompositionLayer::PopCompositingLayer - Draw Blur" );
 
@@ -6106,7 +6477,12 @@ void CSource2Surface::PopCompositingLayer( const PopCompositingLayerRenderComman
 
 				RsBlendStateHandle_t hPriorBlendState = m_hCurrentBlendState;
 
-				if ( pLayer->GetMixBlendMode() == k_EMixBlendModeScreen )
+				if ( SE_PortForceOpaqueLayers() )
+				{
+					// SE port experiment: ignore the layer's mix blend mode and replace the destination
+					m_hCurrentBlendState = m_hMixOpaqueState;
+				}
+				else if ( pLayer->GetMixBlendMode() == k_EMixBlendModeScreen )
 				{
 					m_hCurrentBlendState = m_hMixScreenState;
 				}
@@ -6127,14 +6503,26 @@ void CSource2Surface::PopCompositingLayer( const PopCompositingLayerRenderComman
 					m_hCurrentBlendState = m_hMixOpaqueState;
 				}
 
-				// SE port: an "opaque" layer is composited exactly as it was drawn, and in this port it *was*
-				// drawn - PushClipLayer() only records a clip rect here, nothing is rendered into the layer's
-				// texture, so this composite samples an empty render target.  Sampling an unbound/empty S1
-				// texture reads white, and the opaque blend writes it over the whole frame: those two draws
-				// are what turned the entire CS:GO main menu white.  They are the backdrop panels
-				// #MainMenuCore / #MainMenuBackground (both 100%x100% with "-s2-mix-blend-mode: opaque" in
-				// mainmenu.css), so this is also what hid the loading screen and the game behind the menu.
-				if ( pLayer->GetMixBlendMode() != k_EMixBlendModeOpaque || pLayer->BSEPortHasBlur() )
+				// SE port diagnostic: what the composite decides to do
+				{
+					static int s_nSEPop = 0;
+					if ( SE_LayerProbeThis( s_nSEPop, 24 ) )
+					{
+						// The layer size and context id matter here: a full-screen layer whose blend mode is
+						// additive (4) is what "泛白" would look like in the compositor - the menu layers are
+						// expected to be opaque (5) or normal (0).
+						SE_LayerProbe( "SE_LAYER pop #%d layer=%p ctx=%llu %.0fx%.0f blend=%d skipped=%d\n",
+							s_nSEPop, pLayer, pLayer->GetContextID(), pLayer->GetWidth(), pLayer->GetHeight(),
+							(int)pLayer->GetMixBlendMode(),
+							( !SE_PortBackdropBlit() || pLayer->GetMixBlendMode() != k_EMixBlendModeOpaque || pLayer->BSEPortHasBlur() ) ? 0 : 1 );
+					}
+				}
+
+				// SE port: CS:GO composites the layer here unconditionally - the blend state selected above
+				// makes the opaque case a plain replace.  The old port default skipped this composite for
+				// blur-less opaque layers, which is why their content never reached the parent.  Kept reachable
+				// through se_port_backdrop_blit=1 so the change can be A/B'd without rebuilding.
+				if ( !SE_PortBackdropBlit() || pLayer->GetMixBlendMode() != k_EMixBlendModeOpaque || pLayer->BSEPortHasBlur() )
 				{
 					DrawFancyQuad( &fancyQuadDraw );
 				}

@@ -70,6 +70,12 @@ public:
 
 	virtual void Pause() = 0;
 	virtual void Resume() = 0;
+
+	// SE port: milliseconds of this stream that have already been mixed out to the device.  CS:GO's
+	// video player uses it as its playback clock (panorama/data/panoramavideoplayer.cpp), so the
+	// picture follows the sound instead of a wall clock.  APPENDED AT THE END of the vtable with a
+	// default body - nothing that was compiled against the old layout changes.
+	virtual uint32 GetMixedMilliseconds() { return 0; }
 };
 
 	
@@ -143,6 +149,18 @@ public:
 	virtual void	PrecacheSentenceGroup( const char *pGroupName ) = 0;
 	virtual void	NotifyBeginMoviePlayback() = 0;
 	virtual void	NotifyEndMoviePlayback() = 0;
+
+	// SE port: CS:GO gave this interface a raw PCM output stream so that its panorama video player
+	// can have movie audio mixed into the engine's paint buffer (the IAudioOutputStream class is
+	// declared at the top of this file).  The path is
+	//   panorama -> IUISoundSystem::CreateAudioOutputStream -> panorama_s1wrapper ISoundSystem ->
+	//   IEngineSound::CreateOutputStream -> engine/audio/snd_outputstream.cpp
+	// These two are APPENDED AT THE END of the vtable and carry default bodies, so no existing
+	// implementation has to change and every module compiled against the old layout keeps the slots
+	// it knows (append-only rule).  CEngineSoundClient overrides them; the server, which has no UI,
+	// keeps the defaults.
+	virtual IAudioOutputStream *CreateOutputStream( uint nSampleRate, uint nChannels, uint nBits ) { return NULL; }
+	virtual void DestroyOutputStream( IAudioOutputStream *pOutputStream ) {}
 };
 
 

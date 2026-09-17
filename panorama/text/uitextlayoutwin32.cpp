@@ -9,11 +9,13 @@
 // (that is one of the reasons the win32 text files are $ExcludedFromBuild in panorama.vpc).
 // This TU does not reference any symbol from it.
 #if defined( PANORAMA_SE_CPU_TEXT )
-// SE port: only the font *package* loaders are dropped (they need protobuf-generated sources that
-// this tree does not have - see PANORAMA_SE_CPU_TEXT in panorama/wscript), and the Direct2D renderer
-// header stays out too (it pulls D3D10/D2D types and CS:GO's container set into this TU).  What the
-// CPU path needs instead - the drawing effect - comes from the backend's own header.
+// SE port: the Direct2D renderer header stays out (it pulls D3D10/D2D types and CS:GO's container
+// set into this TU); what the CPU path needs instead - the drawing effect - comes from the
+// backend's own header.  The font *package* loaders (uifontfileloaderwin32.h +
+// steamextra/common/uifontfile.cpp) ARE part of this build: they are the DirectWrite font
+// collection loaders that register panorama/fonts/*.vfont (see panorama/wscript).
 #include "seport/se_dwrite_cpu_text.h"
+#include "uifontfileloaderwin32.h"
 #else
 #include "uifontfileloaderwin32.h"
 #include "renderer/dwritetextrenderer.h"
@@ -378,6 +380,12 @@ bool CUITextLayoutWin32::BInitGlobals()
 			s_pDWriteFactory = NULL;
 			return false;
 		}
+
+		// SE port: CS:GO created these two when a D2D surface came up (CUIEngineWin32::BInitialize).
+		// They are the DirectWrite font file / font collection loaders that make the fonts in
+		// panorama/fonts/ (CS:GO ships them as ".vfont" containers) visible to DirectWrite.
+		UIFontCollectionLoader::SetInstance( new UIFontCollectionLoader() );
+		UIFontFileLoader::SetInstance( new UIFontFileLoader() );
 #else
 		if ( FAILED( g_DWriteCreateFactory( DWRITE_FACTORY_TYPE_SHARED, __uuidof(IDWriteFactory), (IUnknown **)&s_pDWriteFactory ) ) )
 		{
@@ -401,31 +409,27 @@ bool CUITextLayoutWin32::BLoadCustomFontCollection( const char *pchPathForCustom
 {
 	CUITextLayoutWin32::BInitGlobals();
 
-#if defined( PANORAMA_SE_CPU_TEXT )
-	// SE port: custom font collections come out of CS:GO's encrypted font *packages*, which are
-	// implemented by uifontfileloaderwin32.cpp + steamextra/common/uifontfile.cpp (protobuf
-	// generated sources that this tree does not have).  System fonts keep working.
-	Warning( "CUITextLayoutWin32::BLoadCustomFontCollection( \"%s\" ): custom font collections are not "
-			 "supported by this build; using the system font collection.\n", pchPathForCustomFonts ? pchPathForCustomFonts : "?" );
-	return false;
-#else
+	// SE port: this is CS:GO's implementation.  It used to be compiled out in favour of a warning,
+	// because the font package loaders were left outside the build; they are in it now, so the
+	// custom font collection (panorama/fonts/, holding the ".vfont" containers CS:GO ships) is what
+	// s_pCustomFontCollection points at, and CUITextLayoutWin32 looks fonts up there first.
 	DbgVerify( SUCCEEDED( s_pDWriteFactory->RegisterFontFileLoader( UIFontFileLoader::GetLoader() ) ) );
 	DbgVerify( SUCCEEDED( s_pDWriteFactory->RegisterFontCollectionLoader( UIFontCollectionLoader::GetLoader() ) ) );
 
 	HRESULT hr = s_pDWriteFactory->CreateCustomFontCollection( UIFontCollectionLoader::GetLoader(), pchPathForCustomFonts, V_strlen( pchPathForCustomFonts )+1, &s_pCustomFontCollection );
 	if ( SUCCEEDED( hr ) )
 	{
+		Msg( "CUITextLayoutWin32::BLoadCustomFontCollection( \"%s\" ): custom font collection created.\n", pchPathForCustomFonts ? pchPathForCustomFonts : "?" );
 		return true;
 	}
 	else
 	{
-		AssertMsg2( false, "CreateCustomFontCollection failed for %s, hr: 0x%X", pchPathForCustomFonts, hr );
+		Warning( "CUITextLayoutWin32::BLoadCustomFontCollection( \"%s\" ): CreateCustomFontCollection failed, hr: 0x%X\n", pchPathForCustomFonts ? pchPathForCustomFonts : "?", hr );
 		s_pDWriteFactory->UnregisterFontCollectionLoader( UIFontCollectionLoader::GetLoader() );
 		s_pDWriteFactory->UnregisterFontFileLoader( UIFontFileLoader::GetLoader() );
 		s_pCustomFontCollection = NULL;
 		return false;
 	}
-#endif // PANORAMA_SE_CPU_TEXT
 }
 
 
@@ -557,12 +561,12 @@ void CUITextLayoutWin32::FreeGlobals()
 	{
 		SAFE_RELEASE( s_pCustomFontCollection );
 
-#if !defined( PANORAMA_SE_CPU_TEXT )
+		// SE port: the font collection loaders are part of this build now (see panorama/wscript),
+		// so they are unregistered/released here like CS:GO did.
 		s_pDWriteFactory->UnregisterFontCollectionLoader( UIFontCollectionLoader::GetLoader() );
 		s_pDWriteFactory->UnregisterFontFileLoader( UIFontFileLoader::GetLoader() );
 		UIFontCollectionLoader::ReleaseInstance();
 		UIFontFileLoader::ReleaseInstance();
-#endif
 	}
 
 	SAFE_RELEASE( s_pDWriteFactory );
@@ -586,8 +590,9 @@ const CUtlSortVector< CUtlString > &CUITextLayoutWin32::GetSortedValidFontNames(
 		{
 			IDWriteFontCollection *pFontCollection = rgFontCollections[iCollection];
 
-			// SE port: with PANORAMA_SE_CPU_TEXT there is no custom collection (custom font
-			// packages are not supported by this build), so the entry stays NULL.
+			// SE port: rgFontCollections[0] is the collection built from panorama/fonts/ (the
+			// ".vfont" containers CS:GO ships), which is why the game's own font families
+			// (Stratum2, Noto Sans...) are found alongside the system ones.
 			if ( !pFontCollection )
 				continue;
 

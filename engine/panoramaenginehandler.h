@@ -188,4 +188,29 @@ private:
 
 CPanoramaEngineHandler &PanoramaEngineHandler();
 
+// SE port (task A, console/escape routing): true while the hosted CS:GO main-menu view owns the screen.
+// engine/keys.cpp (escape routing) and engine/vgui_baseui_interface.cpp (console / gameui activation) ask
+// this so they can play CS:GO's structure, where the GameUI *is* the panorama UI and there is no VGUI2
+// menu for the console or Esc to fall back on.  Defined in engine/panoramaenginehandler.cpp.
+bool SE_PortIsPanoramaMenuActive();
+
+// SE port (task A follow-up): give the escape key to the hosted panorama UI.  Panorama returns whether it
+// used it: an open popup gets closed, otherwise the focused panel receives the standard "Cancelled" panel
+// event (the content's mainmenu.js/inventory/chat scripts listen for it).  Only meaningful while a panorama
+// menu view exists; implemented in engine/panoramaenginehandler.cpp, which forwards the call to
+// panoramauiclient.dll's SE_PortPanoramaEscapePressed (engine.dll links no panorama library).
+//
+// NOTE: in CS:GO this is the GameUI's job - its GameUI *is* the panorama client UI.  This fork still ships
+// gameui.dll (the CS:S VGUI2 menu) and has no panorama GameUI yet, so the port does it here; once panorama
+// is the GameUI (the "task B" item) this can move back where CS:GO has it.
+bool SE_PortHandlePanoramaEscape();
+
+// SE port (settings keyboard binder): CS:GO's engine/keys.cpp::PanoramaHandleInputEvent() first calls
+// g_ClientDLL->HandleBindWidgetInputCapture( event ) - while a CSGOSettingsKeyBinder row is armed, the
+// binder swallows the raw key/mouse event so the key cannot also reach the game.  This port has no CS:GO
+// client DLL, but the same code is in panoramauiclient.dll, so this forwards to its
+// SE_PortKeyBinderHandleInputEvent() export.  Returns true when the event was consumed; false (also when
+// no binder is armed) lets the engine carry on.  Implemented in engine/panoramaenginehandler.cpp.
+bool SE_PortHandleKeyBinderInput( const InputEvent_t &inputEvent );
+
 #endif // PANORAMAENGINEHANDLER_H

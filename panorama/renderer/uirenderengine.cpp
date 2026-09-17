@@ -23,6 +23,8 @@ using namespace panorama;
 
 ConVar s_convarPanoramaTrackRenderCommands( "@panorama_track_render_commands", "0" );
 extern ConVar s_convarSuspendPaint;
+// SE port (temporary HitTest probe): defined in panorama/input/uiinput.cpp - see the note there.
+extern ConVar se_hittest_probe;
 
 CThreadMutex CUIRenderEngine::s_CommandStatsLock;
 RenderCommandListStats_t CUIRenderEngine::s_averagePaintCommandListStats;
@@ -344,6 +346,58 @@ void CUIRenderEngine::UpdatePanelScreenspaceQuadCoordinates( ScreenSpacePanelQua
 
 
 //-----------------------------------------------------------------------------
+// SE port (temporary HitTest probe, 2026-09-15): log every panel whose screenspace quad contains the
+// point, in the same front-to-back priority order the real hit test walks - so the log shows which
+// layer wins the click and what sits in front of / behind it.  Indented, capped, only called when
+// se_hittest_probe is on.
+//-----------------------------------------------------------------------------
+static void SE_PortLogHitCandidates( ScreenSpacePanelQuad_t *pPanelQuadTree, float x, float y, bool bTraversePeers, int nDepth, int &nLogged )
+{
+	if ( pPanelQuadTree == NULL || nLogged >= 16 )
+		return;
+
+	Vector2D *pCurQuad = pPanelQuadTree->m_pQuad;
+	if ( pCurQuad == NULL )
+		return;
+
+	bool bCurPanelPasses;
+	if ( pCurQuad[0].x == pCurQuad[3].x
+		&& pCurQuad[0].y == pCurQuad[1].y
+		&& pCurQuad[1].x == pCurQuad[2].x
+		&& pCurQuad[2].y == pCurQuad[3].y )
+	{
+		bCurPanelPasses = ( x >= Min( pCurQuad[0].x, pCurQuad[2].x ) && x <= Max( pCurQuad[2].x, pCurQuad[0].x )
+			&& y >= Min( pCurQuad[0].y, pCurQuad[2].y ) && y <= Max( pCurQuad[2].y, pCurQuad[0].y ) );
+	}
+	else
+	{
+		bCurPanelPasses = BPointInsideConvexQuad( x, y, pCurQuad );
+	}
+
+	CPanelPtr<IUIPanel> panel;
+	panel.SetFromUInt64( pPanelQuadTree->m_ulPanelContextID );
+
+	if ( bCurPanelPasses && panel.Get() )
+	{
+		IUIPanel *pPanel = panel.Get();
+		Msg( "SE_PORT_HITTEST:  %*squad %.0f,%.0f-%.0f,%.0f '%s' type=%s hittest=%d children=%d visible=%d\n",
+			nDepth * 2, "",
+			pCurQuad[0].x, pCurQuad[0].y, pCurQuad[2].x, pCurQuad[2].y,
+			pPanel->GetID() ? pPanel->GetID() : "", pPanel->GetPanelType().String(),
+			(int)pPanel->BHitTestEnabled(), (int)pPanel->BHitTestChildrenEnabled(), (int)pPanel->BIsVisible() );
+		++nLogged;
+	}
+
+	SE_PortLogHitCandidates( pPanelQuadTree->m_pFirstChild, x, y, true, nDepth + 1, nLogged );
+
+	if ( bTraversePeers )
+	{
+		for ( ScreenSpacePanelQuad_t *pNextPeer = pPanelQuadTree->m_pNextPeer; pNextPeer != NULL; pNextPeer = pNextPeer->m_pNextPeer )
+			SE_PortLogHitCandidates( pNextPeer, x, y, false, nDepth, nLogged );
+	}
+}
+
+//-----------------------------------------------------------------------------
 // Purpose: Helper to recurse 
 //-----------------------------------------------------------------------------
 IUIPanel * HitTestCoordinatesAgainstQuadTree( ScreenSpacePanelQuad_t *pPanelQuadTree, float x, float y, bool bTraversePeers )
@@ -416,7 +470,20 @@ IUIPanel * HitTestCoordinatesAgainstQuadTree( ScreenSpacePanelQuad_t *pPanelQuad
 IUIPanel * CUIRenderEngine::HitTestCoordsAgainstLatestScreenspaceQuadCoordinates( float xSurface, float ySurface )
 {
 	AUTO_LOCK( m_MutexScreenspaceQuadTree );
-	return HitTestCoordinatesAgainstQuadTree( m_treePanelScreenspaceQuads, xSurface, ySurface, true );
+	IUIPanel *pResult = HitTestCoordinatesAgainstQuadTree( m_treePanelScreenspaceQuads, xSurface, ySurface, true );
+
+	// SE port (temporary HitTest probe): see the note next to se_hittest_probe (panorama/input/uiinput.cpp).
+	if ( se_hittest_probe.GetBool() )
+	{
+		Msg( "SE_PORT_HITTEST: --- hit test at (%.0f,%.0f) ---\n", xSurface, ySurface );
+		int nLogged = 0;
+		SE_PortLogHitCandidates( m_treePanelScreenspaceQuads, xSurface, ySurface, true, 0, nLogged );
+		Msg( "SE_PORT_HITTEST: winner '%s' type=%s\n",
+			( pResult && pResult->GetID() ) ? pResult->GetID() : "<none>",
+			pResult ? pResult->GetPanelType().String() : "-" );
+	}
+
+	return pResult;
 }
 
 

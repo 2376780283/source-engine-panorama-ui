@@ -151,6 +151,13 @@ public:
 	void RunRenderFrame( SDL_Window *hWindow, float flCurrentFrameTime, uint32 unSurfaceWidth, uint32 unSurfaceHeight, bool bEnforceWindowAspectRatio );
 #endif
 
+	// SE port: the render side of the cursor state when there is no window handle to hand to
+	// RunRenderFrame().  RunRenderFrame() needs the window only to read the *hardware* cursor
+	// position; the port's CSource2Surface draws into the engine's render targets and has no HWND of
+	// its own, so it uses this instead - which takes the position the input engine already gave the
+	// window in surface space (CTopLevelWindow::RunPlatformFrame() feeds the same value to RunFrame()).
+	void RunRenderFrameFromMainThreadPosition( float flCurrentFrameTime );
+
 	float GetCursorOpacity() const { return m_flOpacity; }
 
 	// position of the cursor in surface space (not window space)

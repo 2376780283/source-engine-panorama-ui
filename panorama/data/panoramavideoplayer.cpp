@@ -320,7 +320,8 @@ uint32 CVideoPlayerAudioRenderer::GetMixedMilliseconds()
 	if ( !m_pAudioStream )
 		return 0;
 
-	return 1000;// m_pAudioStream->GetMixedMilliseconds();
+	// SE port: this used to be a hardcoded 1000 (the port's stream could not report it yet).
+	return m_pAudioStream->GetMixedMilliseconds();
 }
 
 
@@ -330,11 +331,12 @@ uint32 CVideoPlayerAudioRenderer::GetMixedMilliseconds()
 uint32 CVideoPlayerAudioRenderer::GetPlaybackLatency()
 {
 	Assert( m_pAudioStream );
-	if ( !m_pAudioStream )
+	if ( !m_pAudioStream || m_nSampleRate <= 0 )
 		return 0;
 
-	float flSecondsPerSample = 1.0 / double( m_nSampleRate );
-	return double( m_pAudioStream->LatencySamplesCount() ) * flSecondsPerSample * 0.001f;
+	// SE port: samples -> milliseconds (the original multiplied by 0.001, which turned the result into
+	// microseconds and made it useless to any caller).
+	return (uint32)( ( (double)m_pAudioStream->LatencySamplesCount() * 1000.0 ) / (double)m_nSampleRate );
 }
 
 

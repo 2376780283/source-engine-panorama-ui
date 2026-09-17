@@ -87,9 +87,16 @@ using namespace panorama;
 ConVar s_convarPanoramaECOMode( "@panorama_ECO_mode", "1", FCVAR_NONE, "0 - disable, 1 - default, 2 - force always ON" );
 
 // SE port: the layout the hosted menu view loads.  "panorama_menu <layout>" retargets this at run time.
+// It is base_mainmenu.xml (not mainmenu.xml!) because CS:GO's structure is
+//     view -> base_mainmenu.xml -> <CSGOMainMenu> -> (CCSGO_MainMenu loads) mainmenu.xml
+// and CCSGO_MainMenu::CCSGO_MainMenu() does RequireLoadLayout("mainmenu.xml") itself.  Handing
+// mainmenu.xml to the *view* would make the class load the very layout it is being created from; the
+// nested panel then gets discarded and the menu never appears at all (the class exists, so there is no
+// "panel type not implemented" message either - the screen is simply empty).  Passing mainmenu.xml is
+// still accepted and translated - see SE_PortNormalizeMenuLayout() in CreatePanoramaMenuView().
 // NOTE: outside of the DEVELOPMENT_ONLY block below - that block is compiled out of release builds, which
 // is exactly the build this port runs as.
-ConVar panorama_menu_layout( "panorama_menu_layout", "file://{resources}/layout/mainmenu.xml", FCVAR_NONE,
+ConVar panorama_menu_layout( "panorama_menu_layout", "file://{resources}/layout/base_mainmenu.xml", FCVAR_NONE,
 	"Panorama layout loaded by the panorama_menu view" );
 
 #if ( PLATFORM_WINDOWS && DEVELOPMENT_ONLY )
@@ -205,6 +212,67 @@ CPanoramaEngineHandler &PanoramaEngineHandler()
 {
 	static CPanoramaEngineHandler s_PanoramaEngineHandler;
 	return s_PanoramaEngineHandler;
+}
+
+//-----------------------------------------------------------------------------
+// SE port (task A, console/escape routing): is the hosted panorama UI layer (the CS:GO main menu) up?
+//
+// CS:GO's engine never needs to ask this: its GameUI *is* the panorama UI, so "gameui_activate" shows the
+// panorama menu and the VGUI console is not a child of it.  This fork still ships the CS:S VGUI2 main menu
+// as the game UI, so the three places that used to reach for it unconditionally - CEngineVGui::ShowConsole()
+// ("ActivateGameUI()" made '~' pop the CS:S menu open), CEngineVGui::ActivateGameUI() (what Esc calls) and
+// CEngineVGui::IsConsoleVisible() - ask this first.  See engine/keys.cpp::IsESC() for the matching change to
+// the key filter order.
+//-----------------------------------------------------------------------------
+bool SE_PortIsPanoramaMenuActive()
+{
+	return PanoramaEngineHandler().HasPanoramaMenuView();
+}
+
+//-----------------------------------------------------------------------------
+// SE port (task A follow-up): hand the escape key to the hosted panorama UI.
+//
+// The panorama-side implementation lives in panoramauiclient.dll (panoramauiclient/se_escape.cpp): it
+// closes a visible popup, or dispatches the panel "Cancelled" event the content listens for.  CS:GO keeps
+// this in its GameUI, which is the panorama client UI there; this fork has no such GameUI yet ("task B"),
+// so the engine forwards the key instead.  Same GetProcAddress bridge as SE_PortMainMenuTick below.
+//-----------------------------------------------------------------------------
+bool SE_PortHandlePanoramaEscape()
+{
+	typedef bool ( *SEPortEscapeFn )();
+	static SEPortEscapeFn s_pfnSEEscape = NULL;
+	static bool s_bSEEscapeResolved = false;
+	if ( !s_bSEEscapeResolved )
+	{
+		s_bSEEscapeResolved = true;
+		HMODULE hPanoramaModule = GetModuleHandleA( "panoramauiclient.dll" );
+		if ( hPanoramaModule )
+			s_pfnSEEscape = (SEPortEscapeFn)GetProcAddress( hPanoramaModule, "SE_PortPanoramaEscapePressed" );
+	}
+
+	return ( s_pfnSEEscape != NULL ) && s_pfnSEEscape();
+}
+
+//-----------------------------------------------------------------------------
+// SE port (settings keyboard binder): CS:GO's input route gives the key binder the raw event before
+// anything else (keys.cpp::PanoramaHandleInputEvent -> g_ClientDLL->HandleBindWidgetInputCapture).
+// The implementation is in panoramauiclient.dll (panoramauiclient/se_keybinder.cpp); same
+// GetProcAddress bridge as SE_PortHandlePanoramaEscape above.
+//-----------------------------------------------------------------------------
+bool SE_PortHandleKeyBinderInput( const InputEvent_t &inputEvent )
+{
+	typedef bool ( *SEPortKeyBinderInputFn )( const InputEvent_t & );
+	static SEPortKeyBinderInputFn s_pfnSEKeyBinderInput = NULL;
+	static bool s_bSEKeyBinderResolved = false;
+	if ( !s_bSEKeyBinderResolved )
+	{
+		s_bSEKeyBinderResolved = true;
+		HMODULE hPanoramaModule = GetModuleHandleA( "panoramauiclient.dll" );
+		if ( hPanoramaModule )
+			s_pfnSEKeyBinderInput = (SEPortKeyBinderInputFn)GetProcAddress( hPanoramaModule, "SE_PortKeyBinderHandleInputEvent" );
+	}
+
+	return ( s_pfnSEKeyBinderInput != NULL ) && s_pfnSEKeyBinderInput( inputEvent );
 }
 
 //-----------------------------------------------------------------------------
@@ -416,6 +484,10 @@ void SE_PortUIProbe( const char *pFmt, ... )
 	if ( !fp )
 		return;
 
+	// Seconds since the engine started, so this file can be lined up with the screenshots the test
+	// harness takes.
+	fprintf( fp, "[%8.2f] ", Plat_FloatTime() );
+
 	va_list args;
 	va_start( args, pFmt );
 	vfprintf( fp, pFmt, args );
@@ -456,6 +528,38 @@ void SE_PortDumpPanelTree( panorama::IUIPanel *pPanel, int nDepth )
 // SE port: the CS:GO main menu view.  See the note in the header - the markup comes out of the
 // retail panorama/code.pbin pack.
 //-----------------------------------------------------------------------------
+//-----------------------------------------------------------------------------
+// SE port: translate layout names handed to the hosted menu view.
+//
+//   "mainmenu.xml" is CS:GO's *inner* menu layout - CCSGO_MainMenu::CCSGO_MainMenu() loads it itself -
+//   while the view has to load base_mainmenu.xml (which contains <CSGOMainMenu>).  Passing mainmenu.xml
+//   to the view makes the class load the very layout it is being created from: the nested panel is then
+//   discarded and the menu never appears, without any warning (the panel type *is* registered, so there
+//   is no "not implemented" message either - the screen is simply empty).  Old command lines keep
+//   working because the name is translated here.
+//
+//   Returns the replacement name, or NULL when nothing has to change.
+//-----------------------------------------------------------------------------
+static const char *SE_PortNormalizeMenuLayout( const char *pchLayout )
+{
+	static char s_rgchNormalized[ 256 ];
+
+	const char *pchFound = V_strstr( pchLayout, "mainmenu.xml" );
+	if ( !pchFound )
+		return NULL;
+
+	// only when "mainmenu.xml" is the file name itself (not e.g. "mymainmenu.xml" or "foo_mainmenu.xml")
+	if ( pchFound != pchLayout && pchFound[ -1 ] != '/' && pchFound[ -1 ] != '\\' )
+		return NULL;
+
+	const int nPrefix = (int)( pchFound - pchLayout );
+	V_strncpy( s_rgchNormalized, pchLayout, Min( nPrefix + 1, (int)V_ARRAYSIZE( s_rgchNormalized ) ) );
+	s_rgchNormalized[ nPrefix ] = '\0';
+	V_strncat( s_rgchNormalized, "base_mainmenu.xml", V_ARRAYSIZE( s_rgchNormalized ) );
+	return s_rgchNormalized;
+}
+
+
 bool CPanoramaEngineHandler::CreatePanoramaMenuView()
 {
 	if ( m_pMenuWindow )
@@ -481,6 +585,18 @@ bool CPanoramaEngineHandler::CreatePanoramaMenuView()
 
 	SE_PortUIProbe( "WINDOW backbuffer=%dx%d\n", nWidth, nHeight );
 
+	// SE port: false here, exactly like CS:GO - game/client/cstrike15/gameui/gameui_interface.cpp:544
+	// creates the menu/HUD windows with bUseCustomMouseCursor = false.  false means
+	// CTopLevelWindowSource2::SetMouseCursor() maps the panel's cursor style onto a standard cursor and
+	// hands it to the input system (IInputSystem::GetStandardCursor + SetCursorIcon), i.e. the pointer is
+	// the OS one.  The custom-cursor path (true) is only used by the Steam/VR overlay windows
+	// (panorama/uitoplevelwindowoverlay.cpp, panorama/uitoplevelwindowopenvroverlay.cpp), which have no
+	// OS window of their own.
+	//
+	// This used to fail in both directions: with false, the input system's cursor calls were still no-op
+	// stubs (see CInputSystem::GetStandardCursor), and with true nothing draws the cursor either because
+	// CMouseCursorRender is never created in a SOURCE2_PANORAMA build (uitoplevelwindow.cpp:43-47) -
+	// while the engine hides the OS cursor whenever the UI owns the mouse.  Net result: no pointer.
 	panorama::IUIWindow *pMenuWindow = m_pUIEngine->CreateNewUILayerWindow( 0, 0, nWidth, nHeight, false, false, false, true, "CSGOMainMenu", INPUT_CONTEXT_HANDLE_INVALID );
 	panorama::IUIPanelClient *pMenuPanel = pMenuWindow ? AddPanoramaView( "CSGOMainMenu", pMenuWindow ) : NULL;
 	if ( !pMenuPanel )
@@ -498,7 +614,18 @@ bool CPanoramaEngineHandler::CreatePanoramaMenuView()
 	// script of every layout instead, which covers all of those contexts.
 
 	// This is what CS:GO's CCSGOMainMenu loads (game/client/cstrike15/panorama/csgo_mainmenu.cpp).
+	// NOTE: the layout has to be the *view* layout (base_mainmenu.xml = <Panel class="WindowRoot">
+	// containing <CSGOMainMenu>), because the CSGOMainMenu panel class itself loads mainmenu.xml.
 	const char *pMenuLayout = panorama_menu_layout.GetString();
+	const char *pchTranslated = SE_PortNormalizeMenuLayout( pMenuLayout );
+	if ( pchTranslated )
+	{
+		Msg( "SE port: menu layout '%s' -> '%s' (CCSGO_MainMenu loads mainmenu.xml itself; the view loads "
+			"base_mainmenu.xml)\n", pMenuLayout, pchTranslated );
+		panorama_menu_layout.SetValue( pchTranslated );
+		pMenuLayout = panorama_menu_layout.GetString();
+	}
+
 	if ( !pMenuPanel->UIPanel()->BLoadLayout( pMenuLayout ) )
 	{
 		Warning( "panorama: could not load %s - see the layout/style parsing errors above (every panel type"
@@ -652,22 +779,36 @@ void CPanoramaEngineHandler::PanoramaRunFrame(int nSlot)
 		}
 	}
 
-	// SE port (dev switch, **default off**): -se_panorama_menu_only
-	// The CS:S VGUI main menu is drawn on top of the hosted panorama UI, and engine/keys.cpp lets
-	// VGUI filter input *before* panorama (CS:GO's order, but CS:GO has no VGUI menu), so the VGUI
-	// main menu swallows every click/key press and the panorama UI can never be used.  Hiding the
-	// gameui root panel while a panorama menu view exists is what CS:GO's structure amounts to.
+	// SE port: "the panorama menu is the menu" - DEFAULT ON since 2026-09-15 (user decision A).
+	//
+	// WHY: engine/keys.cpp filters VGUI *before* panorama (CS:GO's own order - harmless there because
+	// CS:GO has no VGUI main menu), and this fork still ships the CS:S VGUI main menu.  While that menu
+	// is up, HandleVGuiKey() returns true for every mouse/key event, Key_Event() returns early and the
+	// hosted panorama UI never sees a button event at all.  Measured with the same click test on the
+	// real mainmenu.xml (2026-09-15):
+	//     VGUI gameui visible : KEY ... vguiConsumed=1 on every click, 0 x "INPUT type=0", 0 x onactivate
+	//     VGUI gameui hidden  : vguiConsumed=0, 7 x "INPUT type=0 ... consumed=1", and
+	//                           RadioButton#MainMenuNavBarInventory/Settings - onactivate fired
+	// So the panorama HitTest was never the problem - the CS:S VGUI layer above it was.
+	//
+	// Behaviour: while a panorama menu view ('+panorama_menu') exists, hide the VGUI gameui root panel.
+	// This is what CS:GO's structure amounts to (it has no VGUI menu to hide).
+	//   -se_keep_vgui_menu     : opt out, keep the CS:S VGUI menu visible/clickable as before
+	//   -se_panorama_menu_only : the original explicit switch; still honoured (and now a no-op)
 	// NOTE: EngineVGui()->HideGameUI() cannot be used here: at the main menu (a background level) it
 	// deliberately does not hide anything (engine/vgui_baseui_interface.cpp).
 	{
-		static int s_nSEMenuOnly = -1;
+		static int s_nSEHideGameUI = -1;
 		static bool s_bSEGameUIHidden = false;
-		if ( s_nSEMenuOnly == -1 )
+		if ( s_nSEHideGameUI == -1 )
 		{
-			s_nSEMenuOnly = CommandLine()->FindParm( "-se_panorama_menu_only" ) ? 1 : 0;
-			SE_PortUIProbe( "SE panorama-menu-only switch: %s\n", s_nSEMenuOnly ? "ON" : "off" );
+			s_nSEHideGameUI = CommandLine()->FindParm( "-se_keep_vgui_menu" ) ? 0 : 1;
+			SE_PortUIProbe( "SE vgui-menu handling: %s%s\n",
+				s_nSEHideGameUI ? "hide the gameui panel while a panorama menu exists (default)"
+				                : "keep the gameui panel (-se_keep_vgui_menu)",
+				CommandLine()->FindParm( "-se_panorama_menu_only" ) ? " [-se_panorama_menu_only also passed]" : "" );
 		}
-		if ( s_nSEMenuOnly )
+		if ( s_nSEHideGameUI )
 		{
 			bool bWantHidden = ( m_pMenuWindow != NULL );
 			if ( bWantHidden != s_bSEGameUIHidden )
@@ -684,6 +825,31 @@ void CPanoramaEngineHandler::PanoramaRunFrame(int nSlot)
 		}
 	}
 
+	// SE port (batch E): tick the ported CS:GO main menu panel class.  CS:GO does this from
+	// CGameUI::RunFrame(); this tree has no gameui module, so the class is ticked here.  The panel class
+	// drives the menu state machine (main menu <-> pause menu), the background movie, the vanity panel
+	// and the "deny game input" lock.  engine.dll links no panorama library, so the tick is resolved out
+	// of panoramauiclient.dll's export table (same pattern as the movie bridge below).
+	//
+	// Its return value says whether the class exists: that requires mainmenu.xml to instantiate
+	// <CSGOMainMenu>, and when it does the movie bridge below is not needed (and must not run, it would
+	// load the movie snippet a second time).
+	bool bSEMainMenuTickHandled = false;
+	{
+		typedef bool ( *SEPortMainMenuTickFn )();
+		static SEPortMainMenuTickFn s_pfnSETick = NULL;
+		static bool s_bSETickResolved = false;
+		if ( !s_bSETickResolved )
+		{
+			s_bSETickResolved = true;
+			HMODULE hPanoramaModule = GetModuleHandleA( "panoramauiclient.dll" );
+			if ( hPanoramaModule )
+				s_pfnSETick = (SEPortMainMenuTickFn)GetProcAddress( hPanoramaModule, "SE_PortMainMenuTick" );
+			SE_PortUIProbe( "SE main menu tick bridge: fn=%p\n", s_pfnSETick );
+		}
+		bSEMainMenuTickHandled = ( s_pfnSETick != NULL ) && s_pfnSETick();
+	}
+
 	// SE port of game/client/cstrike15/panorama/csgo_mainmenu.cpp::CCSGO_MainMenu::LoadBackgroundMovie
 	// (panorama background webm, 2026-09-14):
 	// mainmenu.xml only *declares* the reusable snippet "MainMenuMovieSnippet" and leaves
@@ -695,7 +861,7 @@ void CPanoramaEngineHandler::PanoramaRunFrame(int nSlot)
 	// existed), so call it once more explicitly.
 	{
 		static int s_nSEBackgroundMovie = 0;	// 0 = not tried yet
-		if ( s_nSEBackgroundMovie == 0 && s_pSEProbeMenuRoot && m_pUIEngine )
+		if ( !bSEMainMenuTickHandled && s_nSEBackgroundMovie == 0 && s_pSEProbeMenuRoot && m_pUIEngine )
 		{
 			panorama::IUIPanel *pMovieParent = s_pSEProbeMenuRoot->FindChildInLayoutFile( "MainMenuMovieParent" );
 			if ( pMovieParent )
@@ -725,31 +891,6 @@ void CPanoramaEngineHandler::PanoramaRunFrame(int nSlot)
 	}
 
 	RunFrame();
-
-	// SE port (bring-up aid): once layout/animation have run, dump the menu tree again.  This is the
-	// dump that has real sizes in it (the one in CreatePanoramaMenuView is all zeros).
-	if ( m_pMenuWindow )
-	{
-		static int s_nSEProbeFrame = 0;
-		++s_nSEProbeFrame;
-		if ( s_nSEProbeFrame == 120 && s_pSEProbeMenuRoot )
-		{
-			s_nSEProbeDumpLines = 0;
-
-			// The window's logical size is what the panels lay out against; the surface size is the
-			// physical back buffer and the scale factor is the mapping between them.  CS:GO creates
-			// the window with the back buffer size and then sets scale = height/1080, so the layout
-			// space always ends up 1080 high.
-			panorama::IUIWindow *pWindow = m_pMenuWindow;
-			SE_PortUIProbe( "WINDOW surface=%ux%u window=%ux%u scale=%.4f backbuffer=%dx%d\n",
-				pWindow->GetSurfaceWidth(), pWindow->GetSurfaceHeight(),
-				pWindow->GetWindowWidth(), pWindow->GetWindowHeight(),
-				pWindow->GetWindowScaleFactor(), nWd, nHt );
-
-			SE_PortUIProbe( "MENUTREE-AFTER-LAYOUT (frame %d, back buffer %dx%d):\n", s_nSEProbeFrame, nWd, nHt );
-			SE_PortDumpPanelTree( s_pSEProbeMenuRoot, 0 );
-		}
-	}
 }
 
 
@@ -1042,6 +1183,44 @@ void CPanoramaEngineHandler::RunFrame()
 		g_pInputStackSystem->EnableInputContext( m_hPanoramaInputContext, ( m_eGameInputFlags & k_EGameInputUIEnableMouseCursor ) == k_EGameInputUIEnableMouseCursor );
 	}
 
+	// SE port: the OS cursor also has to be *visible* while the UI owns the mouse.  CS:GO leaves that to
+	// the input stack system (IInputStackSystem::SetCursorVisible through EnableInputContext above), which
+	// this tree does not have, and the game hides the cursor when it captures the mouse for gameplay
+	// (::ShowCursor( FALSE ) - e.g. sys_mainwind.cpp:1360 hides it while the startup movies play) and
+	// never shows it again.  So manage it here, with our own count so the game's own hide/show calls keep
+	// working once the UI gives the mouse back.
+	static int s_nSEPortCursorShows = 0;
+	const bool bSEUIWantsCursor = ( m_eGameInputFlags & k_EGameInputUIEnableMouseCursor ) == k_EGameInputUIEnableMouseCursor;
+	if ( bSEUIWantsCursor && s_nSEPortCursorShows == 0 )
+	{
+		++s_nSEPortCursorShows;
+
+		// Stop VGUI from touching the cursor while the UI owns it.  VGUI's idea of "the panel under the
+		// mouse" does not include panorama panels, so it keeps setting vgui::dc_none - i.e. NULL - on
+		// every mouse move (vguimatsurface/Input.cpp: IE_SetCursor -> ActivateCurrentCursor ->
+		// CursorSelect), which is what made the pointer disappear.  CMatSystemSurface::SetCursor() returns
+		// early once the cursor is locked, which is exactly what is needed here.  (CS:GO does not have this
+		// problem because its VGUI cursor is per input context - vguimatsurface/Cursor.cpp:205.)
+		if ( vgui::surface() )
+			vgui::surface()->LockCursor();
+
+		if ( g_pInputSystem )
+			g_pInputSystem->SetCursorIcon( g_pInputSystem->GetStandardCursor( INPUT_CURSOR_ARROW ) );
+
+		while ( ::ShowCursor( TRUE ) < 0 ) { }
+	}
+	else if ( !bSEUIWantsCursor && s_nSEPortCursorShows > 0 )
+	{
+		--s_nSEPortCursorShows;
+
+		if ( vgui::surface() )
+			vgui::surface()->UnlockCursor();
+		if ( g_pInputSystem )
+			g_pInputSystem->ResetCursorIcon();
+
+		::ShowCursor( FALSE );
+	}
+
 	// Panorama taking over cursor control if EnableMouseCursor set
 	// cl_mouseenable 0 stops the game from handling mouse input
 	ConVarRef cl_mouseenable( "cl_mouseenable" );
@@ -1203,42 +1382,6 @@ bool CPanoramaEngineHandler::ProcessUserInput( const InputEvent_t &inputEvent )
 		else
 #endif
 			result = g_pPanoramaUIClient->HandleInputEvent(updatedEvent, m_vecWindowInputOrder, false);
-	}
-
-	// SE port (bring-up aid): record whether the panorama UI ever receives input, and whether it
-	// consumed it.  A completely absent INPUT line means the event never reached panorama (VGUI in
-	// engine/keys.cpp::Key_Event filters input before panorama and may have eaten it);
-	// an "order=0" means no hosted window can be hit.
-	if ( ( inputEvent.m_nType == IE_ButtonPressed ) || ( inputEvent.m_nType == IE_ButtonReleased ) ||
-		 ( inputEvent.m_nType == IE_ButtonDoubleClicked ) || ( inputEvent.m_nType == IE_KeyTyped ) ||
-		 ( inputEvent.m_nType == IE_KeyCodeTyped ) || ( inputEvent.m_nType == IE_KeyCodeReleased ) ||
-		 ( inputEvent.m_nType == IE_LocateMouseClick ) )
-	{
-		static int s_nSEInputProbe = 0;
-		if ( s_nSEInputProbe < 200 )
-		{
-			++s_nSEInputProbe;
-			SE_PortUIProbe( "INPUT type=%d data=%d d2=%d d3=%d consumed=%d order=%d\n",
-				inputEvent.m_nType, inputEvent.m_nData, inputEvent.m_nData2, inputEvent.m_nData3,
-				result ? 1 : 0, m_vecWindowInputOrder.Count() );
-		}
-	}
-
-	// SE port (bring-up aid): does the input system even feed panorama absolute mouse positions?
-	// Panorama hit-tests with the cursor position carried by IE_LocateMouseClick (converted from the
-	// MOUSE_XY analog event); if the cursor is locked and the mouse is in raw mode, no such event is
-	// ever produced and every click is "received but not consumed".
-	if ( inputEvent.m_nType == IE_AnalogValueChanged && (AnalogCode_t)inputEvent.m_nData == MOUSE_XY )
-	{
-		static int s_nSEMouseProbe = 0;
-		if ( s_nSEMouseProbe < 30 )
-		{
-			++s_nSEMouseProbe;
-			SE_PortUIProbe( "MOUSEXY -> (%d,%d) consumed=%d order=%d cursorLocked=%d cursorVisible=%d\n",
-				updatedEvent.m_nData, updatedEvent.m_nData2, result ? 1 : 0, m_vecWindowInputOrder.Count(),
-				( vgui::surface() && vgui::surface()->IsCursorLocked() ) ? 1 : 0,
-				( vgui::surface() && vgui::surface()->IsCursorVisible() ) ? 1 : 0 );
-		}
 	}
 
 	// Don't eat this key if we didn't use it, and it happens to be the console toggle key

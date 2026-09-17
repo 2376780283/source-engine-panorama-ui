@@ -10,6 +10,9 @@
 // Source 2013 versions - they share the UTLRBTREE_H/UTLMAP_H guards, and the Source 2013
 // utlrbtree.h has no CompareOperands_t that panoramauiclient's headers need.
 #include "stdafx_client.h"
+// SE port: the two engine-provided globals the ported game-client sources need (gameuifuncs,
+// gameeventmanager), filled in from the app system factory in Connect() below.
+#include "panorama/se_gameclient_globals.h"
 // SE port (temporary bring-up probe): the process exits silently while the UI engine is being set up,
 // and Warning() output is lost with it, so these probes append straight to a file.
 
@@ -44,6 +47,8 @@
 // SE port (temporary bring-up probe): the process exits silently while the UI engine is being set up,
 // and Warning() output is lost with it, so these probes append straight to a file.
 #include "panorama/panoramatypes.h"
+// SE port (batch E): installs the cstrike15 UI component JS bindings (the "UiToolkitAPI" global).
+#include "se_uicomponents.h"
 // SE port (temporary bring-up probe): the process exits silently while the UI engine is being set up,
 // and Warning() output is lost with it, so these probes append straight to a file.
 
@@ -183,6 +188,22 @@ bool CPanoramaUIClient::Connect( CreateInterfaceFn factory )
 
 	g_pPanoramaUIEngine = (IPanoramaUIEngine*)factory( PANORAMAUI_ENGINE_INTERFACE_VERSION, NULL );
 
+	// SE port (batch C): the ported game-client sources need the same two engine globals Source 2013's
+	// game client DLL grabs from the app system factory (game/client/cdll_client_int.cpp:920 and its
+	// gameeventmanager lookup), so ask for them here - same versions, same order, same NULL tolerance.
+	//
+	//   gameuifuncs     - public/panorama/uiinputcapture.h dereferences it from
+	//                     CGameInputCapture::Enable() (CUI_Popup takes game input while it is up);
+	//                     the engine implementation lives in engine/sys_dll2.cpp (CGameUIFuncs).
+	//   gameeventmanager- game/shared/GameEventListener.h uses it from ListenForGameEvent().
+	gameuifuncs = (IGameUIFuncs *)factory( VENGINE_GAMEUIFUNCS_VERSION, NULL );
+	gameeventmanager = (IGameEventManager2 *)factory( INTERFACEVERSION_GAMEEVENTSMANAGER2, NULL );
+	//   engine          - ui_popup_generic.cpp runs the console command of a command popup through it
+	//                     (ClientCmd_Unrestricted); the engine exposes its implementation as
+	//                     VENGINE_CLIENT_INTERFACE_VERSION (engine/cdll_engine_int.cpp).
+	engine = (IVEngineClient *)factory( VENGINE_CLIENT_INTERFACE_VERSION, NULL );
+	Msg( "panoramauiclient: gameuifuncs=%p gameeventmanager=%p engine=%p\n", (void *)gameuifuncs, (void *)gameeventmanager, (void *)engine );
+
 	return true;
 
 }
@@ -249,6 +270,17 @@ panorama::IUIEngine *CPanoramaUIClient::SetupUIEngine( const char *pszLanguage, 
 	// Startup subsystems and make UIEngine ready for real use
 	CPanoramaUISettings::Get().SetUILanguage( pszLanguage );
 	pUIEngine->StartupSubsystems( &CPanoramaUISettings::Get(), hWindow );
+
+	// SE port (batch E): publish the UI component JavaScript bindings.  CS:GO does the equivalent from
+	// game/client/cstrike15/gameui/gameui_interface.cpp::CGameUI::Initialize, right after the panorama
+	// engine is connected and before any layout runs.
+	SE_PortInstallUiComponentBindings();
+
+	// SE port (2026-09-16): GameInterfaceAPI.  CS:GO installs CUiComponent_GameInterface from the same
+	// CGameUI::Initialize() loop as CUiComponent_UiToolkit (see se_uicomponents.h).  With the real
+	// component installed, GameInterfaceAPI.GetSettingString/SetSettingString read and write the
+	// archived ConVars (ui_mainmenu_bkgnd_movie and friends) instead of the shim's placeholders.
+	SE_PortInstallGameInterfaceBindings();
 
     return pUIEngine;
 }

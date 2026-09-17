@@ -14,9 +14,11 @@
 //          the main thread) instead of a decode thread - no locking, and the texture upload happens
 //          on the thread that owns the D3D device.
 //
-//          Not implemented: audio (BHasAudioTrack returns false), in-memory playback, seek accuracy
-//          beyond the source reader's own seeking, playback speed other than 1.0 is honoured in the
-//          frame scheduler only.
+//          Audio: the reader's audio stream is selected as 16 bit PCM and pumped into panorama's
+//          IVideoPlayerAudioCallback from the same per frame call (the callback feeds the engine's
+//          IAudioOutputStream).  Not implemented: in-memory playback, seek accuracy beyond the
+//          source reader's own seeking, playback speed other than 1.0 is honoured in the frame
+//          scheduler only.
 //
 //=============================================================================
 
@@ -41,6 +43,7 @@
 #include "tier0/basetypes.h"
 #include "tier0/dbg.h"
 #include "tier0/platform.h"
+#include "tier0/threadtools.h"
 #include "tier1/utlvector.h"
 #include "video/ivideoplayer.h"
 
@@ -98,6 +101,43 @@ static int SE_YUVMode()
 #define SE_SAFE_RELEASE( p ) do { if ( p ) { ( p )->Release(); ( p ) = NULL; } } while ( 0 )
 
 //-----------------------------------------------------------------------------
+// Audio bring-up.
+// The panorama audio renderer (CVideoPlayerAudioRenderer, panorama/data/panoramavideoplayer.cpp)
+// marshals InitAudioOutput() to the UI thread and blocks until it has run there.  This player is
+// pumped from VideoPlaybackRunFrame(), which *is* the UI thread, so calling it inline would
+// deadlock - it goes to a short lived worker thread instead.
+//
+// The request is refcounted because the player can be destroyed while the worker is still inside
+// the call: CPanoramaVideoPlayer::Stop() calls MarkShuttingDown() on the renderer first, which
+// unblocks the waiting InitAudioOutput() immediately, and the worker then only touches this object.
+//-----------------------------------------------------------------------------
+#define SE_MF_AUDIO_LEAD_MS 250		// how much audio is kept queued in the engine's stream ahead of the video clock
+#define SE_MF_AUDIO_CATCHUP_MS 150		// audio older than this behind the picture is dropped (see CollectAudioSample)
+
+struct SE_MFAudioInitRequest
+{
+	CInterlockedInt				m_nRefs;
+	IVideoPlayerAudioCallback	*m_pCallback;
+	int							m_nSampleRate;
+	int							m_nChannels;
+	volatile bool				m_bDone;
+	volatile bool				m_bResult;
+
+	void AddRef() { ++m_nRefs; }
+	void Release() { if ( --m_nRefs == 0 ) delete this; }
+};
+
+static uintp SE_MFAudioInitThreadProc( void *pParam )
+{
+	SE_MFAudioInitRequest *pReq = (SE_MFAudioInitRequest *)pParam;
+	pReq->m_bResult = pReq->m_pCallback ? pReq->m_pCallback->InitAudioOutput( pReq->m_nSampleRate, pReq->m_nChannels ) : false;
+	pReq->m_bDone = true;
+	SE_MFProbe( "MF audio: InitAudioOutput(%d Hz, %d ch) -> %d\n", pReq->m_nSampleRate, pReq->m_nChannels, pReq->m_bResult ? 1 : 0 );
+	pReq->Release();
+	return 0;
+}
+
+//-----------------------------------------------------------------------------
 // Frame scheduler / decoding
 //-----------------------------------------------------------------------------
 class CMFVideoPlayer : public IVideoPlayer
@@ -139,6 +179,9 @@ public:
 		{
 			// let MF do the format decoding (WebM/VP8/VP9 -> NV12) and stay on the file's own clock
 			pAttributes->SetUINT32( MF_SOURCE_READER_ENABLE_VIDEO_PROCESSING, FALSE );
+			// NOTE: the audio equivalent (MF_SOURCE_READER_ENABLE_AUDIO_PROCESSING) does not exist in
+			// this SDK's headers, and the source reader inserts the audio decoder (Vorbis/Opus) plus a
+			// format converter for the first audio stream anyway - see SetupAudio().
 		}
 
 		HRESULT hr = MFCreateSourceReaderFromURL( wszPath, pAttributes, &m_pReader );
@@ -165,9 +208,11 @@ public:
 			}
 		}
 
-		m_pReader->SetStreamSelection( MF_SOURCE_READER_FIRST_AUDIO_STREAM, FALSE );
+		// video is required, audio is optional (SetupAudio() selects it when the file has a track and
+		// panorama handed us an audio callback to feed)
 		m_pReader->SetStreamSelection( MF_SOURCE_READER_ALL_STREAMS, FALSE );
 		m_pReader->SetStreamSelection( MF_SOURCE_READER_FIRST_VIDEO_STREAM, TRUE );
+		SetupAudio();
 
 		// duration (MF_PD_DURATION is in 100ns units; the source reader exposes it as an attribute)
 		PROPVARIANT varDuration;
@@ -185,8 +230,8 @@ public:
 		m_bEndOfStream = false;
 		m_eState = k_EVideoPlayerPlaybackStateStop;
 		m_eError = k_EVideoPlayerPlaybackErrorNone;
-		SE_MFProbe( "MF loaded '%s' %dx%d %.1ffps dur=%ums nv12=%d\n", pchURL, m_nWidth, m_nHeight,
-			m_flFrameInterval > 0 ? 1.0 / m_flFrameInterval : 0.0, m_unDurationMS, m_bNV12 ? 1 : 0 );
+		SE_MFProbe( "MF loaded '%s' %dx%d %.1ffps dur=%ums nv12=%d audio=%d\n", pchURL, m_nWidth, m_nHeight,
+			m_flFrameInterval > 0 ? 1.0 / m_flFrameInterval : 0.0, m_unDurationMS, m_bNV12 ? 1 : 0, m_bAudioConfigured ? 1 : 0 );
 		return true;
 	}
 
@@ -217,12 +262,19 @@ public:
 		m_flStartTime = Plat_FloatTime();
 		m_unPlaybackBaseMS = GetCurrentPlaybackTime();
 		m_eState = k_EVideoPlayerPlaybackStatePlay;
+		StartAudioInit();
+		m_bAudioClockNeedsBase = true;		// the sound becomes the clock once it is actually mixing (see GetCurrentPlaybackTime)
+		m_bAudioPaused = false;
+		if ( m_bAudioReady && m_pAudioCallback )
+			m_pAudioCallback->Resume();
 		if ( m_pEventCallback )
 			m_pEventCallback->VideoPlayerEvent( k_EVideoPlayerEventPlaybackStateChange );
 	}
 
 	virtual void Stop()
 	{
+		StopAudio();
+
 		if ( m_pReader )
 		{
 			PROPVARIANT var;
@@ -246,6 +298,9 @@ public:
 			// keep the media time we reached so Resume picks up from there
 			m_unPlaybackBaseMS = GetCurrentPlaybackTime();
 			m_eState = k_EVideoPlayerPlaybackStatePause;
+			m_bAudioPaused = true;
+			if ( m_bAudioReady && m_pAudioCallback )
+				m_pAudioCallback->Pause();
 			if ( m_pEventCallback )
 				m_pEventCallback->VideoPlayerEvent( k_EVideoPlayerEventPlaybackStateChange );
 		}
@@ -271,6 +326,14 @@ public:
 			m_bEndOfStream = false;
 			m_unPlaybackBaseMS = unSeekMS;
 			m_flStartTime = Plat_FloatTime();
+			// drop the audio that is still queued for the old position and start a fresh stream
+			StopAudio();
+			if ( m_eState == k_EVideoPlayerPlaybackStatePlay )
+			{
+				m_bAudioPaused = false;
+				StartAudioInit();
+				m_bAudioClockNeedsBase = true;
+			}
 		}
 		PropVariantClear( &var );
 	}
@@ -285,6 +348,52 @@ public:
 	virtual uint32 GetDuration() { return m_unDurationMS; }
 
 	virtual uint32 GetCurrentPlaybackTime()
+	{
+		if ( m_eState != k_EVideoPlayerPlaybackStatePlay )
+			return m_unPlaybackBaseMS;
+
+		const uint32 unWallMS = GetWallClockTime();
+
+		// While the sound is running it is the clock.  The engine's stream reports exactly how much of
+		// the soundtrack it has mixed out, and this player drops the audio that was already behind the
+		// picture when the stream came up, so the picture can simply be presented where the sound is
+		// (a wall clock drifts away from it: the stream is created a few frames after Play(), a seek
+		// restarts it, and the player keeps a lead queued in front of what is being heard).
+		if ( m_bAudioReady && m_pAudioCallback )
+		{
+			const uint32 unMixedMS = m_pAudioCallback->GetMixedMilliseconds();
+			if ( m_bAudioClockNeedsBase && unMixedMS > 0 )
+			{
+				// hand over without a jump: the sound continues from where the picture is right now
+				m_unAudioClockBaseMS = unWallMS - unMixedMS;
+				m_bAudioClockNeedsBase = false;
+			}
+
+			if ( !m_bAudioClockNeedsBase )
+			{
+				const uint32 unAudioMS = m_unAudioClockBaseMS + unMixedMS;
+				if ( unAudioMS > m_unLastAudioClockMS )
+				{
+					m_unLastAudioClockMS = unAudioMS;
+					m_flAudioClockProgress = Plat_FloatTime();
+				}
+				else if ( m_unLastAudioClockMS > 0 && Plat_FloatTime() - m_flAudioClockProgress > 0.5 )
+				{
+					// the stream stopped advancing (no device, starved queue) - do not freeze the movie
+					m_bAudioClockGaveUp = true;
+				}
+
+				if ( !m_bAudioClockGaveUp && m_unLastAudioClockMS > 0 )
+					return ( m_unDurationMS && m_unLastAudioClockMS > m_unDurationMS ) ? m_unDurationMS : m_unLastAudioClockMS;
+			}
+		}
+
+		return unWallMS;
+	}
+
+	// The wall clock the picture used before the sound worked; also the reference the audio catch-up in
+	// CollectAudioSample() compares against.
+	uint32 GetWallClockTime() const
 	{
 		if ( m_eState == k_EVideoPlayerPlaybackStatePlay )
 		{
@@ -321,8 +430,9 @@ public:
 
 	virtual bool BHasAudioTrack()
 	{
-		// audio decoding is not implemented in this port (the video still plays silently)
-		return false;
+		// true once BLoad() found a decodable audio track (see SetupAudio()); panorama uses this to
+		// decide whether to raise its audio-start event and to drive the movie volume slider
+		return m_bAudioConfigured;
 	}
 
 	// ---- driven by VideoPlaybackRunFrame() -------------------------------------------------
@@ -355,6 +465,22 @@ public:
 
 			PresentSample( m_pPendingSample );
 			SE_SAFE_RELEASE( m_pPendingSample );
+		}
+
+		PumpAudio();
+
+		// TEMPORARY A/V sync probe: wall clock vs the audio reader's position and the engine queue.
+		if ( m_bAudioReady && m_pAudioCallback && Plat_FloatTime() - m_flSyncProbeTime >= 1.0 )
+		{
+			m_flSyncProbeTime = Plat_FloatTime();
+			const uint32 unQueuedBytes = m_pAudioCallback->GetRemainingCommittedAudio();
+			const double flBytesPerSecond = (double)m_nAudioSampleRate * (double)m_nAudioBytesPerFrame;
+			const double flQueuedMS = ( flBytesPerSecond > 0.0 ) ? ( (double)unQueuedBytes * 1000.0 / flBytesPerSecond ) : 0.0;
+			const double flCommittedMS = ( m_nAudioSampleRate > 0 )
+				? ( (double)m_unAudioCommittedFrames * 1000.0 / (double)m_nAudioSampleRate ) : 0.0;
+			SE_MFProbe( "MF sync wall=%u lastAudioSample=%u committed=%.0fms queued=%.0fms latency=%ums\n",
+				GetCurrentPlaybackTime(), m_unAudioLastSampleMS, flCommittedMS, flQueuedMS,
+				m_pAudioCallback->GetPlaybackLatency() );
 		}
 
 		if ( m_bEndOfStream && !m_pPendingSample )
@@ -578,13 +704,301 @@ private:
 		SE_SAFE_RELEASE( pBuffer );
 	}
 
+	// ---- audio -------------------------------------------------------------------------------
+	// SetupAudio(): does the file have an audio track, and can the reader hand it to us as 16 bit
+	// interleaved PCM?  Everything else (decoding Vorbis/Opus, resampling, channel mapping) is done
+	// by the Media Foundation audio processing objects the source reader inserts.
+	void SetupAudio()
+	{
+		m_bAudioConfigured = false;
+		if ( !m_pAudioCallback || !m_pReader )
+			return;
+
+		// a native type is how the reader reports "there is a stream here" (nullptr = none)
+		IMFMediaType *pNative = NULL;
+		const HRESULT hrNative = m_pReader->GetNativeMediaType( MF_SOURCE_READER_FIRST_AUDIO_STREAM, 0, &pNative );
+		const bool bHasTrack = SUCCEEDED( hrNative ) && pNative != NULL;
+		SE_SAFE_RELEASE( pNative );
+		if ( !bHasTrack )
+		{
+			SE_MFProbe( "MF audio: no audio track (GetNativeMediaType hr=0x%08X)\n", (unsigned)hrNative );
+			return;
+		}
+
+		m_pReader->SetStreamSelection( MF_SOURCE_READER_FIRST_AUDIO_STREAM, TRUE );
+
+		IMFMediaType *pPCM = NULL;
+		if ( FAILED( MFCreateMediaType( &pPCM ) ) )
+			return;
+		pPCM->SetGUID( MF_MT_MAJOR_TYPE, MFMediaType_Audio );
+		pPCM->SetGUID( MF_MT_SUBTYPE, MFAudioFormat_PCM );
+		pPCM->SetUINT32( MF_MT_AUDIO_BITS_PER_SAMPLE, 16 );
+		const HRESULT hrType = m_pReader->SetCurrentMediaType( MF_SOURCE_READER_FIRST_AUDIO_STREAM, NULL, pPCM );
+		SE_SAFE_RELEASE( pPCM );
+		if ( FAILED( hrType ) )
+		{
+			// no decoder for this codec on this machine - the video still plays, just silently
+			SE_MFProbe( "MF audio: SetCurrentMediaType(PCM) failed hr=0x%08X\n", (unsigned)hrType );
+			m_pReader->SetStreamSelection( MF_SOURCE_READER_FIRST_AUDIO_STREAM, FALSE );
+			return;
+		}
+
+		// read back what the reader actually negotiated
+		IMFMediaType *pCurrent = NULL;
+		if ( FAILED( m_pReader->GetCurrentMediaType( MF_SOURCE_READER_FIRST_AUDIO_STREAM, &pCurrent ) ) || !pCurrent )
+		{
+			m_pReader->SetStreamSelection( MF_SOURCE_READER_FIRST_AUDIO_STREAM, FALSE );
+			return;
+		}
+
+		m_nAudioChannels = (int)MFGetAttributeUINT32( pCurrent, MF_MT_AUDIO_NUM_CHANNELS, 0 );
+		m_nAudioSampleRate = (int)MFGetAttributeUINT32( pCurrent, MF_MT_AUDIO_SAMPLES_PER_SECOND, 0 );
+		const UINT32 unBits = MFGetAttributeUINT32( pCurrent, MF_MT_AUDIO_BITS_PER_SAMPLE, 16 );
+		SE_SAFE_RELEASE( pCurrent );
+
+		if ( m_nAudioChannels <= 0 || m_nAudioSampleRate <= 0 || unBits != 16 )
+		{
+			SE_MFProbe( "MF audio: unusable PCM type %d Hz %d ch %d bit\n",
+				m_nAudioSampleRate, m_nAudioChannels, (int)unBits );
+			m_pReader->SetStreamSelection( MF_SOURCE_READER_FIRST_AUDIO_STREAM, FALSE );
+			return;
+		}
+
+		m_nAudioBytesPerFrame = m_nAudioChannels * (int)sizeof( int16 );
+		m_bAudioConfigured = true;
+		SE_MFProbe( "MF audio: track selected, %d Hz %d ch 16 bit PCM\n", m_nAudioSampleRate, m_nAudioChannels );
+	}
+
+	void StartAudioInit()
+	{
+		m_bAudioAbandoned = false;
+		if ( !m_bAudioConfigured || m_bAudioInitStarted || !m_pAudioCallback )
+			return;
+
+		SE_MFAudioInitRequest *pReq = new SE_MFAudioInitRequest;
+		pReq->m_nRefs = 2;					// one reference for us, one for the thread
+		pReq->m_pCallback = m_pAudioCallback;
+		pReq->m_nSampleRate = m_nAudioSampleRate;
+		pReq->m_nChannels = m_nAudioChannels;
+		pReq->m_bDone = false;
+		pReq->m_bResult = false;
+
+		m_pAudioInitRequest = pReq;
+		m_bAudioInitStarted = true;
+		// detached: the request is refcounted, so nothing has to wait for the thread to exit.
+		// (the 4 argument overload is the only unambiguous one - the 3 argument ones differ by
+		// whether the third parameter is a ThreadId_t* or a stack size)
+		ReleaseThreadHandle( CreateSimpleThread( SE_MFAudioInitThreadProc, pReq, (ThreadId_t *)NULL, 0 ) );
+	}
+
+	void CollectAudioInitResult()
+	{
+		if ( !m_pAudioInitRequest || !m_pAudioInitRequest->m_bDone )
+			return;
+
+		m_bAudioReady = m_pAudioInitRequest->m_bResult;
+		m_pAudioInitRequest->Release();
+		m_pAudioInitRequest = NULL;
+
+		if ( m_bAudioReady )
+			m_bAudioClockNeedsBase = true;		// the sound takes over the clock when it starts mixing
+	}
+
+	void StopAudio()
+	{
+		m_bAudioAbandoned = true;
+		m_bAudioInitStarted = false;
+		m_bAudioReady = false;
+		m_bAudioEndOfStream = false;
+		m_bAudioPaused = false;
+		m_vecAudioPending.RemoveAll();
+		// the clock goes back to the wall clock until a new stream is up
+		m_bAudioClockNeedsBase = true;
+		m_unAudioClockBaseMS = 0;
+		m_unLastAudioClockMS = 0;
+		m_bAudioClockGaveUp = false;
+
+		if ( m_pAudioInitRequest )			// an in-flight init finishes on its own (refcounted)
+		{
+			m_pAudioInitRequest->Release();
+			m_pAudioInitRequest = NULL;
+		}
+
+		if ( m_pAudioCallback )
+			m_pAudioCallback->FreeAudioOutput();	// never blocks: the renderer drops the stream on the UI thread
+	}
+
+	// PumpAudio(): called per frame on the UI thread (from Update(), i.e. VideoPlaybackRunFrame).
+	// Keeps the engine's stream fed, but only up to SE_MF_AUDIO_LEAD_MS ahead of the video clock, so
+	// a fast machine does not decode the whole movie into the output queue.
+	void PumpAudio()
+	{
+		CollectAudioInitResult();
+		if ( !m_bAudioReady || !m_pAudioCallback || m_bAudioPaused || m_bAudioAbandoned )
+			return;
+
+		const uint32 unLeadBytes = (uint32)( ( (uint64)m_nAudioSampleRate * (uint64)m_nAudioBytesPerFrame * SE_MF_AUDIO_LEAD_MS ) / 1000 );
+		// the staging buffer counts towards the lead too - otherwise it keeps growing while the engine's
+		// queue is already full, and the player's stall guard throws seconds of audio away
+		const uint32 unStagedBytes = (uint32)( m_vecAudioPending.Count() * (int)sizeof( int16 ) );
+		if ( m_pAudioCallback->GetRemainingCommittedAudio() + unStagedBytes >= unLeadBytes )
+			return;
+
+		for ( int iGuard = 0; iGuard < 16; ++iGuard )		// bounded work per frame
+		{
+			if ( !m_pAudioCallback->IsReadyForAudioData() )
+				break;
+
+			IMFSample *pSample = NULL;
+			if ( !ReadAudioSample( &pSample ) || !pSample )
+				break;
+
+			CollectAudioSample( pSample );
+			SE_SAFE_RELEASE( pSample );
+		}
+	}
+
+	bool ReadAudioSample( IMFSample **ppSample )
+	{
+		*ppSample = NULL;
+		if ( !m_pReader )
+			return false;
+
+		DWORD dwStreamFlags = 0;
+		LONGLONG llTime = 0;
+		const HRESULT hr = m_pReader->ReadSample( MF_SOURCE_READER_FIRST_AUDIO_STREAM, 0, NULL, &dwStreamFlags, &llTime, ppSample );
+		if ( FAILED( hr ) )
+		{
+			SE_MFProbe( "MF audio: ReadSample failed hr=0x%08X\n", (unsigned)hr );
+			m_bAudioEndOfStream = true;
+			return false;
+		}
+
+		if ( dwStreamFlags & MF_SOURCE_READERF_ENDOFSTREAM )
+		{
+			SE_SAFE_RELEASE( *ppSample );
+			m_bAudioEndOfStream = true;
+			SE_MFProbe( "MF audio: end of stream\n" );
+			return false;
+		}
+
+		if ( dwStreamFlags & MF_SOURCE_READERF_CURRENTMEDIATYPECHANGED )
+			SE_MFProbe( "MF audio: media type changed mid stream\n" );
+
+		return ( *ppSample != NULL );
+	}
+
+	// CollectAudioSample(): copy the decoded bytes into our own staging buffer and hand as much as
+	// the callback accepts to it.  The callback owns a fixed 16 KB buffer, so a short write leaves a
+	// remainder here for the next frame instead of dropping audio.
+	void CollectAudioSample( IMFSample *pSample )
+	{
+		IMFMediaBuffer *pBuffer = NULL;
+		if ( FAILED( pSample->ConvertToContiguousBuffer( &pBuffer ) ) || !pBuffer )
+			return;
+
+		BYTE *pData = NULL;
+		DWORD cbData = 0;
+		if ( FAILED( pBuffer->Lock( &pData, NULL, &cbData ) ) || !pData || cbData == 0 )
+		{
+			SE_SAFE_RELEASE( pBuffer );
+			return;
+		}
+
+		const int nSamples = (int)( cbData / sizeof( int16 ) );
+
+		// Where in the movie this audio belongs.  The reader hands us the audio for the current file
+		// position, while the picture may already be further along (the engine stream is created a few
+		// frames after Play(), or after a seek/pause) - playing that audio would put the whole
+		// soundtrack behind the picture, so it is dropped until the sound catches up with the picture.
+		// From there on the picture follows the sound (see GetCurrentPlaybackTime()).
+		LONGLONG llSampleTime = 0;
+		pSample->GetSampleTime( &llSampleTime );
+		const uint32 unSampleMS = (uint32)( llSampleTime / 10000 );
+		m_unAudioLastSampleMS = unSampleMS;		// TEMPORARY sync probe value
+		if ( unSampleMS + SE_MF_AUDIO_CATCHUP_MS < GetWallClockTime() )
+		{
+			++m_nAudioDroppedSamples;
+			if ( m_nAudioDroppedSamples <= 3 || ( m_nAudioDroppedSamples % 100 ) == 0 )
+				SE_MFProbe( "MF audio: dropping stale audio (%ums) while catching up, #%d\n", unSampleMS, m_nAudioDroppedSamples );
+			pBuffer->Unlock();
+			SE_SAFE_RELEASE( pBuffer );
+			return;
+		}
+
+		const int nFirst = m_vecAudioPending.Count();
+		m_vecAudioPending.SetCount( nFirst + nSamples );
+		memcpy( m_vecAudioPending.Base() + nFirst, pData, (size_t)nSamples * sizeof( int16 ) );
+		++m_nAudioSamplesQueued;
+
+		pBuffer->Unlock();
+		SE_SAFE_RELEASE( pBuffer );
+
+		FlushAudioPending();
+	}
+
+	void FlushAudioPending()
+	{
+		if ( !m_pAudioCallback )
+			return;
+
+		const int nChannels = ( m_nAudioChannels > 0 ) ? m_nAudioChannels : 1;
+		int nOffset = 0;									// in samples (int16), interleaved
+		const int nTotal = m_vecAudioPending.Count();
+
+		while ( nOffset + nChannels <= nTotal )
+		{
+			if ( !m_pAudioCallback->IsReadyForAudioData() )
+				break;
+
+			uint32 unChunkBytes = m_pAudioCallback->GetAudioBufferSize();
+			if ( unChunkBytes < sizeof( int16 ) )
+				break;
+
+			int nChunkSamples = (int)( unChunkBytes / sizeof( int16 ) );
+			nChunkSamples -= nChunkSamples % nChannels;		// whole frames only
+			if ( nChunkSamples <= 0 )
+				break;
+			nChunkSamples = MIN( nChunkSamples, nTotal - nOffset );
+
+			void *pDst = m_pAudioCallback->GetAudioBuffer();
+			if ( !pDst )
+				break;
+
+			memcpy( pDst, m_vecAudioPending.Base() + nOffset, (size_t)nChunkSamples * sizeof( int16 ) );
+			// the renderer's CommitAudioBuffer takes bytes and divides by (channels * sizeof(int16))
+			m_pAudioCallback->CommitAudioBuffer( (uint32)nChunkSamples * sizeof( int16 ) );
+			m_unAudioCommittedFrames += (uint64)( nChunkSamples / nChannels );
+			nOffset += nChunkSamples;
+		}
+
+		if ( nOffset > 0 )
+			m_vecAudioPending.RemoveMultiple( 0, nOffset );
+
+		if ( m_nAudioSamplesQueued <= 3 && nOffset > 0 )
+			SE_MFProbe( "MF audio: queued %d samples, %d bytes in flight\n", nOffset, (int)nOffset * (int)sizeof( int16 ) );
+
+		// if the engine never drains the queue, drop it rather than growing without bound
+		const int nMaxPending = ( m_nAudioSampleRate > 0 ? m_nAudioSampleRate : 48000 ) * nChannels * 2;
+		if ( m_vecAudioPending.Count() > nMaxPending )
+		{
+			SE_MFProbe( "MF audio: stream stalled, dropping %d queued samples\n", m_vecAudioPending.Count() );
+			m_vecAudioPending.RemoveAll();
+		}
+	}
+
 	void ShutdownReader()
 	{
+		StopAudio();
 		SE_SAFE_RELEASE( m_pPendingSample );
 		SE_SAFE_RELEASE( m_pReader );
 		m_bLoaded = false;
 		m_bEndOfStream = false;
 		m_bHasAudio = false;
+		m_bAudioConfigured = false;
+		m_nAudioChannels = 0;
+		m_nAudioSampleRate = 0;
+		m_nAudioBytesPerFrame = 0;
 		m_nWidth = 0;
 		m_nHeight = 0;
 		m_nStride = 0;
@@ -614,6 +1028,38 @@ private:
 	bool m_bEndOfStream = false;
 	bool m_bHasAudio = false;
 	bool m_bNV12 = true;
+
+	// ---- audio -------------------------------------------------------------------------------
+	// m_bAudioConfigured: BLoad() found an audio track and the reader agreed to 16 bit PCM.
+	// m_bAudioInitStarted/Ready: the (detached) worker that calls InitAudioOutput() on the renderer.
+	bool m_bAudioConfigured = false;
+	bool m_bAudioInitStarted = false;
+	bool m_bAudioReady = false;
+	bool m_bAudioPaused = false;
+	bool m_bAudioAbandoned = false;
+	bool m_bAudioEndOfStream = false;
+	int m_nAudioChannels = 0;
+	int m_nAudioSampleRate = 0;
+	int m_nAudioBytesPerFrame = 0;
+	int m_nAudioSamplesQueued = 0;
+	SE_MFAudioInitRequest *m_pAudioInitRequest = NULL;
+	CUtlVector<int16> m_vecAudioPending;		// decoded samples the callback had no room for yet
+
+	// TEMPORARY A/V sync probe (2026-09-16): the video clock is a wall clock while the sound is fed
+	// as fast as the engine's stream accepts it, so the two can drift apart.  These counters let the
+	// probe below print where the audio timeline actually is.
+	uint64 m_unAudioCommittedFrames = 0;		// PCM frames handed to the engine's stream
+	uint32 m_unAudioLastSampleMS = 0;			// media time of the last audio sample read
+	double m_flSyncProbeTime = 0.0;
+	int m_nAudioDroppedSamples = 0;			// audio dropped to catch up with the picture
+
+	// The playback clock while the sound is running: m_unAudioClockBaseMS is the movie position the
+	// stream took over at, and the engine stream's mixed-milliseconds count advances it.
+	uint32 m_unAudioClockBaseMS = 0;
+	uint32 m_unLastAudioClockMS = 0;
+	double m_flAudioClockProgress = 0.0;
+	bool m_bAudioClockNeedsBase = true;
+	bool m_bAudioClockGaveUp = false;
 
 	float m_flSpeed = 1.0f;
 	double m_flStartTime = 0.0;

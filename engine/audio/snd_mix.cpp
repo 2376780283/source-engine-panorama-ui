@@ -13,6 +13,7 @@
 #include "sys_dll.h"
 #include "video/ivideoservices.h"
 #include "engine/IEngineSound.h"
+#include "audio/snd_outputstream.h"	// SE port: movie audio output streams (CAudioOutputStream)
 
 #if defined( REPLAY_ENABLED )
 #include "demo.h"
@@ -2477,6 +2478,11 @@ void MIX_PaintChannels( int endtime, bool bIsUnderwater )
 		// Add dry buffer, set output gain to water * player dsp gain (both 1.0 if not active)
 
 		MIX_MixPaintbuffers( SOUND_BUFFER_PAINT, SOUND_BUFFER_DRY, SOUND_BUFFER_PAINT, count, 1.0);
+
+		// SE port: mix panorama's raw output streams (movie audio) in.  After the DSP stages above,
+		// so movie audio is dry, but before the clip below, so the master volume applied during
+		// S_TransferPaintBuffer() and the device's mute-on-focus-loss handling still apply to it.
+		CAudioOutputStream::MixAllIntoPaintBuffer( MIX_GetPFrontFromIPaint( SOUND_BUFFER_PAINT ), count );
 
 		// clip all values > 16 bit down to 16 bit
 		// NOTE: This is required - the hardware buffer transfer routines no longer perform clipping.

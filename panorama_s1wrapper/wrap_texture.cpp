@@ -1591,7 +1591,47 @@ HRenderTexture S1Wrapper_FindFullFrameBuffer( int nIndex )
 
 	if ( !s_hFullFrameTextureArray[nIndex].IsLoaded() )
 	{
-		ITexture *pTexture = materials->FindTexture( rtNameArray[nIndex], TEXTURE_GROUP_RENDER_TARGET );
+		int nBackBufferWidth = 0, nBackBufferHeight = 0;
+		materials->GetBackBufferDimensions( nBackBufferWidth, nBackBufferHeight );
+
+		// SE port: CS:GO's SCENE_RTGT_SCRATCH_TEXTURE_8888 is a scratch target owned by the renderer, and the
+		// panorama blur passes clear it and draw into it.  Source 1 has no such target: FindTexture() with
+		// TEXTURE_GROUP_RENDER_TARGET hands back _rt_FullFrameFB (which the engine itself uses - refraction,
+		// back buffer copies) and _rt_FullFrameFB2, which is only a 32x32 placeholder (measured).  Both
+		// cases end badly for the blur: 32x32 made every texel offset wrong (the magenta checkerboard), and
+		// drawing into the engine's own full frame buffer is interference the other way round.
+		//
+		// So create dedicated targets of the requested size, and fall back to the engine's texture only if
+		// that fails.
+		ITexture *pTemplate = materials->FindTexture( rtNameArray[ 0 ], TEXTURE_GROUP_RENDER_TARGET );
+		ImageFormat nFormat = pTemplate ? pTemplate->GetImageFormat() : IMAGE_FORMAT_BGRA8888;
+
+		CFmtStr1024 szScratchName( "_se_panorama_scratch%d", nIndex );
+
+		ITexture *pTexture = NULL;
+		if ( nBackBufferWidth > 0 && nBackBufferHeight > 0 )
+		{
+			pTexture = materials->CreateNamedRenderTargetTextureEx( szScratchName.String(),
+				nBackBufferWidth, nBackBufferHeight, RT_SIZE_NO_CHANGE, nFormat, MATERIAL_RT_DEPTH_NONE,
+				TEXTUREFLAGS_RENDERTARGET | TEXTUREFLAGS_CLAMPS | TEXTUREFLAGS_CLAMPT, 0 );
+		}
+
+		if ( pTexture )
+		{
+			static bool s_bSEScratchLogged[ 2 ] = { false, false };
+			if ( !s_bSEScratchLogged[ nIndex ] )
+			{
+				s_bSEScratchLogged[ nIndex ] = true;
+				Warning( "S1Wrapper: panorama scratch RT %d = %s (%dx%d), not the engine's %s\n",
+					nIndex, szScratchName.String(), nBackBufferWidth, nBackBufferHeight, rtNameArray[ nIndex ] );
+			}
+		}
+		else
+		{
+			pTexture = materials->FindTexture( rtNameArray[nIndex], TEXTURE_GROUP_RENDER_TARGET );
+			Warning( "S1Wrapper: could not create %s, falling back to %s\n", szScratchName.String(), rtNameArray[ nIndex ] );
+		}
+
 		if ( !pTexture ) Error( "Can't find scratch RT %s\n", rtNameArray[ nIndex ] );
 		pTexture->IncrementReferenceCount();
 
@@ -1647,6 +1687,31 @@ void CRenderAttributes::SetTextureValue( RenderAttrTexture_t nAttr, HRenderTextu
 	{
 		S1Wrapper_Texture_t *pTexture = (S1Wrapper_Texture_t *)txtr.GetResourceHandle()->m_handle;
 		ITexture *pS1Texture = pTexture ? pTexture->GetS1Texture() : nullptr;
+
+		// SE port (TEMPORARY, 2026-09-16): the backdrop blur paints the texture wrapper's error texture
+		// (magenta checkerboard) even though the handle passed in is valid.  Log what actually lands in the
+		// sampler - a valid wrapper with a null/wrong ITexture is exactly the P20 failure mode.
+		if ( nAttr == ATTR_Texture0 )
+		{
+			static int s_nSETextureProbe = 0;
+			if ( s_nSETextureProbe < 60 )
+			{
+				++s_nSETextureProbe;
+
+				FILE *fpTex = fopen( "D:\\cstrike\\se_blurprobe.txt", "a" );
+				if ( fpTex )
+				{
+					fprintf( fpTex, "SETTEX #%d wrapper=%p s1tex=%p name=\"%s\"", s_nSETextureProbe, (void *)pTexture, (void *)pS1Texture,
+						pS1Texture ? pS1Texture->GetName() : "<null>" );
+					if ( pS1Texture )
+						fprintf( fpTex, " size=%dx%d format=%d", pS1Texture->GetActualWidth(), pS1Texture->GetActualHeight(), (int)pS1Texture->GetImageFormat() );
+					fputc( '\n', fpTex );
+					fflush( fpTex );
+					fclose( fpTex );
+				}
+			}
+		}
+
 		m_textureAttrs[ nAttr - ATTR_TEXTURE_MIN] = pS1Texture;
 	}
 }

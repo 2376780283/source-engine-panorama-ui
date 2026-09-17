@@ -1,18 +1,19 @@
 //=========== Copyright Valve Corporation, All rights reserved. ===============//
 //
 // Purpose: SE port of D:\CSGO2019\game\client\cstrike15\panorama\csgo_blurtarget.cpp - see the
-//          header for what the class is for.  Only one thing needed adapting: CS:GO looks the
-//          "blurrects" ids up through CUI_Root::GetRootForWindow(), which is game-client code this
-//          port does not have (see SE_PortFindRootPanel below).
+//          header for what the class is for.  CS:GO looks the "blurrects" ids up through
+//          CUI_Root::GetRootForWindow(), which the port's game-client layer now provides
+//          (panorama/seport/gameclient/panorama/ui_root.cpp), so this file follows CS:GO exactly.
 //
 //=============================================================================//
 
-#include "stdafx_client.h"
+#include "panorama/se_gameclient_common.h"
 
 #include "seport/gameclient/csgo_blurtarget.h"
 
 #include "panorama/controls/panel2d.h"
 #include "panorama/uijsregistration.h"
+#include "panorama/ui_root.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include <tier0/memdbgon.h>
@@ -20,26 +21,6 @@
 using namespace panorama;
 
 REGISTER_PANEL2D_FACTORY( CCSGO_BlurTarget, CSGOBlurTarget )
-
-//-----------------------------------------------------------------------------
-// SE port: CS:GO resolves the "blurrects" panel names with
-//     CUI_Root::GetRootForWindow( GetParentWindow() )->FindChildTraverse( name )
-// CUI_Root is game-client code (game/client/panorama/ui_root.cpp) that this port does not have, and
-// IUIPanel/IUIWindow expose no root accessor.  The names are authored against the layout file that
-// contains the blur target, and FindChildTraverse() walks the whole subtree, so climbing to the
-// topmost panel of this layout answers the same lookups.
-//-----------------------------------------------------------------------------
-static IUIPanel *SE_PortFindRootPanel( CPanel2D *pPanel )
-{
-	if ( !pPanel )
-		return NULL;
-
-	IUIPanel *pRoot = pPanel->UIPanel();
-	while ( pRoot && pRoot->GetParent() )
-		pRoot = pRoot->GetParent();
-
-	return pRoot;
-}
 
 CCSGO_BlurTarget::CCSGO_BlurTarget( CPanel2D *pParent, const char *pchID )
 :
@@ -90,14 +71,15 @@ void CCSGO_BlurTarget::GrabRects()
 		const char* pBlurRects = GetAttribute( k_symBlurRects, "" );
 		if ( pBlurRects && pBlurRects[ 0 ] )
 		{
-			IUIPanel *pRoot = SE_PortFindRootPanel( this );
+			// CS:GO: CUI_Root::GetRootForWindow( GetParentWindow() )->FindChildTraverse( name )
+			CUI_Root *pRoot = CUI_Root::GetRootForWindow( GetParentWindow() );
 
 			CUtlVector< char*, CUtlMemory< char* > > vecPanelNames;
 			V_SplitString( pBlurRects, " ", vecPanelNames );
 
 			FOR_EACH_VEC( vecPanelNames, i )
 			{
-				CPanel2D* pRect = pRoot ? ToPanel2D( pRoot->FindChildTraverse( vecPanelNames[ i ] ) ) : NULL;
+				CPanel2D* pRect = pRoot ? pRoot->FindChildTraverse( vecPanelNames[ i ] ) : NULL;
 				if ( pRect )
 				{
 					CPanelPtr<IUIPanel> safeptr( pRect );

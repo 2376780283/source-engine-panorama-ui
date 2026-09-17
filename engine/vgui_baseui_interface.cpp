@@ -112,6 +112,14 @@ extern IVEngineClient *engineClient;
 extern bool g_bTextMode;
 static int g_syncReportLevel = -1;
 
+#ifdef PANORAMA_ENABLE
+// SE port (task A): engine-wide query - is the hosted panorama UI layer (the CS:GO main menu) owning the
+// screen right now?  The canonical prototype lives in engine/panoramaenginehandler.h; it is declared by
+// hand here because including that header would drag every panorama header into this translation unit for
+// one bool.
+bool SE_PortIsPanoramaMenuActive();
+#endif
+
 void VGui_ActivateMouse();
 
 extern CreateInterfaceFn g_AppSystemFactory;
@@ -1044,6 +1052,17 @@ void CEngineVGui::ActivateGameUI()
 	if (!staticGameUIFuncs)
 		return;
 
+#ifdef PANORAMA_ENABLE
+	// SE port (task A): in CS:GO "activate the game UI" means "show the panorama menu" - its GameUI *is*
+	// the panorama UI, so doing nothing else here is harmless.  In this fork staticGameUIPanel is the CS:S
+	// VGUI2 main menu: showing it covers the hosted panorama layer and steals its input
+	// (engine/panoramaenginehandler.cpp keeps that panel hidden for exactly this reason, and this call used
+	// to undo the hiding - which is how Esc ended up opening the VGUI2 menu).  While panorama is up the
+	// panorama UI owns its own state, so ignore the request, like CS:GO's structure implies.
+	if ( SE_PortIsPanoramaMenuActive() )
+		return;
+#endif
+
 #if defined( REPLAY_ENABLED )
 	// Don't allow the game UI to be activated when a replay is being rendered
 	if ( g_pReplayMovieManager && g_pReplayMovieManager->IsRendering() )
@@ -1135,7 +1154,33 @@ void CEngineVGui::ShowConsole()
 	if ( IsX360() )
 		return;
 
+#ifdef PANORAMA_ENABLE
+	// SE port (task A, CS:GO's structure): CS:GO's ShowConsole() does not activate the game UI - there the
+	// GameUI panel is the always-on panorama layer, so the console (a child of it) simply draws over
+	// panorama.  Here ActivateGameUI() means "show the CS:S VGUI2 main menu", which is what made '~' pop the
+	// menu open together with the console.  While the hosted panorama layer is up, skip it and hang the
+	// console off the engine's root panel instead: Init() parented it to the game ui panel, which stays
+	// hidden while panorama is up, and a hidden ancestor means the console is never painted.
+	if ( !SE_PortIsPanoramaMenuActive() )
+	{
+		ActivateGameUI();
+	}
+	else if ( staticGameConsole && staticPanel && staticGameUIPanel )
+	{
+		// 0 means "the parent Init() gave it", i.e. the game ui panel - then vgui needs no call at all.
+		static vgui::VPANEL s_hSEConsoleParent = 0;
+
+		vgui::VPANEL hWantParent = staticPanel->GetVPanel();
+		vgui::VPANEL hCurrentParent = s_hSEConsoleParent ? s_hSEConsoleParent : staticGameUIPanel->GetVPanel();
+		if ( hWantParent != hCurrentParent )
+		{
+			s_hSEConsoleParent = hWantParent;
+			staticGameConsole->SetParent( hWantParent );
+		}
+	}
+#else
 	ActivateGameUI();
+#endif
 
 	if ( staticGameConsole )
 	{
@@ -1150,6 +1195,16 @@ bool CEngineVGui::IsConsoleVisible()
 {
 	if ( IsPC() )
 	{
+#ifdef PANORAMA_ENABLE
+		// SE port (task A): CS:GO asks the console panel only - its console is not a child of the game ui.
+		// While the hosted panorama layer is up the VGUI game ui panel is hidden on purpose, so the
+		// "IsGameUIVisible() &&" below would report "no console" and everything that depends on
+		// Con_IsVisible() would be wrong (panorama input gating, Con_HideConsole_f, ...).
+		if ( SE_PortIsPanoramaMenuActive() )
+		{
+			return staticGameConsole && staticGameConsole->IsConsoleVisible();
+		}
+#endif
 		return IsGameUIVisible() && staticGameConsole && staticGameConsole->IsConsoleVisible();
 	}
 	else

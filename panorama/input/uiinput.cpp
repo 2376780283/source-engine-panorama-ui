@@ -73,6 +73,16 @@ ConVar g_ConVarDragScrollVelocityMultiplierVR( "@panorama_dragscroll_velocitymul
 
 static ConVar s_convarPanoramaInputDebugInfo( "@panorama_input_debug_info", "0", FCVAR_DEVELOPMENTONLY, "" );
 
+// SE port (temporary HitTest probe, added 2026-09-15): "+se_hittest_probe 1" (or `se_hittest_probe 1`
+// on the console - deliberately not FCVAR_DEVELOPMENTONLY, release builds hide those) logs what the
+// panorama hit test resolves to, so "which layer is eating my clicks" can be answered from the log.
+//   * here: every hover target change, i.e. the panel the next input event will be dispatched to,
+//     plus its ancestor chain with the hit-test flags
+//   * panorama/renderer/uirerenderengine.cpp: the full front-to-back candidate list and the winner of
+//     every hit test the mouse-button path runs (one ConVar, extern'd from there)
+// Off by default: one bool read per hover change.
+ConVar se_hittest_probe( "se_hittest_probe", "0", 0, "SE port: log panorama hit test results (hover chain + mouse-down candidates)" );
+
 #define MOVE_REPEAT_INTERVAL_START 0.22f
 #define MOVE_REPEAT_INTERVAL_END 0.05f
 #define MOVE_REPEAT_CURVE_TIME 1.0f
@@ -2564,6 +2574,20 @@ bool BChildFocusOnHoverEligible( IUIPanel *pPanel )
 //-----------------------------------------------------------------------------
 void CUIWindowInput::ChangeHoverState( IUIPanel *pTo, IUIPanel *pFrom )
 {
+	// SE port (temporary HitTest probe): see the note next to se_hittest_probe above.
+	if ( se_hittest_probe.GetBool() )
+	{
+		Msg( "SE_PORT_HITTEST: hover '%s'(%s) -> '%s'(%s)\n",
+			( pFrom && pFrom->GetID() ) ? pFrom->GetID() : "<none>", pFrom ? pFrom->GetPanelType().String() : "-",
+			( pTo && pTo->GetID() ) ? pTo->GetID() : "<none>", pTo ? pTo->GetPanelType().String() : "-" );
+		for ( IUIPanel *pChain = pTo; pChain != NULL; pChain = pChain->GetParent() )
+		{
+			Msg( "SE_PORT_HITTEST:    chain '%s' type=%s hittest=%d hittestchildren=%d visible=%d\n",
+				pChain->GetID() ? pChain->GetID() : "", pChain->GetPanelType().String(),
+				(int)pChain->BHitTestEnabled(), (int)pChain->BHitTestChildrenEnabled(), (int)pChain->BIsVisible() );
+		}
+	}
+
 	// find first parent that has hover set from target
 	IUIPanel *pHasHover = pTo;
 	while ( pHasHover != NULL && !pHasHover->BHasHoverStyle() )

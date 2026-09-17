@@ -156,6 +156,24 @@ void CDropDown::OnInitializedFromLayout()
 //-----------------------------------------------------------------------------
 void CDropDown::AddOption( CPanel2D *pPanel )
 {
+	// SE port: this is JavaScript-callable (dropdown.AddOption( panel ) in the settings pages), and a
+	// script that passes a panel which does not exist - an $('.id') or $.CreatePanel() that came back
+	// 'undefined' because the layout piece is missing - hands us NULL.  Dereferencing it crashed the
+	// gamesettings page (CDropDownMenu::AddOption, dropdown.cpp:616, access at address 4), so the same
+	// guard the CPanel2D child wrappers use is applied here, with the dropdown's id in the report so the
+	// calling script can be found.
+	if ( !pPanel )
+	{
+		static int s_nReported = 0;
+		if ( s_nReported < 16 )
+		{
+			++s_nReported;
+			Warning( "panorama: CDropDown::AddOption on #%s was called with a panel that does not exist; ignoring the call\n",
+				GetID() ? GetID() : "(no id)" );
+		}
+		return;
+	}
+
 	// if we dont have a menu, not loaded yet. Add as a child
 	if ( !m_pMenu.Get() )
 		pPanel->SetParent( this );
@@ -613,6 +631,15 @@ void CDropDownMenu::Hide( bool bSelectionChanged )
 //-----------------------------------------------------------------------------
 void CDropDownMenu::AddOption( CPanel2D *pPanel )
 {
+	// SE port: belt and braces - CDropDown::AddOption() already rejects a NULL panel, and the layout
+	// path (CDropDown::OnInitializedFromLayout) only passes children it just read from the panel, but
+	// this is where the NULL used to be dereferenced (line 616, access at address 4).
+	if ( !pPanel )
+	{
+		Warning( "panorama: CDropDownMenu::AddOption was called with a panel that does not exist; ignoring the call\n" );
+		return;
+	}
+
 	pPanel->SetParent( this );
 	pPanel->SetSelectionPosition( k_flSelectionPosAuto, k_flSelectionPosAuto );
 	pPanel->SetTabIndex( k_flTabIndexAuto );

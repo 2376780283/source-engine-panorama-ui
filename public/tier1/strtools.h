@@ -878,7 +878,16 @@ bool V_BasicHtmlEntityEncode( OUT_Z_CAP( nDestSize ) char *pDest, const int nDes
 // 4-argument call would be ambiguous).  *pnRequiredBytes receives the encoded size *including* the
 // terminator - exactly what the caller has to allocate.  A NULL pDest encodes nothing.
 bool V_BasicHtmlEntityEncode( char *pDest, const int nDestSize, char const *pIn, const int nInSize, int *pnRequiredBytes );
-
+	
+	// SE port: the wide-character forms.  CS:GO has both char and wchar_t overloads of this function;
+	// Source 2013 only the char ones, and CS:GO's
+	// game/client/cstrike15/gameui/gameui_util.cpp::GameUI_MakeStringSafe (ported in batch E as
+	// panorama/seport/gameclient/se_gameui_util.cpp) calls the wide one:
+	//     V_BasicHtmlEntityEncode( newName, newNameBufSizeChars, oldName, V_wcslen( oldName ) );
+	// Same tables, same semantics; nDestSize counts wchar_t elements (CS:GO's caller divides its byte
+	// size by sizeof(wchar_t) before passing it in).
+	bool V_BasicHtmlEntityEncode( wchar_t *pDest, const int nDestSize, wchar_t const *pIn, const int nInSize, bool bPreserveWhitespace = false );
+	bool V_BasicHtmlEntityEncode( wchar_t *pDest, const int nDestSize, wchar_t const *pIn, const int nInSize, int *pnRequiredBytes );
 // Decode a string with htmlentities HTML -- this should handle all special chars, not just the ones Q_BasicHtmlEntityEncode uses.
 //
 // Returns false if there was not enough room in pDest to decode the entire source string, otherwise true

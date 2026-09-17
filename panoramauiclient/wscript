@@ -46,12 +46,115 @@ def build(bld):
 		# because REGISTER_PANEL2D_FACTORY in a static library object is never pulled into the link.
 		'../panorama/seport/gameclient/csgo_blurtarget.cpp',
 		'../panorama/seport/gameclient/csgo_backbufferimage.cpp',
+		# ... the player avatar panel (CS:GO: game/client/cstrike15/panorama/csgo_avatarimage.*), which
+		# in CS:GO is filled from ISteamFriends.  This build has no Steam, so it loads the avatar from
+		# <mod>/materials/panorama/images/avatars/<steamid64>.png instead (see the file header).  It
+		# replaces the "CSGOAvatarImage" stub in seport_panel_stubs.cpp - do not compile both.
+		'../panorama/seport/gameclient/cstrike15/panorama/csgo_avatarimage.cpp',
+		# SE port: the batch-A "host layer" of CS:GO's game/client/panorama (see
+		# docs/panorama_stage2_plan.md).  They are listed for the same reason as the panel classes
+		# above: a REGISTER_PANEL2D/_FACTORY in a static library object is never pulled into the link.
+		'../panorama/seport/gameclient/panorama/se_gameclient_globals.cpp',
+		'../panorama/seport/gameclient/panorama/ui_symbols.cpp',
+		'../panorama/seport/gameclient/panorama/ui_custom_layout.cpp',
+		'../panorama/seport/gameclient/panorama/ui_js_panel.cpp',
+		'../panorama/seport/gameclient/panorama/ui_root.cpp',
+		# SE port: batch B (tooltip) - the framework-side manager + tooltip panel family, plus the two
+		# CS:GO (cstrike15) skins the layouts actually name.
+		'../panorama/seport/gameclient/panorama/ui_tooltip_manager.cpp',
+		'../panorama/seport/gameclient/panorama/tooltips/ui_tooltip_base.cpp',
+		'../panorama/seport/gameclient/panorama/tooltips/ui_tooltip_text.cpp',
+		'../panorama/seport/gameclient/panorama/tooltips/ui_tooltip_title_text.cpp',
+		'../panorama/seport/gameclient/panorama/tooltips/ui_tooltip_title_image_text.cpp',
+		'../panorama/seport/gameclient/panorama/tooltips/ui_tooltip_custom_layout.cpp',
+		'../panorama/seport/gameclient/cstrike15/panorama/csgo_tooltippanel.cpp',
+		'../panorama/seport/gameclient/cstrike15/panorama/csgo_ui_tooltip_manager.cpp',
+		# SE port: batch C (popup) - the framework-side manager + popup panel family, plus CS:GO's
+		# (cstrike15) popup skins that the layouts name (#CSGOPopupManager / global popups).
+		'../panorama/seport/gameclient/panorama/ui_popup_manager.cpp',
+		'../panorama/seport/gameclient/panorama/ui_popup.cpp',
+		'../panorama/seport/gameclient/panorama/popups/ui_popup_generic.cpp',
+		'../panorama/seport/gameclient/panorama/popups/ui_popup_generic_text_entry.cpp',
+		'../panorama/seport/gameclient/panorama/popups/ui_popup_custom_layout.cpp',
+		'../panorama/seport/gameclient/cstrike15/panorama/csgo_popup_manager.cpp',
+		'../panorama/seport/gameclient/cstrike15/panorama/csgo_globalpopups.cpp',
+		# SE port: batch E (middle) - the CS:GO main menu panel class.  It derives from CUI_Root, which is
+		# what publishes the per-window popup/tooltip/context-menu managers that UiToolkitAPI resolves
+		# through, and it owns the background movie / vanity panel / menu<->pause-menu state machine.
+		'../panorama/seport/gameclient/cstrike15/panorama/csgo_mainmenu.cpp',
+		# ... and the frame hook the engine uses to tick it (no panorama library on the engine side).
+		'se_mainmenu_tick.cpp',
+		# SE port (task A follow-up): what escape does when the hosted panorama UI owns the screen (close the
+		# top popup / dispatch the content's "Cancelled" panel event).  Exported to engine/keys.cpp through
+		# engine/panoramaenginehandler.cpp, same GetProcAddress pattern as the tick above.
+		'se_escape.cpp',
+		# SE port: batch E (JS component framework) - CS:GO's cstrike15 uicomponents, which is what
+		# publishes the "UiToolkitAPI" global to the panorama JavaScript (popups/tooltips/context menus/
+		# deny-input + the JS callback plumbing).  See docs/panorama_stage2_plan.md.
+		'se_uicomponents.cpp',
+		'../panorama/seport/gameclient/cstrike15/uicomponents/uicomponent_common.cpp',
+		'../panorama/seport/gameclient/cstrike15/uicomponents/uicomponent_uitoolkit.cpp',
+		# SE port (2026-09-16): GameInterfaceAPI - CS:GO's uicomponent_gameinterface (the settings access
+		# the CS:GO scripts use for "UI preferences", first consumer: ui_mainmenu_bkgnd_movie), plus the
+		# game-side data it needs (the alias map, that ConVar, the scoreboard binding helper).
+		'../panorama/seport/gameclient/cstrike15/uicomponents/uicomponent_gameinterface.cpp',
+		'se_ui_settings.cpp',
+		# ... and the two GameUI helpers the ported code needs (CS:GO: cstrike15/gameui/gameui_util.*)
+		'../panorama/seport/gameclient/se_gameui_util.cpp',
+		# ... plus the gcsdk JSON/XML string escapers that uicomponent_common.cpp declares as an extern
+		# (gcsdk/webapi_response.cpp cannot be linked here - see the note in se_webapi_json.cpp).
+		'../panorama/seport/gameclient/se_webapi_json.cpp',
+		# SE port: batch D (context menu) - the manager the layouts name (#ContextMenuManager is in
+		# mainmenu.xml) plus the context menu panel family.  csgo_globalpopups.cpp (batch C) already
+		# includes panorama/ui_context_menu_manager.h, so the two batches are compiled together.
+		'../panorama/seport/gameclient/panorama/ui_context_menu_manager.cpp',
+		'../panorama/seport/gameclient/panorama/context_menus/ui_context_menu_base.cpp',
+		'../panorama/seport/gameclient/panorama/context_menus/ui_context_menu_custom_layout.cpp',
+		# SE port: stand-ins for the game-client panel classes this port does not implement (ItemImage,
+		# ItemPreviewPanel, ItemPreviewSlider/ColorSlider/Debug, CSGOAvatarImage, CSGOChat).  Without a
+		# registered type the layout loader substitutes a plain Panel and every JS call into them throws,
+		# which aborts the calling script.  See the note at the top of seport_panel_stubs.h.
+		'../panorama/seport/gameclient/seport_panel_stubs.cpp',
+		# SE port: CS:GO's settings controls (game/client/cstrike15/panorama/popups).  The layout
+		# loader substitutes a plain Panel for an unregistered type, which leaves the settings pages
+		# empty and turns every JS call into them into a TypeError - settingsmenu_gamesettings.js:8
+		# ("clanTagDropdown.RemoveAllOptions()") is the first one.  CSGOSettingsSlider and
+		# CSGOSettingsEnumDropDown are the two convar-bound rows the settings pages are built from.
+		'../panorama/seport/gameclient/cstrike15/panorama/popups/csgo_settings_enum.cpp',
+		'../panorama/seport/gameclient/cstrike15/panorama/popups/csgo_settings_slider.cpp',
+		# ... and the two settings pages that are built out of them.  CSGOAudioSettings is what
+		# layout/settings/settings_audio_panel.xml names; it owns the speaker/voice/device drop-downs.
+		'../panorama/seport/gameclient/cstrike15/panorama/csgo_audiosettingsscreen.cpp',
+		# ... layout/settings/settings_video_panel.xml names CSGOVideoSettings; it owns the display
+		# mode / aspect ratio / resolution drop-downs, the AA + vsync + detail options and the
+		# brightness slider, and it is what the "Apply" button's CSGOApplyVideoSettings event reaches.
+		'../panorama/seport/gameclient/cstrike15/panorama/csgo_videosettingsscreen.cpp',
+		# ... and the keyboard binder row (layout/settings/settings_keybinder.xml).  Unlike the other
+		# settings controls it captures raw engine input while armed, so it is also reached from the
+		# engine: se_keybinder.cpp below exports the entry point engine/keys.cpp calls.
+		'../panorama/seport/gameclient/cstrike15/panorama/popups/csgo_settings_keybinder.cpp',
+		# SE port: the export the engine's PanoramaHandleInputEvent() resolves out of this DLL (CS:GO
+		# gets this from g_ClientDLL->HandleBindWidgetInputCapture) - see the file header.
+		'se_keybinder.cpp',
 		# '../thirdparty/JSON_parser/JSON_parser.c',   # not present in this tree
 	]
 
 	includes = [
 		'.',
 		'../panorama',              # panorama/uipanel.h, stdafx_client.h (CS:GO's private framework headers)
+		# SE port: the game-client layer (game/client/panorama equivalents) is included so that the
+		# ported sources keep CS:GO's own spelling, e.g. #include "panorama/ui_root.h".
+		'../panorama/seport/gameclient',
+		# ... and the cstrike15 half, so #include "panorama/csgo_tooltippanel.h" keeps CS:GO's spelling
+		# (the compiler searches both, exactly like CS:GO's two include dirs game/client/panorama and
+		# game/client/cstrike15).
+		'../panorama/seport/gameclient/cstrike15',
+		# SE port: batch E - the uicomponent framework includes its own headers by bare name
+		# ("uicomponent_common.h", "uicomponent_uitoolkit.functions.inc"), the same way CS:GO resolves
+		# them inside game/client/cstrike15/uicomponents.
+		'../panorama/seport/gameclient/cstrike15/uicomponents',
+		# ... and game/shared/bannedwords.h, which uicomponent_common.h includes by bare name.
+		'../panorama/seport/gameclient/game/shared',
 		'..',
 		# The lightweight Source2 interfaces from panorama_s1wrapper must win over ../public
 		# (same order as panorama/wscript): public/rendersystem/irenderdevice.h would otherwise
@@ -93,6 +196,10 @@ def build(bld):
 		# inside #ifndef PANORAMA_EXPORTS (that define is for the panorama framework itself).
 		'STEAM_API_NODLL',
 		'_CLIENT',
+		# SE port: match CS:GO's cstrike15 build configuration.  The ported game-client sources branch on
+		# this (ui_root.cpp: CSTRIKE15 there are the CS:GO paths - colorblind-mode class, TrunkOnly,
+		# FireGameEvent by event name - as opposed to the Dota paths).
+		'CSTRIKE15',
 		# SE-era adaption (SE tier0/platform.h already provides the construct helpers)
 		'SE_PLATFORM_HAS_CONSTRUCT_HELPERS',
 	]
