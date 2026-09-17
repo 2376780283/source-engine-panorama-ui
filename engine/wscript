@@ -306,6 +306,7 @@ def build(bld):
 			'audio/snd_dma.cpp',
 			'audio/snd_dsp.cpp',
 			'audio/snd_mix.cpp',
+			'audio/snd_outputstream.cpp',		# SE port: IAudioOutputStream (panorama movie audio)
 			'audio/snd_sentence_mixer.cpp',
 			'audio/snd_wave_data.cpp',
 			'audio/snd_wave_mixer.cpp',

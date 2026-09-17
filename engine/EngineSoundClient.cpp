@@ -6,6 +6,7 @@
 //=============================================================================//
 
 #include "engine/IEngineSound.h"
+#include "audio/snd_outputstream.h"	// SE port: the movie audio output stream (see public/engine/IEngineSound.h)
 #include "tier0/dbg.h"
 #include "sound.h"
 #include "client.h"
@@ -81,6 +82,11 @@ public:
 	virtual void	NotifyBeginMoviePlayback();
 	virtual void	NotifyEndMoviePlayback();
 
+	// SE port: movie audio output streams (see public/engine/IEngineSound.h and
+	// engine/audio/snd_outputstream.cpp)
+	virtual IAudioOutputStream	*CreateOutputStream( uint nSampleRate, uint nChannels, uint nBits );
+	virtual void				DestroyOutputStream( IAudioOutputStream *pOutputStream );
+
 private:
 	void EmitSoundInternal( IRecipientFilter& filter, int iEntIndex, int iChannel, const char *pSample, 
 		float flVolume, soundlevel_t iSoundLevel, int iFlags, int iPitch, int iSpecialDSP,
@@ -99,6 +105,22 @@ EXPOSE_SINGLE_INTERFACE_GLOBALVAR( CEngineSoundClient, IEngineSound,
 IEngineSound *EngineSoundClient()
 {
 	return &s_EngineSoundClient;
+}
+
+
+//-----------------------------------------------------------------------------
+// Purpose: SE port - movie audio output stream.  panorama's video player asks panorama's
+// IUISoundSystem for one, which forwards to panorama_s1wrapper's ISoundSystem and then here.  The
+// stream is picked up by the mixer from MIX_PaintChannels() (audio/snd_mix.cpp).
+//-----------------------------------------------------------------------------
+IAudioOutputStream *CEngineSoundClient::CreateOutputStream( uint nSampleRate, uint nChannels, uint nBits )
+{
+	return new CAudioOutputStream( nSampleRate, nChannels, nBits );
+}
+
+void CEngineSoundClient::DestroyOutputStream( IAudioOutputStream *pOutputStream )
+{
+	delete pOutputStream;
 }
 
 
