@@ -269,6 +269,14 @@ void CRenderContext::UpdateMesh( IMesh* pMesh )
 IMaterial* CRenderContext::m_apPanMaterial[] = { 0, };
 IMaterial* CRenderContext::m_apFancyMaterial[] = { 0, };
 
+// SE port (bring-up diagnostic, 2026-09-17): draw every panorama quad with the opaque blend state.
+// In this wrapper the blend state lives in the material's $blendstate (the panorama/panoramafancy
+// shaders map it to a BlendFunc in SHADOW_STATE), so forcing BLENDSTATE_MIX_OPAQUE here is the same
+// experiment as OverrideBlend(true) + BlendFunc(SHADER_BLEND_ONE, SHADER_BLEND_ZERO) around the
+// panorama pass: if the main menu's washed-out look goes away with it on, the problem is the blend
+// state of the pass, not the content.  No FCVAR_DEVELOPMENTONLY: release builds hide those.
+static ConVar s_convarSEPortOpaqueBlend( "se_port_opaque_blend", "0" );
+
 // SE port: the attributes the shader reads back through $renderattr live here rather than in the render
 // context, because the material (which holds the var) outlives the context.  See irendercontext.h.
 CRenderAttributes CRenderContext::m_apSEAttrStore[ SE_ATTR_STORE_COUNT ];
@@ -281,13 +289,16 @@ bool CRenderContext::UpdateMaterial()
 {
 	// Decide which material we'll use
 
+	// SE port (bring-up diagnostic): force the opaque blend state when se_port_opaque_blend is on.
+	const int nBlendIndex = s_convarSEPortOpaqueBlend.GetBool() ? (int)BLENDSTATE_MIX_OPAQUE : (int)m_blendState;
+
 	if ( m_nPanMaterial == PANORAMA_MATERIAL )
 	{
-		m_pMaterial = m_apPanMaterial[m_blendState];
+		m_pMaterial = m_apPanMaterial[nBlendIndex];
 	}
 	else
 	{
-		m_pMaterial = m_apFancyMaterial[m_blendState];
+		m_pMaterial = m_apFancyMaterial[nBlendIndex];
 	}
 
 	// SE port: the "panorama" / "panoramafancy" shaders are CS:GO stdshader classes that have not
@@ -340,25 +351,30 @@ void CRenderContext::CtxDraw( RenderPrimitiveType_t type, int nFirstVertex, int 
 {
 	if ( type != RENDER_PRIM_TRIANGLES ) Error( "Panorama : Invalid prim type\n" );
 
-	// SE port (bring-up aid): is panorama reaching the draw path at all, and are the quads the size the
-	// layout thinks they are?  The vertices are already in clip space, so map them back through the
-	// viewport and log the device rect - that can be reconciled against the MENUTREE lines the engine
-	// writes to the same probe file (a 1.5x error here means a resolution/scale mismatch on the draw
-	// side, a correct rect means the layout and the surface agree).
+	// SE port (bring-up aid, 2026-09-17 "washed out main menu"): list, in submission order, every draw
+	// that lands on one of two sample points of the client area - 300,200 sits in the flat pale field of
+	// the news panel and 1000,300 sits on the background video - together with everything that decides
+	// the pixel it leaves behind: the device rect, the blend state the shader will program (the material
+	// index, see s1wrapperRenderAttributes.h) and the two gradient stops, which for the fancy quad
+	// material are vertex colour 0 and 1 (panoramafancy_vs30.fxc) and are already premultiplied and in
+	// linear space by the time they get here.  Walking this stack shows which draw paints the pale film
+	// instead of having to bisect the layout.
 	{
 		static int s_nSECtxDrawLogged = 0;
 		s_nSECtxDrawLogged++;
-		if ( s_nSECtxDrawLogged <= 40 && m_pBaseVB && m_nVertCount >= 3 )
+
+		if ( s_nSECtxDrawLogged <= 6000 && m_pBaseVB && m_nVertCount >= 3 )
 		{
-			Vector4D *pV = (Vector4D *)m_pBaseVB;
+			// the geometry is position + N texcoords, and only the fancy quad material carries colours
+			const int nVertexStride = ( m_nPanMaterial == PANORAMA_MATERIAL_FANCYQUAD ) ? 6 : 4;
+			const Vector4D *pV = (const Vector4D *)m_pBaseVB;
 
 			float flMinX = 1e30f, flMaxX = -1e30f, flMinY = 1e30f, flMaxY = -1e30f;
-			float flMinW = 1e30f, flMaxW = -1e30f;
 			for ( int i = 0; i < m_nVertCount; ++i )
 			{
-				flMinX = MIN( flMinX, pV[i].x ); flMaxX = MAX( flMaxX, pV[i].x );
-				flMinY = MIN( flMinY, pV[i].y ); flMaxY = MAX( flMaxY, pV[i].y );
-				flMinW = MIN( flMinW, pV[i].w ); flMaxW = MAX( flMaxW, pV[i].w );
+				const Vector4D &v = pV[ i * nVertexStride ];
+				flMinX = MIN( flMinX, v.x ); flMaxX = MAX( flMaxX, v.x );
+				flMinY = MIN( flMinY, v.y ); flMaxY = MAX( flMaxY, v.y );
 			}
 
 			int nVX = 0, nVY = 0, nVW = 0, nVH = 0;
@@ -368,21 +384,136 @@ void CRenderContext::CtxDraw( RenderPrimitiveType_t type, int nFirstVertex, int 
 			const int nRTW = pRT ? pRT->GetActualWidth() : 0;
 			const int nRTH = pRT ? pRT->GetActualHeight() : 0;
 
+			// SE port (bring-up aid): the render target and the bound texture name identify *which* panel
+			// is being drawn - a layer's own render target and a blur scratch texture have their names on
+			// them, so a full-screen draw that comes out white can be traced to the surface it samples.
+			char szRTName[ 64 ];
+			V_strcpy_safe( szRTName, "-" );
+			if ( pRT )
+			{
+				const uintp nRTBits = (uintp)pRT;
+				if ( nRTBits >= 0x10000 && nRTBits < 0x7FFF0000 && ( nRTBits & 3 ) == 0 )
+				{
+					V_strncpy( szRTName, pRT->GetName(), sizeof( szRTName ) - 1 );
+					szRTName[ sizeof( szRTName ) - 1 ] = 0;
+				}
+			}
+
+			char szTex0[ 64 ];
+			V_strcpy_safe( szTex0, "-" );
+			char szTexExtra[ 192 ];
+			V_strcpy_safe( szTexExtra, "-" );
+			int nProbeTexType = 0, nProbeBlur = 0, nProbeFastBlur = 0, nProbeDownsample = 0, nProbePremul = 0, nProbeGradComplex = 0, nProbeGrad2Stop = 0;
+			bool bAttrUsable = false;
+			if ( m_pAttr )
+			{
+				const uintp nAttrBits = (uintp)m_pAttr;
+				bAttrUsable = ( nAttrBits >= 0x10000 && nAttrBits < 0x7FFF0000 && ( nAttrBits & 3 ) == 0 );
+			}
+			if ( bAttrUsable )
+			{
+				// SE port (bring-up aid): a texture dropped on the floor is *not* a black pixel in D3D9 - an
+				// unbound sampler reads 1,1,1,1, so a draw that samples a texture the port failed to bind
+				// comes out solid white.  Print every slot the shaders can sample, so a white full-screen
+				// draw can be told apart from "the sampler was never bound".
+				auto SE_ProbeTex = [ & ]( RenderAttrTexture_t nAttr, char *pOut, int nOut ) -> bool
+				{
+					ITexture *pTex = NULL;
+					m_pAttr->GetValue( &pTex, nAttr );
+					const uintp nBits = (uintp)pTex;
+					if ( nBits >= 0x10000 && nBits < 0x7FFF0000 && ( nBits & 3 ) == 0 )
+					{
+						V_strncpy( pOut, pTex->GetName(), nOut - 1 );
+						pOut[ nOut - 1 ] = 0;
+						return true;
+					}
+					V_strncpy( pOut, pTex ? "<bad-ptr>" : "-", nOut );
+					return false;
+				};
+
+				SE_ProbeTex( ATTR_Texture0, szTex0, sizeof( szTex0 ) );
+
+				char szExtra1[ 64 ], szExtra2[ 64 ], szOutColor[ 64 ], szOutInterm[ 64 ], szOutDepth[ 64 ];
+				SE_ProbeTex( ATTR_Texture1, szExtra1, sizeof( szExtra1 ) );
+				SE_ProbeTex( ATTR_Texture2, szExtra2, sizeof( szExtra2 ) );
+				SE_ProbeTex( ATTR_Panorama_OutputColor, szOutColor, sizeof( szOutColor ) );
+				SE_ProbeTex( ATTR_Panorama_OutputIntermediate, szOutInterm, sizeof( szOutInterm ) );
+				SE_ProbeTex( ATTR_Panorama_OutputDepth, szOutDepth, sizeof( szOutDepth ) );
+				V_sprintf_safe( szTexExtra, "tex1=[%s] tex2=[%s] outColor=[%s] outInterm=[%s] outDepth=[%s]",
+					szExtra1, szExtra2, szOutColor, szOutInterm, szOutDepth );
+
+				nProbeTexType = m_pAttr->GetValue( ATTR_D_TEXTURETYPE );
+				nProbeBlur = m_pAttr->GetValue( ATTR_D_TEX2DBLUR );
+				nProbeFastBlur = m_pAttr->GetValue( ATTR_D_TEX2DFASTBLUR );
+				nProbeDownsample = m_pAttr->GetValue( ATTR_D_TEX2DDOWNSAMPLE );
+				nProbePremul = m_pAttr->GetValue( ATTR_D_PREMULTIPLY_ALPHA );
+				nProbeGradComplex = m_pAttr->GetValue( ATTR_D_GRADIENT_COMPLEX );
+				nProbeGrad2Stop = m_pAttr->GetValue( ATTR_D_GRADIENT_TWOSTOP );
+			}
+
 			// clip -> device (y flips)
 			const float flDevX0 = ( flMinX * 0.5f + 0.5f ) * nVW + nVX;
 			const float flDevX1 = ( flMaxX * 0.5f + 0.5f ) * nVW + nVX;
 			const float flDevY0 = ( 0.5f - flMaxY * 0.5f ) * nVH + nVY;
 			const float flDevY1 = ( 0.5f - flMinY * 0.5f ) * nVH + nVY;
 
-			FILE *fp = fopen( "D:\\cstrike\\se_ui_probe.txt", "a" );
-			if ( fp )
+			const bool bBigDraw = ( flDevX1 - flDevX0 ) >= 1200.0f && ( flDevY1 - flDevY0 ) >= 600.0f;
+
+			static const float s_flPts[ 2 ][ 2 ] = { { 300.0f, 200.0f }, { 1000.0f, 300.0f } };
+
+			// Only the draws that land on the surface itself are interesting.  A panel with its own layer
+			// render target draws in that target's coordinate space and is composited later, by its own
+			// draw on the surface - so a smaller viewport can never be read as "this pixel of the screen".
+			const bool bSurfaceRT = ( nRTW >= 1200 || nRTW == 0 ) && nVW >= 1200;
+
+			int nHit = -1;
+			if ( bSurfaceRT )
 			{
-				fprintf( fp, "QUAD #%d verts=%d vp=%d,%d %dx%d rt=%dx%d clipX=[%.4f,%.4f] clipY=[%.4f,%.4f] w=[%.3f,%.3f] dev=%.1f,%.1f..%.1f,%.1f (%.1fx%.1f)\n",
-					s_nSECtxDrawLogged, m_nVertCount, nVX, nVY, nVW, nVH, nRTW, nRTH,
-					flMinX, flMaxX, flMinY, flMaxY, flMinW, flMaxW,
-					flDevX0, flDevY0, flDevX1, flDevY1, flDevX1 - flDevX0, flDevY1 - flDevY0 );
-				fflush( fp );
-				fclose( fp );
+				for ( int i = 0; i < 2 && nHit < 0; ++i )
+				{
+					if ( s_flPts[ i ][ 0 ] >= flDevX0 && s_flPts[ i ][ 0 ] <= flDevX1 &&
+						 s_flPts[ i ][ 1 ] >= flDevY0 && s_flPts[ i ][ 1 ] <= flDevY1 )
+					{
+						nHit = i;
+					}
+				}
+			}
+
+			if ( nHit >= 0 || ( bBigDraw && s_nSECtxDrawLogged <= 1400 ) )
+			{
+				const Vector4D &vColor0 = pV[ 1 ];
+				const Vector4D &vColor1 = pV[ nVertexStride == 6 ? 2 : 1 ];
+
+				// what is already in the render target at that pixel: the result of everything drawn below
+				// this one - and, for the first draw of the frame, the backdrop the engine handed panorama.
+				// A backdrop of ~255 here is what makes every translucent panorama draw come out pale.
+				unsigned char rgbaPre[4] = { 0, 0, 0, 0 };
+				int nPrePt = nHit;
+				if ( nPrePt < 0 && s_flPts[ 0 ][ 0 ] >= flDevX0 && s_flPts[ 0 ][ 0 ] <= flDevX1 &&
+					 s_flPts[ 0 ][ 1 ] >= flDevY0 && s_flPts[ 0 ][ 1 ] <= flDevY1 )
+				{
+					nPrePt = 0;		// the full-screen draws cover the sample point too, so read it for them
+				}
+				if ( nPrePt >= 0 )
+				{
+					m_pMatRenderContext->ReadPixels( (int)s_flPts[ nPrePt ][ 0 ], (int)s_flPts[ nPrePt ][ 1 ], 1, 1, rgbaPre, IMAGE_FORMAT_RGBA8888 );
+				}
+
+				FILE *fp = fopen( "D:\\cstrike\\se_ui_probe.txt", "a" );
+				if ( fp )
+				{
+					fprintf( fp, "DRAW #%d pt=%d blend=%d mat=%d rt=%dx%d[%s] vp=%d,%d %dx%d dev=%.0f,%.0f..%.0f,%.0f (%.0fx%.0f) pre=(%d,%d,%d,%d) col0=(%.3f,%.3f,%.3f,%.3f) col1=(%.3f,%.3f,%.3f,%.3f) texType=%d tex0=[%s] blur=%d fast=%d ds=%d prem=%d gradC=%d grad2=%d %s\n",
+						s_nSECtxDrawLogged, nHit, (int)m_blendState, m_nPanMaterial,
+						nRTW, nRTH, szRTName, nVX, nVY, nVW, nVH,
+						flDevX0, flDevY0, flDevX1, flDevY1, flDevX1 - flDevX0, flDevY1 - flDevY0,
+						rgbaPre[0], rgbaPre[1], rgbaPre[2], rgbaPre[3],
+						vColor0.x, vColor0.y, vColor0.z, vColor0.w,
+						vColor1.x, vColor1.y, vColor1.z, vColor1.w,
+						nProbeTexType, szTex0, nProbeBlur, nProbeFastBlur, nProbeDownsample, nProbePremul,
+						nProbeGradComplex, nProbeGrad2Stop, szTexExtra );
+					fflush( fp );
+					fclose( fp );
+				}
 			}
 		}
 	}

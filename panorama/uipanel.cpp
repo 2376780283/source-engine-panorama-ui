@@ -3850,6 +3850,73 @@ void CUIPanel::PaintBackground()
 {
 	VPROF_BUDGET_DETAILED( "CUIPanel::PaintBackground", VPROF_BUDGETGROUP_TENFOOT );
 
+	// SE port (TEMPORARY probe, 2026-09-16): the main menu / settings pages come out washed white - those
+	// pages get drawn nearly white, while panels like the tooltip are correctly dark.  Log every large
+	// panel that actually paints a background, once per panel, with the colours that were resolved for it.
+	// Remove together with the paint-background investigation.
+	{
+		static char s_rgchSEPanelProbeSeen[ 300 ][ 160 ];
+		static int s_nSEPanelProbeSeen = 0;
+
+		if ( BIsVisible() && m_flActualLayoutWidth > 180.0f && m_flActualLayoutHeight > 180.0f &&
+			s_nSEPanelProbeSeen < V_ARRAYSIZE( s_rgchSEPanelProbeSeen ) )
+		{
+			char rgchKey[ 160 ];
+			V_snprintf( rgchKey, sizeof( rgchKey ), "%s|%s|%.0fx%.0f", GetPanelType().String(),
+				GetID() ? GetID() : "<null>", m_flActualLayoutWidth, m_flActualLayoutHeight );
+
+			bool bSeen = false;
+			for ( int i = 0; i < s_nSEPanelProbeSeen; ++i )
+			{
+				if ( !V_strcmp( s_rgchSEPanelProbeSeen[ i ], rgchKey ) )
+				{
+					bSeen = true;
+					break;
+				}
+			}
+
+			if ( !bSeen )
+			{
+				V_strncpy( s_rgchSEPanelProbeSeen[ s_nSEPanelProbeSeen ], rgchKey, sizeof( s_rgchSEPanelProbeSeen[ 0 ] ) );
+				++s_nSEPanelProbeSeen;
+
+				float flPosX = 0.0f, flPosY = 0.0f;
+				for ( IUIPanel *pWalk = this; pWalk; pWalk = pWalk->GetParent() )
+				{
+					flPosX += pWalk->GetActualXOffset();
+					flPosY += pWalk->GetActualYOffset();
+				}
+
+				Color cBackground( 0, 0, 0, 0 ), cWash( 0, 0, 0, 0 );
+				const bool bSimpleBackground = AccessStyle()->GetSimpleBackgroundColor( cBackground );
+				AccessStyle()->GetWashColor( cWash );
+				float flOpacity = -1.0f;
+				AccessStyle()->GetOpacity( flOpacity );
+
+				char rgchClasses[ 220 ] = { 0 };
+				const CUtlVector< CPanoramaSymbol > &vecClasses = GetClasses();
+				for ( int i = 0; i < vecClasses.Count() && V_strlen( rgchClasses ) < sizeof( rgchClasses ) - 40; ++i )
+				{
+					V_strncat( rgchClasses, vecClasses[ i ].String(), sizeof( rgchClasses ) );
+					V_strncat( rgchClasses, " ", sizeof( rgchClasses ) );
+				}
+
+				FILE *fpPanel = fopen( "D:\\cstrike\\se_panel_probe.txt", "a" );
+				if ( fpPanel )
+				{
+					fprintf( fpPanel,
+						"BIGPANEL flags=%d type=%-26s id=\"%-24s\" pos=%5.0f,%5.0f size=%6.0fx%6.0f bgSimple=%d rgb=%3d,%3d,%3d a=%3d wash=%3d,%3d,%3d,%3d opacity=%.2f class=\"%s\"\n",
+						(int)m_unStylesPresentFlags, GetPanelType().String(), GetID() ? GetID() : "<null>", flPosX, flPosY,
+						m_flActualLayoutWidth, m_flActualLayoutHeight, (int)bSimpleBackground,
+						cBackground.r(), cBackground.g(), cBackground.b(), cBackground.a(),
+						cWash.r(), cWash.g(), cWash.b(), cWash.a(), flOpacity, rgchClasses );
+					fflush( fpPanel );
+					fclose( fpPanel );
+				}
+			}
+		}
+	}
+
 	if( m_unStylesPresentFlags & k_EStylePresentBackgroundFillColor || m_unStylesPresentFlags & k_EStylePresentBackgroundImage )
 	{
 		AccessRenderEngine()->BeginPaintBackground();
