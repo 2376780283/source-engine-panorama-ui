@@ -1,0 +1,53 @@
+name: Android cstrike Build
+
+# 配置触发条件为：手动触发
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build and Upload
+    runs-on: ubuntu-latest # 使用最新的 Ubuntu 运行环境
+
+    steps:
+      # 1. 检出代码并自动初始化、更新 submodules (等同于 git submodule init && update)
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      # 2. 配置 Python 环境 (Waf 构建系统需要 Python)
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10' # 绝大部分 waf 脚本兼容 Python 3
+
+      # 3. 执行你的自定义构建指令
+      - name: Build Game
+        run: |
+          # 下载并解压 Android NDK r10e (使用 -q 替换 -o /dev/null 以便静默下载但保留错误提示)
+          echo "Downloading Android NDK r10e..."
+          wget -q https://dl.google.com/android/repository/android-ndk-r10e-linux-x86_64.zip
+          unzip -q android-ndk-r10e-linux-x86_64.zip
+          export ANDROID_NDK_HOME=$PWD/android-ndk-r10e/
+
+          # 下载并解压 LLVM 11.1.0
+          echo "Downloading LLVM 11.1.0..."
+          wget -q https://github.com/llvm/llvm-project/releases/download/llvmorg-11.1.0/clang+llvm-11.1.0-x86_64-linux-gnu-ubuntu-16.04.tar.xz
+          tar -xf clang+llvm-11.1.0-x86_64-linux-gnu-ubuntu-16.04.tar.xz
+          export PATH="$PWD/clang+llvm-11.1.0-x86_64-linux-gnu-ubuntu-16.04/bin:$PATH"
+
+          # 执行 Waf 配置和编译
+          echo "Configuring with Waf..."
+          python ./waf configure -T release --build-game=cstrike --prefix=build-game/android --android=aarch64,host,21 --target=../aarch64 --enable-opus --togles --disable-warns
+          
+          echo "Building and installing..."
+          python ./waf install --strip
+
+      # 4. 收集构建产物并上传
+      - name: Upload Build Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: cstrike-android-build        # 下载时的压缩包名称
+          path: build-game/          # 上传的目录，对应构建指令中的 --prefix 参数
+          retention-days: 2                 # 产物保留天数 (可自行修改)
