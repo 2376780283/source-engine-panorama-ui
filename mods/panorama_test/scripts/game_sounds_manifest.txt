@@ -1,10 +1,15 @@
-// Minimal sound emitter manifest for the panorama test mod.
+// Sound emitter manifest for the panorama test mod.
 //
-// CSoundEmitterSystemBase::Init() (soundemittersystem/soundemittersystembase.cpp) Error()s out when
-// this file is missing, and KeyValues refuses to load a manifest whose root block has no sub-keys at
-// all - hence the placeholder entry.  The loader only accepts sub-keys called "file"; anything else is
-// reported as a bogus file type and ignored.
+// CSoundEmitterSystemBase::BaseInit() (soundemittersystem/soundemittersystembase.cpp) Error()s out
+// when this file is missing, and KeyValues refuses to load a manifest whose root block has no
+// sub-keys at all.  The loader accepts "precache_file", "preload_file" and "faceposer_file".
+//
+// game_sounds_ui_panorama.txt is CS:GO's UI sound script: the panorama content dispatches
+// PlaySoundEffect("UIPanorama.<name>") for every button rollover/press/popup, and the sound system
+// resolves those names through the sound emitter system (CUISoundSystem::PlaySound +
+// panorama_s1wrapper/wrap_sound.cpp).  Without this entry the script is never parsed, every lookup
+// fails and the whole UI stays silent.
 "game_sounds_manifest"
 {
-	"note"		"panorama test mod: no sound emitter scripts"
+	"precache_file"		"scripts/game_sounds_ui_panorama.txt"
 }

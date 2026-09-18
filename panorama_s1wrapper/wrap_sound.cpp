@@ -13,6 +13,14 @@
 // SE port: wrap_other.h only forward declares ISoundEmitterSystemBase (enough for the
 // global pointer), but this TU dereferences it - pull in the real interface header.
 #include "SoundEmitterSystem/isoundemittersystembase.h"
+// SE port (UI sounds): CreateInterfaceFn for g_pPanoramaConnectFactory below.
+#include "tier1/interface.h"
+// SE port (UI sounds): LoadLibrary/GetProcAddress/GetModuleHandle for the sound emitter module.
+#if defined( _WIN32 ) || defined( WIN32 )
+#include <windows.h>
+#endif
+#include <stdio.h>
+#include <stdarg.h>
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include <tier0/memdbgon.h>
@@ -20,6 +28,74 @@
 
 IEngineSound *g_pEnginesound = NULL;
 ISoundEmitterSystemBase *g_pSoundEmitterSystemBase = NULL;
+
+// SE port (UI sounds): the app system factory panoramauiclient's Connect() was handed.  It can serve
+// IEngineSound (the engine is in the same app system group) but *not* the sound emitter system: that
+// module is loaded and connected by the game client's own app system group
+// (game/client/cdll_client_int.cpp AddAppSystem "soundemittersystem"), which panorama never sees.
+// Kept for the engine sound interface lookup below; the emitter interface goes through
+// SE_PortResolveSoundEmitterInterface().
+CreateInterfaceFn g_pPanoramaConnectFactory = NULL;
+
+// SE port (temporary UI sound probe): the panorama DLL cannot reach the console, so sound problems
+// are logged to this file instead.  Remove once UI sound is verified in game.
+static void SE_PortSoundProbe( const char *pMsgFmt, ... )
+{
+	static int s_nWritten = 0;
+
+	if ( s_nWritten >= 400 )
+		return;
+
+	FILE *fp = fopen( "D:\\cstrike\\se_sound_probe.txt", "a" );
+	if ( !fp )
+		return;
+
+	va_list args;
+	va_start( args, pMsgFmt );
+	vfprintf( fp, pMsgFmt, args );
+	va_end( args );
+	fputc( '\n', fp );
+	fclose( fp );
+
+	++s_nWritten;
+}
+
+// SE port (UI sounds): fetch VSoundEmitter002 straight from the sound emitter module.  By the time the
+// UI plays sounds the module is already in the process (the engine log shows
+// "LoadLibrary: pModule: soundemittersystem.dll"), so GetModuleHandle() hits and the process keeps a
+// single instance - the one the game client connected, with BaseInit() done and the sound script
+// database (scripts/game_sounds_manifest.txt -> game_sounds_ui_panorama.txt) loaded.
+static void *SE_PortResolveSoundEmitterInterface()
+{
+#if defined( _WIN32 ) || defined( WIN32 )
+	static HMODULE s_hSoundEmitterModule = NULL;
+	static CreateInterfaceFn s_pSoundEmitterFactory = NULL;
+
+	if ( !s_pSoundEmitterFactory )
+	{
+		if ( !s_hSoundEmitterModule )
+		{
+			s_hSoundEmitterModule = ::GetModuleHandleA( "soundemittersystem.dll" );
+		}
+		if ( !s_hSoundEmitterModule )
+		{
+			// not loaded yet (or loaded under a different name): let the loader find it; the game's
+			// bin directory is on the search path the engine built for its own Sys_LoadModule calls.
+			s_hSoundEmitterModule = ::LoadLibraryA( "soundemittersystem.dll" );
+		}
+		if ( s_hSoundEmitterModule )
+		{
+			s_pSoundEmitterFactory = ( CreateInterfaceFn )::GetProcAddress( s_hSoundEmitterModule, "CreateInterface" );
+		}
+	}
+
+	SE_PortSoundProbe( "SNDOP resolve mod=%p factory=%p", ( void * )s_hSoundEmitterModule, ( void * )s_pSoundEmitterFactory );
+
+	return s_pSoundEmitterFactory ? s_pSoundEmitterFactory( SOUNDEMITTERSYSTEM_INTERFACE_VERSION, NULL ) : NULL;
+#else
+	return NULL;
+#endif
+}
 
 //--------------------------------------------------------------------------------------------------
 // Sound
@@ -80,11 +156,77 @@ SoundEventGuid_t CSoundOpSystem::StartSoundEvent( const char *pSoundEventName, v
 	sound_voice_layer_t nLayer, SOSRANDSEED nSeed,
 	const void *pPackedFieldData, int nPackedFieldDataBytes, const Vector2D* pSoundPos )
 {
-	// SE port: this port has no sound emitter system - CS:GO looks panorama sound events up in its sound
-	// script database, and reaching it here dereferenced NULL (crash at address 0) as soon as the CS:GO
-	// menu tried to play a UI sound.
-	if ( !g_pSoundEmitterSystemBase )
+	// SE port (UI sounds): panorama sound events are CS:GO sound-script names ("UIPanorama.*" - see
+	// scripts/game_sounds_ui_panorama.txt); they are looked up in the sound emitter system here and
+	// played through the engine below.  IEngineSound comes from panorama's own app system factory;
+	// the sound emitter system has to be fetched from its module (see the helper above - it lives in
+	// the game client's app system group and never appears in panorama's factory).
+	SE_PortSoundProbe( "SNDOP evt=%s panel=%p", pSoundEventName ? pSoundEventName : "(null)", pUIPanel );
+
+	if ( !g_pSoundEmitterSystemBase || !g_pEnginesound )
+	{
+		if ( !g_pEnginesound && g_pPanoramaConnectFactory )
+		{
+			g_pEnginesound = (IEngineSound *)g_pPanoramaConnectFactory( IENGINESOUND_CLIENT_INTERFACE_VERSION, NULL );
+		}
+
+		if ( !g_pSoundEmitterSystemBase )
+		{
+			g_pSoundEmitterSystemBase = (ISoundEmitterSystemBase *)SE_PortResolveSoundEmitterInterface();
+		}
+
+		SE_PortSoundProbe( "SNDOP iface emitter=%p enginesound=%p", ( void * )g_pSoundEmitterSystemBase, ( void * )g_pEnginesound );
+
+		// SE port (UI sounds): the sound script database is filled in by
+		// ISoundEmitterSystemBase::ModInit(), and in Source 2013 that call is made by the game's
+		// CSoundEmitterSystem game system when a *level* loads (game/shared/SoundEmitterSystem.cpp:227)
+		// - client side it is CHLClient/InitAllSystems.  Do it here if nothing has yet.
+		if ( g_pSoundEmitterSystemBase && g_pSoundEmitterSystemBase->GetNumSoundScripts() == 0 )
+		{
+			bool bInited = g_pSoundEmitterSystemBase->ModInit();
+			SE_PortSoundProbe( "SNDOP ModInit -> %d (sounds=%d scripts=%d)", ( int )bInited,
+				g_pSoundEmitterSystemBase->GetSoundCount(), g_pSoundEmitterSystemBase->GetNumSoundScripts() );
+		}
+
+		// SE port (UI sounds): *which* manifest gets loaded is not ours to control - on this CS:S
+		// install "scripts/game_sounds_manifest.txt" resolves to the shipped (VPK/frozen) copy, whose
+		// nine scripts are the Counter-Strike Source ones (hostages/bots/weapons/... - see the probe),
+		// so editing the loose mod manifest has no effect at all.  Register CS:GO's UI sound script
+		// directly instead: AddSoundOverrides() -> AddSoundsFromFile( scriptfile, bPreload, true ),
+		// which is the same path map sound overrides take and is idempotent for us.
+		if ( g_pSoundEmitterSystemBase && g_pSoundEmitterSystemBase->GetSoundIndex( "UIPanorama.generic_button_press" ) < 0 )
+		{
+			g_pSoundEmitterSystemBase->AddSoundOverrides( "scripts/game_sounds_ui_panorama.txt" );
+
+			SE_PortSoundProbe( "SNDOP AddSoundOverrides ui_panorama -> idx=%d sounds=%d scripts=%d",
+				g_pSoundEmitterSystemBase->GetSoundIndex( "UIPanorama.generic_button_press" ),
+				g_pSoundEmitterSystemBase->GetSoundCount(), g_pSoundEmitterSystemBase->GetNumSoundScripts() );
+		}
+
+		if ( g_pSoundEmitterSystemBase )
+		{
+			SE_PortSoundProbe( "SNDOP db sounds=%d scripts=%d testidx=%d",
+				g_pSoundEmitterSystemBase->GetSoundCount(),
+				g_pSoundEmitterSystemBase->GetNumSoundScripts(),
+				g_pSoundEmitterSystemBase->GetSoundIndex( "UIPanorama.generic_button_press" ) );
+
+			for ( int i = 0, n = g_pSoundEmitterSystemBase->GetNumSoundScripts(); i < n && i < 8; ++i )
+			{
+				SE_PortSoundProbe( "SNDOP script[%d]='%s'", i, g_pSoundEmitterSystemBase->GetSoundScriptName( i ) );
+			}
+
+			for ( int i = 0, n = g_pSoundEmitterSystemBase->GetSoundCount(); i < n && i < 6; ++i )
+			{
+				SE_PortSoundProbe( "SNDOP sound[%d]='%s'", i, g_pSoundEmitterSystemBase->GetSoundName( i ) );
+			}
+		}
+	}
+
+	if ( !g_pSoundEmitterSystemBase || !g_pEnginesound )
+	{
+		SE_PortSoundProbe( "SNDOP FAIL no interface for %s", pSoundEventName ? pSoundEventName : "(null)" );
 		return 0;
+	}
 
 	// Prefix sound event name with "UIPanorama" if the sound event name does not have a prefix
 
@@ -102,9 +244,56 @@ SoundEventGuid_t CSoundOpSystem::StartSoundEvent( const char *pSoundEventName, v
 
 	static ConVarRef snd_show_events("snd_show_events");
 
-	int nSoundIndex = g_pSoundEmitterSystemBase->GetSoundIndex( szPrefixedSoundEventName );
+	const char *pszLookupName = szPrefixedSoundEventName;
+	int nSoundIndex = g_pSoundEmitterSystemBase->GetSoundIndex( pszLookupName );
+
+	// SE port (UI sounds): some CS:GO UI names are assembled from settings by the content - the menu
+	// background music arrives as "UIPanorama.BG_<backgroundMovie>" (mainmenu.js:118, mirrored by
+	// seport/se_background_movie.cpp) while that setting carries the resolution
+	// ("ui_mainmenu_bkgnd_movie anubis720"), so the script entry "UIPanorama.BG_Anubis" gets looked
+	// up as "UIPanorama.BG_anubis720".  Retry without a trailing number, then case-insensitively
+	// (the database is a plain hash of the literal script names).
+	char szTrimmedName[MAX_PATH];
 	if ( !g_pSoundEmitterSystemBase->IsValidIndex( nSoundIndex ) )
 	{
+		V_strcpy_safe( szTrimmedName, pszLookupName );
+
+		char *pszLastSegment = strrchr( szTrimmedName, '.' );
+		pszLastSegment = pszLastSegment ? pszLastSegment + 1 : szTrimmedName;
+
+		size_t nSegmentLength = strlen( pszLastSegment );
+		size_t nKeep = nSegmentLength;
+		while ( nKeep > 0 && pszLastSegment[nKeep - 1] >= '0' && pszLastSegment[nKeep - 1] <= '9' )
+		{
+			--nKeep;
+		}
+
+		if ( nKeep != nSegmentLength && nKeep > 0 )
+		{
+			pszLastSegment[nKeep] = '\0';
+			nSoundIndex = g_pSoundEmitterSystemBase->GetSoundIndex( szTrimmedName );
+			pszLookupName = szTrimmedName;
+		}
+	}
+
+	if ( !g_pSoundEmitterSystemBase->IsValidIndex( nSoundIndex ) )
+	{
+		for ( int i = 0, n = g_pSoundEmitterSystemBase->GetSoundCount(); i < n; ++i )
+		{
+			const char *pEntryName = g_pSoundEmitterSystemBase->GetSoundName( i );
+			if ( pEntryName && !V_stricmp( pEntryName, pszLookupName ) )
+			{
+				nSoundIndex = i;
+				pszLookupName = pEntryName;
+				break;
+			}
+		}
+	}
+
+	if ( !g_pSoundEmitterSystemBase->IsValidIndex( nSoundIndex ) )
+	{
+		SE_PortSoundProbe( "SNDOP FAIL no index (%s)", szPrefixedSoundEventName );
+
 		if(snd_show_events.GetBool())
 		{
 			DevMsg("SoundEvent: %s (doesn't exist)\n", szPrefixedSoundEventName);
@@ -120,7 +309,7 @@ SoundEventGuid_t CSoundOpSystem::StartSoundEvent( const char *pSoundEventName, v
 	CSoundParameters params;
 
 
-	if ( !g_pSoundEmitterSystemBase->GetParametersForSoundEx( szPrefixedSoundEventName, nSoundEntryHash, params, gender, true ) )
+	if ( !g_pSoundEmitterSystemBase->GetParametersForSoundEx( pszLookupName, nSoundEntryHash, params, gender, true ) )
 	{
 		if ( snd_show_events.GetBool() )
 		{
@@ -132,6 +321,8 @@ SoundEventGuid_t CSoundOpSystem::StartSoundEvent( const char *pSoundEventName, v
 
 	if ( !params.soundname[0] )
 	{
+		SE_PortSoundProbe( "SNDOP FAIL empty wave (%s)", szPrefixedSoundEventName );
+
 		if ( snd_show_events.GetBool() )
 		{
 			DevMsg("SoundEvent: %s (doesn't exist)\n", szPrefixedSoundEventName);
@@ -139,6 +330,9 @@ SoundEventGuid_t CSoundOpSystem::StartSoundEvent( const char *pSoundEventName, v
 
 		return 0;
 	}
+
+	SE_PortSoundProbe( "SNDOP idx=%d name='%s' wave='%s' vol=%.3f ch=%d lvl=%d pitch=%d",
+		nSoundIndex, pszLookupName, params.soundname, params.volume, (int)params.channel, (int)params.soundlevel, params.pitch );
 
 	// Play sound
 
@@ -199,12 +393,31 @@ SoundEventGuid_t CSoundOpSystem::StartSoundEvent( const char *pSoundEventName, v
 	// the recipient filter); the classic EmitSound below already plays the wave locally.
 	// params.m_bUISound = true;
 	CDummyRecipientFilter filter;
+	// SE port (UI sounds): CS:GO's waves carry flag characters that this tree's PSkipSoundChars()
+	// does not know about - CS:GO added CHAR_HRTF '~' and CHAR_RADIO '+' to public/soundchars.h, and
+	// its UI scripts use them throughout ("~+UI/panorama/x.wav", "+UI\panorama\y.wav").  The engine
+	// resolves whatever string we hand to EmitSound on disk, so strip those flags first (and force
+	// forward slashes - the plain V_FixSlashes() would rewrite them to '\' on Windows, which the
+	// sound loader does not like when it resolves the wave through the VPK search paths).
+	char szWaveName[512];
+	V_strcpy_safe( szWaveName, params.soundname );
+	V_FixSlashes( szWaveName, '/' );
+
+	const char *pszWaveName = szWaveName;
+	while ( *pszWaveName == '~' || *pszWaveName == '+' )
+	{
+		++pszWaveName;
+	}
+
 	// SE port: this engine's IEngineSound only has the classic EmitSound overloads (no
 	// sound-entry name/hash and no guid return).  Play the script's wave through the classic
 	// path and report the engine's "guid of the last sound emitted".
-	g_pEnginesound->EmitSound( filter, nSourceEntityIndex, params.channel, params.soundname,
+	g_pEnginesound->EmitSound( filter, nSourceEntityIndex, params.channel, pszWaveName,
 		params.volume, (soundlevel_t)params.soundlevel, 0, params.pitch, 0, &vecOrigin, nullptr, nullptr, true, 0.0f, -1 );
 	int guid = g_pEnginesound->GetGuidForLastSoundEmitted();
+
+	SE_PortSoundProbe( "SNDOP played guid=%d playing=%d wave='%s'", guid,
+		guid > 0 ? ( int )g_pEnginesound->IsSoundStillPlaying( guid ) : -1, pszWaveName );
 
 	return ( ( guid > 0 ) ? SoundEventGuid_t(guid) : SoundEventGuid_t() );
 }
@@ -212,7 +425,9 @@ SoundEventGuid_t CSoundOpSystem::StartSoundEvent( const char *pSoundEventName, v
 //--------------------------------------------------------------------------------------------------
 bool CSoundOpSystem::StopSoundEvent( SoundEventGuid_t nGuid )
 {
-	if ( nGuid != INVALID_SOUNDEVENT_GUID )
+	// SE port (UI sounds): the engine interface can still be unset when this runs (see the lazy
+	// lookup in StartSoundEvent), so do not dereference it blindly.
+	if ( nGuid != INVALID_SOUNDEVENT_GUID && g_pEnginesound )
 	{
 		g_pEnginesound->StopSoundByGuid( nGuid.GetRaw() );
 		return true;
