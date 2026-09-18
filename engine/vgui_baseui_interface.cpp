@@ -118,6 +118,10 @@ static int g_syncReportLevel = -1;
 // hand here because including that header would drag every panorama header into this translation unit for
 // one bool.
 bool SE_PortIsPanoramaMenuActive();
+
+// SE port (2026-09-18, console into panorama): the IGameConsole that panoramauiclient.dll publishes - see
+// the note in engine/panoramaenginehandler.h.  Prototype by hand for the same reason as above.
+IGameConsole *SE_PortGetPanoramaGameConsole();
 #endif
 
 void VGui_ActivateMouse();
@@ -590,10 +594,27 @@ void CEngineVGui::Init()
 
 	if ( IsPC() )
 	{
-		staticGameConsole = (IGameConsole *)m_GameUIFactory(GAMECONSOLE_INTERFACE_VERSION, NULL);
-		if ( !staticGameConsole )
+#ifdef PANORAMA_ENABLE
+		// SE port (2026-09-18, console into panorama): CS:GO asks its client-side GameUI module for the
+		// console (m_GameUIFactory == g_ClientFactory there; the class is
+		// game/client/cstrike15/gameui/gameconsole.cpp, a vgui2 panel owned by the module that also hosts
+		// panorama).  This fork's GameUI-side module is panoramauiclient.dll - it hosts the console now
+		// (panorama/seport/gameclient/cstrike15/gameui/) - so ask it first; gameui.dll stays the fallback,
+		// which keeps a build without the panorama module byte-for-byte on the old path.
+		staticGameConsole = SE_PortGetPanoramaGameConsole();
+		if ( staticGameConsole )
 		{
-			Sys_Error( "Could not get IGameConsole interface %s from %s\n", GAMECONSOLE_INTERFACE_VERSION, szDllName );
+			Msg( "SE port: IGameConsole comes from panoramauiclient.dll (console owned by the panorama "
+				 "module, CS:GO style); gameui.dll only provides IGameUI here\n" );
+		}
+		else
+#endif
+		{
+			staticGameConsole = (IGameConsole *)m_GameUIFactory(GAMECONSOLE_INTERFACE_VERSION, NULL);
+			if ( !staticGameConsole )
+			{
+				Sys_Error( "Could not get IGameConsole interface %s from %s\n", GAMECONSOLE_INTERFACE_VERSION, szDllName );
+			}
 		}
 	}
 
@@ -814,7 +835,25 @@ void CEngineVGui::Init()
 	if ( staticGameConsole )
 	{
 		staticGameConsole->Initialize();
+#ifdef PANORAMA_ENABLE
+		// SE port (console into panorama, 2026-09-18): CS:GO deliberately does NOT parent the console -
+		// its vgui_baseui_interface.cpp has these SetParent() calls inside
+		// "TOOLFRAMEWORK_VGUI_REFACTOR" / "!defined( CSTRIKE15 )", and CS:GO is CSTRIKE15 - so the
+		// console frame (CConsoleDialog's parent is NULL, see gameconsole.cpp::Initialize) stays a top
+		// level panel, which is what lets it draw above everything else, panorama layer included.
+		//
+		// This fork used to parent it to staticGameUIPanel right here, and the panorama host hides that
+		// panel while it owns the screen (the "hide the gameui panel while a panorama menu exists" block
+		// in panoramaenginehandler.cpp::PanoramaRunFrame).  A hidden ancestor means vgui never paints
+		// the console, while IsConsoleVisible() happily reports it as up: opening the console blanked
+		// the screen (the panorama windows yield the frame to it - see PanoramaRenderFrame) but no
+		// console appeared.  Confirmed on screen 2026-09-18; leaving the parent unset fixes it, and
+		// matches CS:GO for both console providers (the panorama module's and gameui.dll's, whose
+		// CGameConsoleDialog is a top level frame as well).
+		Msg( "SE port: console parent left unset (top level frame, CS:GO style)\n" );
+#else
 		staticGameConsole->SetParent(staticGameUIPanel->GetVPanel());
+#endif
 	}
 
 	if ( IsX360() )
@@ -832,6 +871,10 @@ void CEngineVGui::Init()
 		!CommandLine()->CheckParm( "-hideconsole" ) &&
 		( CommandLine()->FindParm( "-toconsole" ) || CommandLine()->FindParm( "-console" ) || CommandLine()->FindParm( "-rpt" ) || CommandLine()->FindParm( "-allowdebug" ) ) )
 	{
+		// SE port (bring-up probe): the startup console path does NOT go through ShowConsole(), so it
+		// is worth a log line while the console move into the panorama module is being verified.
+		Warning( "SE port: startup console activation (-console/-toconsole/-rpt/-allowdebug)\n" );
+
 		// activate the console
 		staticGameConsole->Activate();
 	}
@@ -1158,25 +1201,20 @@ void CEngineVGui::ShowConsole()
 	// SE port (task A, CS:GO's structure): CS:GO's ShowConsole() does not activate the game UI - there the
 	// GameUI panel is the always-on panorama layer, so the console (a child of it) simply draws over
 	// panorama.  Here ActivateGameUI() means "show the CS:S VGUI2 main menu", which is what made '~' pop the
-	// menu open together with the console.  While the hosted panorama layer is up, skip it and hang the
-	// console off the engine's root panel instead: Init() parented it to the game ui panel, which stays
-	// hidden while panorama is up, and a hidden ancestor means the console is never painted.
+	// menu open together with the console, so while the hosted panorama layer is up, skip it.
+	//
+	// The console's parent stays unset (top level frame, CS:GO style - see the Init() comment above): a
+	// parentless frame is painted straight from the vgui popup list with no help from this function.
+	// This branch used to reparent it to the engine root panel (staticPanel); that was written when Init()
+	// still parented the console to the game ui panel, and it became the bug once Init() stopped doing
+	// that: staticPanel is hidden while panorama owns the screen, and a hidden ancestor in the VPanel
+	// chain makes vgui's popup paint loop skip the dialog - CMatSystemSurface::PaintTraverseEx tests
+	// IsFullyVisible(), which walks exactly that chain (se_popup_probe log: "GameConsole vis=1
+	// fullyVis=0").  Symptom before the fix: the console accepted input but never painted - in-game and
+	// in the menu, both.
 	if ( !SE_PortIsPanoramaMenuActive() )
 	{
 		ActivateGameUI();
-	}
-	else if ( staticGameConsole && staticPanel && staticGameUIPanel )
-	{
-		// 0 means "the parent Init() gave it", i.e. the game ui panel - then vgui needs no call at all.
-		static vgui::VPANEL s_hSEConsoleParent = 0;
-
-		vgui::VPANEL hWantParent = staticPanel->GetVPanel();
-		vgui::VPANEL hCurrentParent = s_hSEConsoleParent ? s_hSEConsoleParent : staticGameUIPanel->GetVPanel();
-		if ( hWantParent != hCurrentParent )
-		{
-			s_hSEConsoleParent = hWantParent;
-			staticGameConsole->SetParent( hWantParent );
-		}
 	}
 #else
 	ActivateGameUI();

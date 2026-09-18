@@ -577,3 +577,46 @@
 	// keeps the tournament tiles in their "champions TBD" state.
 	seDefine("TournamentsAPI.GetProEventDataJSO", function () { return {}; });
 })();
+// SE port (temporary probe 2026-09-18): hover-delivery check for the tooltip-attribute elements
+// (the experiment suggested for the missing tooltips).  Every layout context looks for a few known
+// tooltip elements and binds onmouseover/onmouseout probes on them; results are written through the
+// GameInterfaceAPI se_probe channel, i.e. they show up as SIMPROBE lines in se_ui_probe.txt.
+// Deliberately does NOT touch the navbar buttons (their inline onmouseover already proved the JS
+// hover path works, and SetPanelEvent might replace the inline handler).
+(function () {
+    try {
+        if (typeof GameInterfaceAPI === 'undefined' || typeof $ === 'undefined') { return; }
+        var seHoverTargets = ['id-tt_gamemodeflags', 'MainMenuMovieSceneSelector', 'LoadoutShuffleControls'];
+        var seHoverBound = {};
+        var seHoverRounds = 0;
+        var seHoverTick = function () {
+            try {
+                var root = $.GetContextPanel();
+                if (root && root.id !== 'se_probe') {
+                    for (var i = 0; i < seHoverTargets.length; i++) {
+                        var id = seHoverTargets[i];
+                        if (seHoverBound[id]) { continue; }
+                        var el = null;
+                        try { el = root.FindChildTraverse ? root.FindChildTraverse(id) : null; } catch (e1) { }
+                        if (!el) { try { el = root.FindChildInLayoutFile ? root.FindChildInLayoutFile(id) : null; } catch (e2) { } }
+                        if (el) {
+                            seHoverBound[id] = true;
+                            (function (boundId, boundEl) {
+                                boundEl.SetPanelEvent('onmouseover', function () {
+                                    GameInterfaceAPI.SetSettingString('se_probe_hover_' + boundId, 'OVER');
+                                });
+                                boundEl.SetPanelEvent('onmouseout', function () {
+                                    GameInterfaceAPI.SetSettingString('se_probe_hover_' + boundId, 'OUT');
+                                });
+                            })(id, el);
+                            GameInterfaceAPI.SetSettingString('se_probe_hover_bound', id + ' ctx=' + (root.id || '?'));
+                        }
+                    }
+                }
+            } catch (e) { }
+            seHoverRounds++;
+            if (seHoverRounds < 150) { $.Schedule(1.0, seHoverTick); }
+        };
+        $.Schedule(2.0, seHoverTick);
+    } catch (e) { }
+})();

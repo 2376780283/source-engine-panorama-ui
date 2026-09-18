@@ -54,7 +54,7 @@ void SE_PortTooltipProbe( const char *pMsgFmt, ... )
 {
 	static int s_nWritten = 0;
 
-	if ( s_nWritten >= 400 )
+	if ( s_nWritten >= 4000 )
 		return;
 
 	FILE *fp = fopen( "D:\\cstrike\\se_tooltip_probe.txt", "a" );

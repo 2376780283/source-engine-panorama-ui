@@ -18,9 +18,11 @@ ILauncherMgr *g_pLauncherMgr = NULL;
 #endif
 
 
+#include <stdio.h>
 #include "tier1/strtools.h"
 #include "tier0/icommandline.h"
 #include "tier0/dbg.h"
+#include "tier0/platform.h"
 #include "filesystem.h"
 #include <vgui/VGUI.h>
 #include <Color.h>
@@ -3146,6 +3148,19 @@ void CMatSystemSurface::RestrictPaintToSinglePanel(VPANEL panel)
 		return;	// don't restrict drawing to a panel other than the modal one - that's a good way to hang the game.
 	}
 
+	// SE port (bring-up probe, TEMPORARY - remove with the vguimatsurface probes): the popup paint loop
+	// skips every popup that is not under m_pRestrictedPanel, and the panorama console is a parentless
+	// popup - so a stale restriction hides it silently.  Log every change (few per run).
+	{
+		FILE *pSEProbe = fopen( "D:\\cstrike\\se_popup_probe.txt", "a" );
+		if ( pSEProbe )
+		{
+			fprintf( pSEProbe, "[%8.2f] SE restrict: %08X -> %08X\n", Plat_FloatTime(),
+				(unsigned int)(uintp)m_pRestrictedPanel, (unsigned int)(uintp)panel );
+			fclose( pSEProbe );
+		}
+	}
+
 	m_pRestrictedPanel = panel;
 
 	if ( !input()->GetAppModalSurface() )
@@ -3247,6 +3262,41 @@ void CMatSystemSurface::PaintTraverseEx(VPANEL panel, bool paintPopups /*= false
 		{
 			VPROF( "CMatSystemSurface::PaintTraverse popups loop" );
 			int popups = GetPopupCount();
+
+			// SE port (bring-up probe, TEMPORARY - remove with the vguimatsurface probes): log the
+			// popup pass occasionally, so a skipped console dialog can be explained (restricted
+			// panel set? popup not fully visible? popup missing from the list?).
+			{
+				static int s_nSEPopupProbe = 0;
+				if ( ( ++s_nSEPopupProbe % 30 ) == 0 )
+				{
+					FILE *pSEProbe = fopen( "D:\\cstrike\\se_popup_probe.txt", "a" );
+					if ( pSEProbe )
+					{
+						fprintf( pSEProbe, "[%8.2f] SE popup pass: count=%d restricted=%08X embeddedVis=%d\n", Plat_FloatTime(),
+							popups, (unsigned int)(uintp)m_pRestrictedPanel, (int)ipanel()->IsVisible( GetEmbeddedPanel() ) );
+						for ( int j = popups - 1; j >= 0 && j > popups - 12; --j )
+						{
+							VPANEL hPopup = GetPopup( j );
+							if ( !hPopup )
+								continue;
+							const char *pszName = ipanel()->GetName( hPopup );
+							VPANEL hParent = ipanel()->GetParent( hPopup );
+							const char *pszParent = hParent ? ipanel()->GetName( hParent ) : "-";
+							fprintf( pSEProbe, "  [%2d] '%s' vis=%d fullyVis=%d under=%d parent=%08X '%s' pvis=%d\n", j,
+								pszName ? pszName : "?",
+								(int)ipanel()->IsVisible( hPopup ),
+								(int)ipanel()->IsFullyVisible( hPopup ),
+								(int)IsPanelUnderRestrictedPanel( hPopup ),
+								(unsigned int)(uintp)hParent,
+								pszParent ? pszParent : "?",
+								hParent ? (int)ipanel()->IsVisible( hParent ) : -1 );
+						}
+						fclose( pSEProbe );
+					}
+				}
+			}
+
 			if ( popups > 254 )
 			{
 				Warning( "Too many popups! Rendering will be bad!\n" );

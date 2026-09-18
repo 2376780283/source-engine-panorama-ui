@@ -298,6 +298,9 @@ bool CRenderContext::UpdateMaterial()
 	}
 	else
 	{
+		// SE port: per-texType routing to a $srgbread 0 material (YUV video exemption, CS:GO
+		// PanDxSetTexturesFancy semantics) was tried and ROLLED BACK - regular draws regressed to
+		// washed-out (pitfalls P104).  All fancy draws use the sRGB-read material again.
 		m_pMaterial = m_apFancyMaterial[nBlendIndex];
 	}
 

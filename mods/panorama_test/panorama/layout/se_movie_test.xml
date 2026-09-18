@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+	SE port: standalone webm player layout ("只播放视频"的启动项用).
+
+	Loaded with:  +panorama_menu se_movie_test.xml -se_background_movie <name>
+	(see build/run_webm.cmd / D:\cstrike\run_webm.bat).  The hosted panorama view loads *this*
+	layout instead of the main menu, so the screen contains nothing but the video - no CS:GO main
+	menu, and the VGUI2 (CS:S) menu is hidden automatically by the engine while a panorama menu
+	view exists (see engine/panoramaenginehandler.cpp, HideVGuiGameUI behaviour).
+
+	Why this exact shape: engine/panoramaenginehandler.cpp::PanoramaRunFrame carries the
+	"background movie" bridge (a port of CS:GO's CCSGO_MainMenu::LoadBackgroundMovie - see
+	panoramauiclient/se_background_movie.cpp).  On every frame it looks for #MainMenuMovieParent
+	in the view root, instantiates the snippet "MainMenuMovieSnippet" into it, and then calls
+	SetMovie/SetSound/Play on #MainMenuMovie with the movie name given by -se_background_movie.
+	Keeping those three names (parent panel + snippet + movie id) is the entire wiring; the bare
+	layout then renders a full-window <Movie> (the CS:GO Movie control + the ported Media
+	Foundation player and movie audio stream) on loop.
+-->
+<root>
+	<styles>
+		<include src="file://{resources}/styles/csgostyles.css" />
+	</styles>
+
+	<snippets>
+		<snippet name="MainMenuMovieSnippet">
+			<Panel style="width: 100%; height: 100%;">
+				<Movie id="MainMenuMovie"
+						src=""
+						sound=""
+						controls="none"
+						repeat="true"
+						hittest="false"
+						style="width: 100%; height: 100%;" />
+			</Panel>
+		</snippet>
+	</snippets>
+
+	<Panel id="MainMenuMovieParent" style="width: 100%; height: 100%; background-color: #000000ff;" />
+</root>

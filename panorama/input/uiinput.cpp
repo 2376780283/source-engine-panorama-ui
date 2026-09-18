@@ -3549,11 +3549,24 @@ bool CUIWindowInput::BHasWindowFocus()
 //-----------------------------------------------------------------------------
 // Purpose: Fires event to panel to show a tooltip if configured
 //-----------------------------------------------------------------------------
+// SE port (temporary tooltip probe, shares ui_tooltip_manager.cpp's probe file).
+extern void SE_PortTooltipProbe( const char *pMsgFmt, ... );
+
 void CUIWindowInput::DispatchShowTooltip()
 {
 	IUIPanel *pTarget = m_pMouseOverInternal.Get();
 	if ( pTarget )
+	{
+		// SE port (temporary tooltip probe): proves the hover -> ShowTooltip event dispatch runs and
+		// shows which panel receives it (empty id means the hover landed on an unnamed panel).
+		static int s_nSETipHoverDispatch = 0;
+		if ( ( ++s_nSETipHoverDispatch <= 40 ) || ( ( s_nSETipHoverDispatch % 50 ) == 0 ) )
+		{
+			const char *pchSETipHoverID = pTarget->GetID();
+			SE_PortTooltipProbe( "TTIP hover: dispatch ShowTooltip -> '%s'", pchSETipHoverID ? pchSETipHoverID : "<no id>" );
+		}
 		DispatchEvent( ShowTooltip(), pTarget );
+	}
 }
 
 

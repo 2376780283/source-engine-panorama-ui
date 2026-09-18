@@ -1,64 +1,516 @@
 {
-    "version": "2.0.0",
-    "tasks": [
-        {
-            "label": "Configure Waf for Debug 32-bit",
-            "type": "shell",
-            "command": "./waf configure -T debug --prefix=build/out/",
-            "problemMatcher": [],
-            "windows": {
-                "command": "./waf.bat configure -T debug --prefix=build/out/"
-            },
-            "osx": {
-                "command": "python3 waf configure -T debug --prefix=build/out/"
-            }
-        },
-        {
-            "label": "Configure Waf for Debug 64-bit",
-            "type": "shell",
-            "command": "./waf configure -T debug --64bits --prefix=build/out/",
-            "problemMatcher": [],
-            "windows": {
-                "command": "./waf.bat configure -T debug --64bits --prefix=build/out/"
-            },
-            "osx": {
-                "command": "python3 waf configure -T debug --64bits --prefix=build/out/"
-            }
-        },
-        {
-            "label": "Configure Waf for Debug on Android (NDK r10e)",
-            "type": "shell",
-            "command": "./waf configure -T debug --android=armeabi-v7a-hard,4.9,21",
-            "problemMatcher": [],
-            "windows": {
-                "command": "./waf.bat configure -T debug --android=armeabi-v7a-hard,4.9,21"
-            },
-            "osx": {
-                "command": "python3 waf configure -T debug --android=armeabi-v7a-hard,4.9,21"
-            }
-        },
-        {
-            "label": "Build",
-            "type": "shell",
-            "command": "./waf install",
-            "problemMatcher": {
-                "base": "$gcc",
-                "fileLocation": ["relative", "${workspaceFolder}/build"]
-            },
-            "group": {
-                "kind": "build",
-                "isDefault": true
-            },
-            "windows": {
-                "command": "./waf.bat install",
-                "problemMatcher": {
-                    "base": "$msCompile",
-                    "fileLocation": ["relative", "${workspaceFolder}/build"]
-                }
-            },
-            "osx": {
-                "command": "python3 waf install"
-            }
-        }
-    ]
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Configure Waf for Debug 32-bit",
+			"type": "shell",
+			"command": "./waf configure -T debug --prefix=build/out/",
+			"problemMatcher": [],
+			"windows": {
+				"command": "./waf.bat configure -T debug --prefix=build/out/"
+			},
+			"osx": {
+				"command": "python3 waf configure -T debug --prefix=build/out/"
+			}
+		},
+		{
+			"label": "Configure Waf for Debug 64-bit",
+			"type": "shell",
+			"command": "./waf configure -T debug --64bits --prefix=build/out/",
+			"problemMatcher": [],
+			"windows": {
+				"command": "./waf.bat configure -T debug --64bits --prefix=build/out/"
+			},
+			"osx": {
+				"command": "python3 waf configure -T debug --64bits --prefix=build/out/"
+			}
+		},
+		{
+			"label": "Configure Waf for Debug on Android (NDK r10e)",
+			"type": "shell",
+			"command": "./waf configure -T debug --android=armeabi-v7a-hard,4.9,21",
+			"problemMatcher": [],
+			"windows": {
+				"command": "./waf.bat configure -T debug --android=armeabi-v7a-hard,4.9,21"
+			},
+			"osx": {
+				"command": "python3 waf configure -T debug --android=armeabi-v7a-hard,4.9,21"
+			}
+		},
+		{
+			"label": "Build",
+			"type": "shell",
+			"command": "./waf install",
+			"problemMatcher": {
+				"base": "$gcc",
+				"fileLocation": [
+					"relative",
+					"${workspaceFolder}/build"
+				]
+			},
+			"group": {
+				"kind": "build",
+				"isDefault": true
+			},
+			"windows": {
+				"command": "./waf.bat install",
+				"problemMatcher": {
+					"base": "$msCompile",
+					"fileLocation": [
+						"relative",
+						"${workspaceFolder}/build"
+					]
+				}
+			},
+			"osx": {
+				"command": "python3 waf install"
+			}
+		},
+		{
+			"label": "Restore console files + stash",
+			"type": "shell",
+			"command": "d:\\source-engine\\build\\se_run.cmd _restore_console.ps1",
+			"isBackground": false,
+			"group": "none"
+		},
+		{
+			"label": "SE force full rebuild + output",
+			"type": "shell",
+			"command": "d:\\source-engine\\build\\se_run.cmd _full_rebuild.ps1",
+			"isBackground": false,
+			"group": "none"
+		},
+		{
+			"label": "SE collect order",
+			"type": "shell",
+			"command": "d:\\source-engine\\build\\se_run.cmd",
+			"args": [
+				"_collect_order.ps1"
+			],
+			"group": "none"
+		},
+		{
+			"label": "SE collect order2",
+			"type": "shell",
+			"command": "d:\\source-engine\\build\\se_run.cmd",
+			"args": [
+				"_collect_order2.ps1"
+			],
+			"group": "none"
+		},
+		{
+			"label": "SE in-game console test",
+			"type": "shell",
+			"command": "d:\\source-engine\\build\\se_run.cmd",
+			"args": [
+				"_ingame_console_test.ps1"
+			],
+			"group": "none"
+		},
+		{
+			"label": "SE fg collect",
+			"type": "shell",
+			"command": "d:\\source-engine\\build\\se_run.cmd",
+			"args": [
+				"_fg_collect.ps1"
+			],
+			"group": "none"
+		},
+		{
+			"label": "SE ingame log check",
+			"type": "shell",
+			"command": "d:\\source-engine\\build\\se_run.cmd",
+			"args": [
+				"_ingame_log_check.ps1"
+			],
+			"group": "none"
+		},
+		{
+			"label": "SE white probe",
+			"type": "shell",
+			"command": "d:\\source-engine\\build\\se_run.cmd",
+			"args": [
+				"_ingame_white_probe.ps1"
+			],
+			"group": "none"
+		},
+		{
+			"label": "SE ingame shots",
+			"type": "shell",
+			"command": "d:\\source-engine\\build\\se_run.cmd",
+			"args": [
+				"_ingame_shots.ps1"
+			],
+			"group": "none"
+		},
+		{
+			"label": "SE build+deploy menuhide",
+			"type": "shell",
+			"command": "d:\\source-engine\\build\\se_run.cmd",
+			"args": [
+				"_build_deploy_menuhide.ps1"
+			],
+			"group": "none"
+		},
+		{
+			"label": "SE user test check",
+			"type": "shell",
+			"command": "d:\\source-engine\\build\\se_run.cmd",
+			"args": [
+				"_usertest_check.ps1"
+			],
+			"group": "none"
+		},
+		{
+			"label": "SE build+deploy consolegame",
+			"type": "shell",
+			"command": "d:\\source-engine\\build\\se_run.cmd",
+			"args": [
+				"_build_deploy_menuhide.ps1"
+			],
+			"group": "none"
+		},
+		{
+			"label": "SE verify deploy2",
+			"type": "shell",
+			"command": "d:\\source-engine\\build\\se_run.cmd",
+			"args": [
+				"_verify_deploy2.ps1"
+			],
+			"group": "none"
+		},
+		{
+			"label": "SE build+deploy consoleprobe",
+			"type": "shell",
+			"command": "d:\\source-engine\\build\\se_run.cmd",
+			"args": [
+				"_build_deploy_menuhide.ps1"
+			],
+			"group": "none"
+		},
+		{
+			"label": "SE console probe run",
+			"type": "shell",
+			"command": "d:\\source-engine\\build\\se_run.cmd",
+			"args": [
+				"_ingame_console_test.ps1"
+			],
+			"group": "none"
+		},
+		{
+			"label": "SE probe harvest",
+			"type": "shell",
+			"command": "d:\\source-engine\\build\\se_run.cmd",
+			"args": [
+				"_usertest_check.ps1"
+			],
+			"group": "none"
+		},
+		{
+			"label": "SE build+deploy popupprobe",
+			"type": "shell",
+			"command": "d:\\source-engine\\build\\se_run.cmd",
+			"args": [
+				"_build_deploy_menuhide.ps1"
+			],
+			"group": "none"
+		},
+		{
+			"label": "SE popup probe run",
+			"type": "shell",
+			"command": "d:\\source-engine\\build\\se_run.cmd",
+			"args": [
+				"_ingame_console_test.ps1"
+			],
+			"group": "none"
+		},
+		{
+			"label": "SE build+deploy parentfix",
+			"type": "shell",
+			"command": "d:\\source-engine\\build\\se_run.cmd",
+			"args": [
+				"_build_deploy_menuhide.ps1"
+			],
+			"group": "none"
+		},
+		{
+			"label": "SE build+deploy parentprobe",
+			"type": "shell",
+			"command": "d:\\source-engine\\build\\se_run.cmd",
+			"args": [
+				"_build_deploy_menuhide.ps1"
+			],
+			"group": "none"
+		},
+		{
+			"label": "SE parent probe run",
+			"type": "shell",
+			"command": "d:\\source-engine\\build\\se_run.cmd",
+			"args": [
+				"_ingame_console_test.ps1"
+			],
+			"group": "none"
+		},
+		{
+			"label": "SE progress state check",
+			"type": "shell",
+			"command": "d:\\source-engine\\build\\se_run.cmd",
+			"args": [
+				"_progress_check.ps1"
+			],
+			"group": "none"
+		},
+		{
+			"label": "SE vpc audit",
+			"type": "shell",
+			"command": "d:\\source-engine\\build\\se_run.cmd",
+			"args": [
+				"_vpc_audit.ps1"
+			],
+			"group": "none"
+		},
+		{
+			"label": "SE vpc audit 2",
+			"type": "shell",
+			"command": "d:\\source-engine\\build\\se_run.cmd",
+			"args": [
+				"_vpc_audit.ps1"
+			],
+			"group": "none"
+		},
+		{
+			"label": "SE build+deploy ttip probe",
+			"type": "shell",
+			"command": "d:\\source-engine\\build\\se_run.cmd",
+			"args": [
+				"_build_deploy_menuhide.ps1"
+			],
+			"group": "none"
+		},
+		{
+			"label": "SE ttip paint test win",
+			"type": "shell",
+			"command": "d:\\source-engine\\build\\se_run.cmd",
+			"args": [
+				"_ttip_paint_test.ps1"
+			],
+			"group": "none"
+		},
+		{
+			"label": "SE build+deploy ttip probe v2",
+			"type": "shell",
+			"command": "d:\\source-engine\\build\\se_run.cmd",
+			"args": [
+				"_build_deploy_menuhide.ps1"
+			],
+			"group": "none"
+		},
+		{
+			"label": "SE ttip test v2 win",
+			"type": "shell",
+			"command": "d:\\source-engine\\build\\se_run.cmd",
+			"args": [
+				"_ttip_paint_test2.ps1"
+			],
+			"group": "none"
+		},
+		{
+			"label": "SE ttip paint test v3",
+			"type": "shell",
+			"command": "d:\\source-engine\\build\\se_run.cmd",
+			"args": [
+				"_ttip_paint_test3.ps1"
+			],
+			"group": "none"
+		},
+		{
+			"label": "SE full rebuild+deploy",
+			"type": "shell",
+			"command": "d:\\source-engine\\build\\se_run.cmd",
+			"args": [
+				"_full_rebuild_deploy.ps1"
+			],
+			"group": "none"
+		},
+		{
+			"label": "SE chkbuild",
+			"type": "shell",
+			"command": "d:\\source-engine\\build\\se_run.cmd",
+			"args": [
+				"_chkbuild.ps1"
+			],
+			"group": "none"
+		},
+		{
+			"label": "SE chkbuild2",
+			"type": "shell",
+			"command": "d:\\source-engine\\build\\se_run.cmd",
+			"args": [
+				"_chkbuild.ps1"
+			],
+			"group": "none"
+		},
+		{
+			"label": "SE chkbuild3",
+			"type": "shell",
+			"command": "d:\\source-engine\\build\\se_run.cmd",
+			"args": [
+				"_chkbuild.ps1"
+			],
+			"group": "none"
+		},
+		{
+			"label": "SE full deploy now",
+			"type": "shell",
+			"command": "d:\\source-engine\\build\\se_run.cmd",
+			"args": [
+				"_deploy_full_build.ps1"
+			],
+			"group": "none"
+		},
+		{
+			"label": "SE ttip paint test v4",
+			"type": "shell",
+			"command": "d:\\source-engine\\build\\se_run.cmd",
+			"args": [
+				"_ttip_paint_test4.ps1"
+			],
+			"group": "none"
+		},
+		{
+			"label": "SE bootcheck",
+			"type": "shell",
+			"command": "d:\\source-engine\\build\\se_run.cmd",
+			"args": [
+				"_bootcheck.ps1"
+			],
+			"group": "none"
+		},
+		{
+			"label": "SE ttip prep",
+			"type": "shell",
+			"command": "d:\\source-engine\\build\\se_run.cmd",
+			"args": [
+				"_ttip_prep.ps1"
+			],
+			"group": "none"
+		},
+		{
+			"label": "SE ttip prep2",
+			"type": "shell",
+			"command": "d:\\source-engine\\build\\se_run.cmd",
+			"args": [
+				"_ttip_prep.ps1"
+			],
+			"group": "none"
+		},
+		{
+			"label": "SE user ttip analyze",
+			"type": "shell",
+			"command": "d:\\source-engine\\build\\se_run.cmd",
+			"args": [
+				"_user_ttip2.ps1"
+			],
+			"group": "none"
+		},
+		{
+			"label": "SE grab running game",
+			"type": "shell",
+			"command": "d:\\source-engine\\build\\se_run.cmd",
+			"args": [
+				"_grab_game.ps1"
+			],
+			"group": "none"
+		},
+		{
+			"label": "SE ttip paint test5 capture",
+			"type": "shell",
+			"command": "d:\\source-engine\\build\\se_run.cmd",
+			"args": [
+				"_ttip_paint_test5.ps1"
+			],
+			"group": "none"
+		},
+		{
+			"label": "SE usertest ttip digest",
+			"type": "shell",
+			"command": "d:\\source-engine\\build\\se_run.cmd",
+			"args": [
+				"_usertest_ttip.ps1"
+			],
+			"group": "none"
+		},
+		{
+			"label": "SE ttip attr scan",
+			"type": "shell",
+			"command": "d:\\source-engine\\build\\se_run.cmd",
+			"args": [
+				"_ttip_attr.ps1"
+			],
+			"group": "none"
+		},
+		{
+			"label": "SE ttip wiring scan",
+			"type": "shell",
+			"command": "d:\\source-engine\\build\\se_run.cmd",
+			"args": [
+				"_ttip_wiring2.ps1"
+			],
+			"group": "none"
+		},
+		{
+			"label": "SE build+deploy ttip probes",
+			"type": "shell",
+			"command": "d:\\source-engine\\build\\se_run.cmd",
+			"args": [
+				"_build_deploy_menuhide.ps1"
+			],
+			"group": "none"
+		},
+		{
+			"label": "SE shim validate DO NOT CLOSE THE GAME WINDOW ~90s",
+			"type": "shell",
+			"command": "d:\\source-engine\\build\\se_run.cmd",
+			"args": [
+				"_ttip_shim_validate.ps1"
+			],
+			"group": "none"
+		},
+		{
+			"label": "SE ttip self-test v6",
+			"type": "shell",
+			"command": "d:\\source-engine\\build\\se_run.cmd",
+			"args": [
+				"_ttip_paint_test6.ps1"
+			],
+			"group": "none"
+		},
+		{
+			"label": "SE ttip self-test v7",
+			"type": "shell",
+			"command": "d:\\source-engine\\build\\se_run.cmd",
+			"args": [
+				"_ttip_paint_test7.ps1"
+			],
+			"group": "none"
+		},
+		{
+			"label": "SE econ vpk scan",
+			"type": "shell",
+			"command": "d:\\source-engine\\build\\se_run.cmd",
+			"args": [
+				"_econvpk.ps1"
+			],
+			"group": "none"
+		},
+		{
+			"label": "SE inv prereq",
+			"type": "shell",
+			"command": "d:\\source-engine\\build\\se_run.cmd",
+			"args": [
+				"_inv_prereq.ps1"
+			],
+			"group": "none"
+		}
+	]
 }

@@ -359,6 +359,22 @@ void CConsolePanel::OnThink()
 {
 	BaseClass::OnThink();
 
+	// SE port (bring-up probe, temporary): think runs when the panel is in the visible tree that vgui
+	// walks - a reliable "the console participates in the frame" marker (PerformLayout can be forced
+	// manually, so it proves nothing).
+	static bool s_bProbedThink = false;
+	if ( !s_bProbedThink )
+	{
+		s_bProbedThink = true;
+		FILE *fp = fopen( "D:\\cstrike\\se_console_probe.txt", "a" );
+		if ( fp )
+		{
+			fprintf( fp, "CConsolePanel::OnThink visible=%d parent=%d\n", (int)IsVisible(), (int)GetParent() );
+			fflush( fp );
+			fclose( fp );
+		}
+	}
+
 	if ( !IsVisible() )
 		return;
 
@@ -1189,6 +1205,21 @@ void CConsoleDialog::PerformLayout()
 	int x, y, w, h;
 	GetClientArea( x, y, w, h );
 	m_pConsolePanel->SetBounds( x, y, w, h );
+
+	// SE port (bring-up probe, temporary): layout runs when the dialog is in the visible tree.
+	static bool s_bProbedLayout = false;
+	if ( !s_bProbedLayout )
+	{
+		s_bProbedLayout = true;
+		FILE *fp = fopen( "D:\\cstrike\\se_console_probe.txt", "a" );
+		if ( fp )
+		{
+			fprintf( fp, "CConsoleDialog::PerformLayout client=(%d,%d,%d,%d) visible=%d parent=%d\n",
+				x, y, w, h, (int)IsVisible(), (int)GetParent() );
+			fflush( fp );
+			fclose( fp );
+		}
+	}
 }
 
 
@@ -1199,6 +1230,17 @@ void CConsoleDialog::Activate()
 {
 	BaseClass::Activate();
 	m_pConsolePanel->m_pEntry->RequestFocus();
+
+	// SE port (bring-up probe, temporary): does the dialog get activated, and is it really visible?
+	{
+		FILE *fp = fopen( "D:\\cstrike\\se_console_probe.txt", "a" );
+		if ( fp )
+		{
+			fprintf( fp, "CConsoleDialog::Activate visible=%d\n", (int)IsVisible() );
+			fflush( fp );
+			fclose( fp );
+		}
+	}
 }
 
 

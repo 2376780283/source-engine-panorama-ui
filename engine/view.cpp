@@ -51,6 +51,9 @@
 // memdbgon must be the last include file in a .cpp file!!!
 #ifdef PANORAMA_ENABLE
 #include "panoramaenginehandler.h"
+
+// SE port: flushed probe file (defined in panoramaenginehandler.cpp); used by the console pixel probe below.
+void SE_PortUIProbe( const char *pFmt, ... );
 #endif
 
 #include "tier0/memdbgon.h"
@@ -148,6 +151,21 @@ void V_RenderVGuiOnly_NoSwap()
 		   
 		pRenderContext->ClearBuffers( true, true );
 
+#ifdef PANORAMA_ENABLE
+		// SE port (console into panorama, 2026-09-18): this is CS:GO's order, taken from its own
+		// V_RenderVGuiOnly_NoSwap() - the hosted panorama windows draw first, vgui draws on top
+		// (EngineVGui()->Paint below).  That order is what puts the console over the panorama UI:
+		// the console is a vgui2 panel owned by the panorama module (panorama/seport/gameclient/
+		// cstrike15/gameui/), reached by CS:GO through this exact Paint( PAINT_UIPANELS ) call.
+		// The port used to render the panorama windows *after* the frame (from gl_screen.cpp),
+		// so they always covered the console - it opened but stayed invisible (found on screen
+		// 2026-09-18).
+		if ( PanoramaEngineHandler().IsPanoramaEnabled() )
+		{
+			PanoramaEngineHandler().PanoramaRenderFrame( k_EPanoramaSlotFrontEnd );
+		}
+#endif
+
 
 		EngineVGui()->Paint( (PaintMode_t)(PAINT_UIPANELS | PAINT_CURSOR ));
 	}
@@ -180,8 +198,8 @@ void V_RenderVGuiOnly( void )
 #ifdef PANORAMA_ENABLE
 	if ( PanoramaEngineHandler().IsPanoramaEnabled() )
 	{
-		// Draw the panorama windows themselves (BeginFrame/EndFrame only reset the render state).
-		PanoramaEngineHandler().PanoramaRenderFrame( k_EPanoramaSlotFrontEnd );
+		// The windows themselves were drawn inside V_RenderVGuiOnly_NoSwap above (CS:GO order:
+		// panorama before vgui); this only closes the frame's panorama render state.
 		PanoramaEngineHandler().PanoramaRenderFrame( k_EPanoramaSlotEndFrame );
 	}
 #endif
@@ -284,6 +302,58 @@ void V_RenderView( void )
 		// is trying to start up; in those cases, we shouldn't render...
 		vrect_t scr_vrect = videomode->GetClientViewRect();
 		g_ClientDLL->View_Render( &scr_vrect );
+
+#ifdef PANORAMA_ENABLE
+		// SE port: the hosted panorama UI draws over the rendered world.  CS:GO draws the in-game
+		// panorama from the client's own view render (viewrender.cpp); the engine does it here
+		// until the game side is ported.  This call moved in from gl_screen.cpp's V_RenderView
+		// follow-up block so that each V_RenderView branch draws the panorama itself (the menu
+		// branch - V_RenderVGuiOnly_NoSwap - draws it before vgui; see the note there).
+		if ( PanoramaEngineHandler().IsPanoramaEnabled() )
+		{
+			// SE probe (TEMPORARY - console-in-game diagnosis, 2026-09-18): the console opens in a
+			// level but never shows pixels.  Read one pixel inside the console's rect (900,120 is
+			// inside it at both 720p and 1080p) and one outside (5,5) at three points of the frame:
+			// A = right after the client's world+vgui render, B = after the panorama render, C =
+			// after the vgui repaint below.  Remove with the workaround once the console shows.
+			bool bSEProbeConsole = Con_IsVisible();
+
+			if ( bSEProbeConsole )
+			{
+				CMatRenderContextPtr pProbeCtx( materials );
+				ITexture *pRTProbe = pProbeCtx->GetRenderTarget();
+				unsigned char pxIn[4] = {0,0,0,0}, pxOut[4] = {0,0,0,0};
+				pProbeCtx->ReadPixels( 900, 120, 1, 1, pxIn, IMAGE_FORMAT_RGBA8888 );
+				pProbeCtx->ReadPixels( 5, 5, 1, 1, pxOut, IMAGE_FORMAT_RGBA8888 );
+				SE_PortUIProbe( "SE console probe A (after View_Render): rt=%s in=%d,%d,%d,%d out=%d,%d,%d,%d\n",
+					pRTProbe ? pRTProbe->GetName() : "NULL", pxIn[0], pxIn[1], pxIn[2], pxIn[3], pxOut[0], pxOut[1], pxOut[2], pxOut[3] );
+			}
+
+			PanoramaEngineHandler().PanoramaRenderFrame( k_EPanoramaSlotFrontEnd );
+
+			if ( bSEProbeConsole )
+			{
+				CMatRenderContextPtr pProbeCtx( materials );
+				unsigned char pxNow[4] = {0,0,0,0};
+				pProbeCtx->ReadPixels( 900, 120, 1, 1, pxNow, IMAGE_FORMAT_RGBA8888 );
+				SE_PortUIProbe( "SE console probe B (after panorama): in=%d,%d,%d,%d\n",
+					pxNow[0], pxNow[1], pxNow[2], pxNow[3] );
+			}
+
+			// Repaint the vgui UI layer (the console among it) after the panorama: the same order
+			// the menu path uses (V_RenderVGuiOnly_NoSwap: panorama first, vgui on top).
+			EngineVGui()->Paint( (PaintMode_t)(PAINT_UIPANELS | PAINT_CURSOR) );
+
+			if ( bSEProbeConsole )
+			{
+				CMatRenderContextPtr pProbeCtx( materials );
+				unsigned char pxNow[4] = {0,0,0,0};
+				pProbeCtx->ReadPixels( 900, 120, 1, 1, pxNow, IMAGE_FORMAT_RGBA8888 );
+				SE_PortUIProbe( "SE console probe C (after vgui repaint): in=%d,%d,%d,%d\n",
+					pxNow[0], pxNow[1], pxNow[2], pxNow[3] );
+			}
+		}
+#endif
 	}
 
 	FullViewColorAdjustment();

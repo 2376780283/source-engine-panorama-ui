@@ -60,8 +60,10 @@
 #include "videocfg/videocfg.h"
 #include "tier0/vprof.h"
 #include "cmd.h"		// Cbuf_AddText (SE port bring-up hook below)
+#include "client.h"		// cl.IsActive() - hide the menu window while inside a game level (2026-09-18)
 #include "ienginevgui.h"	// VGuiPanel_t / EngineVGui()->GetPanel
 #include "vgui_baseui_interface.h"	// EngineVGui()
+#include <GameUI/IGameConsole.h>	// IGameConsole (SE console bridge below, 2026-09-18)
 #include "vgui/ipanel.h"	// vgui::ipanel()->SetVisible
 #include <vgui_controls/Controls.h>	// vgui::ipanel() lives here
 #include <vgui/ISurface.h>	// vgui::surface()->IsCursorLocked/IsCursorVisible (probe)
@@ -81,6 +83,10 @@
 extern IBaseClientDLL *g_ClientDLL;
 
 const char *Key_BindingForKey( ButtonCode_t code );
+
+// SE port (bring-up aid): flushed probe file.  Declared up here because helpers defined above the
+// definition (the console bridge below among them) report to it.
+void SE_PortUIProbe( const char *pFmt, ... );
 
 using namespace panorama;
 
@@ -273,6 +279,40 @@ bool SE_PortHandleKeyBinderInput( const InputEvent_t &inputEvent )
 	}
 
 	return ( s_pfnSEKeyBinderInput != NULL ) && s_pfnSEKeyBinderInput( inputEvent );
+}
+
+//-----------------------------------------------------------------------------
+// SE port (2026-09-18, "the console moves into the panorama module"): the engine's IGameConsole, CS:GO
+// style.
+//
+// CS:GO: CEngineVGui::Init() -> m_GameUIFactory( GAMECONSOLE_INTERFACE_VERSION ), m_GameUIFactory being
+// the client DLL's factory (g_ClientFactory) unless -gameuidll was passed.  The console class lives in
+// game/client/cstrike15/gameui/gameconsole.cpp - the module that also hosts panorama - which is the point
+// of the arrangement: the console is a vgui2 panel owned by the same module as the panorama UI.
+//
+// This fork: the module that hosts panorama is panoramauiclient.dll, and it now owns the console
+// (panorama/seport/gameclient/cstrike15/gameui/gameconsole.cpp + se_gameconsole.cpp).  This function is
+// the engine's half of the bridge; vgui_baseui_interface.cpp::CEngineVGui::Init() calls it before it
+// falls back to the CS:S gameui.dll console.  The resolution result is cached only when the panorama
+// module was found (a not-yet-loaded module must stay retryable).
+//-----------------------------------------------------------------------------
+IGameConsole *SE_PortGetPanoramaGameConsole()
+{
+	typedef IGameConsole *( *SEPortGetGameConsoleFn )();
+	static SEPortGetGameConsoleFn s_pfnSEGetGameConsole = NULL;
+	static bool s_bSEGetGameConsoleResolved = false;
+	if ( !s_bSEGetGameConsoleResolved )
+	{
+		HMODULE hPanoramaModule = GetModuleHandleA( "panoramauiclient.dll" );
+		if ( !hPanoramaModule )
+			return NULL;
+
+		s_bSEGetGameConsoleResolved = true;
+		s_pfnSEGetGameConsole = (SEPortGetGameConsoleFn)GetProcAddress( hPanoramaModule, "SE_PortGetGameConsole" );
+		SE_PortUIProbe( "SE console bridge: module=%p fn=%p\n", hPanoramaModule, s_pfnSEGetGameConsole );
+	}
+
+	return ( s_pfnSEGetGameConsole != NULL ) ? s_pfnSEGetGameConsole() : NULL;
 }
 
 //-----------------------------------------------------------------------------
@@ -825,6 +865,27 @@ void CPanoramaEngineHandler::PanoramaRunFrame(int nSlot)
 		}
 	}
 
+	// SE port (2026-09-18, "the panorama UI belongs to the main menu only"): hide the hosted menu
+	// window while the client is inside a game level.  The menu's full-screen backdrop layer
+	// (CSGOBlurTarget) draws a bright wash over whatever is below it, and over an in-game frame that
+	// reads as "in a map the screen is just white" (user report, 2026-09-18).  CS:GO's GameUI hides
+	// its menu the same way when it switches to the in-game state.  The menu window is a top level
+	// panorama view, so hiding it only stops the menu from drawing: the console is a top level vgui
+	// panel owned by the same module and keeps working, and the world renders normally underneath.
+	// Shown again the moment the client leaves the level (disconnect / back to the menu).  This runs
+	// every frame, so a view created later (or an IsActive() flip during the load) cannot leave the
+	// window stuck in the wrong state.
+	if ( m_pMenuWindow )
+	{
+		bool bInGame = cl.IsActive();
+		if ( m_pMenuWindow->BIsVisible() == bInGame )
+		{
+			m_pMenuWindow->SetVisible( !bInGame );
+			SE_PortUIProbe( "SE panorama menu window %s (client active=%d)\n",
+				bInGame ? "hidden (in game)" : "shown (out of game)", (int)bInGame );
+		}
+	}
+
 	// SE port (batch E): tick the ported CS:GO main menu panel class.  CS:GO does this from
 	// CGameUI::RunFrame(); this tree has no gameui module, so the class is ticked here.  The panel class
 	// drives the menu state machine (main menu <-> pause menu), the background movie, the vanity panel
@@ -903,6 +964,12 @@ void CPanoramaEngineHandler::PanoramaRenderFrame( int nSlot )
 		g_pMaterialSystem->ResetPanoramaRenderState();
 		return;
 	}
+
+	// SE port (console into panorama, 2026-09-18): the port now draws in CS:GO's order - panorama
+	// first, vgui (the console belongs to the panorama module, see panorama/seport/gameclient/
+	// cstrike15/gameui/) on top - implemented at the V_RenderView / V_RenderVGuiOnly_NoSwap call
+	// sites in engine/view.cpp.  Nothing to special-case here: while the console is open the
+	// panorama keeps rendering below it, exactly like CS:GO.
 
 	for ( int i = 0; i < m_pWindows.Count(); i++ )
 	{
