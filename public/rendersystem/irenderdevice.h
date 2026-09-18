@@ -1,4 +1,4 @@
-//===== Copyright © 1996-2005, Valve Corporation, All rights reserved. ======//
+//===== Copyright  1996-2005, Valve Corporation, All rights reserved. ======//
 //
 // Purpose: 
 //
@@ -14,7 +14,7 @@
 #endif
 
 #include "tier1/interface.h"
-#include "appframework/iappsystem.h"
+#include "appframework/IAppSystem.h"
 #include "bitmap/imageformat.h"
 #include "tier1/utlbuffer.h"
 #include "mathlib/vector4d.h"
