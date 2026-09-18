@@ -23,6 +23,9 @@
 // memdbgon must be the last include file in a .cpp file!!!
 #include <tier0/memdbgon.h>
 
+// SE port (temporary tooltip probe, implemented in panorama/ui_tooltip_manager.cpp).
+extern void SE_PortTooltipProbe( const char *pMsgFmt, ... );
+
 
 //////////////////////////////////////////////////////////////////////////
 //
@@ -404,17 +407,24 @@ bool CUiComponent_UiToolkit::OnRunJSFunction( panorama::CPanelPtr<panorama::IUIP
 //-----------------------------------------------------------------------------
 void CUiComponent_UiToolkit::ShowTextTooltip( const char *pszTargetPanelID, const char *pszText )
 {
+	SE_PortTooltipProbe( "TTIP JS ShowTextTooltip id=%s text=%.60s", pszTargetPanelID ? pszTargetPanelID : "(null)", pszText ? pszText : "(null)" );
+
 	panorama::IUIPanel *pContextPanel = GetPanelForJavaScriptContext();
 	if ( !pContextPanel )
+	{
+		SE_PortTooltipProbe( "TTIP JS no JS context panel" );
 		return;
+	}
 
 	panorama::IUIPanel *pTargetPanel = pContextPanel->FindChildTraverse( pszTargetPanelID );
 	if ( !pTargetPanel )
 	{
+		SE_PortTooltipProbe( "TTIP JS target panel '%s' NOT FOUND under %s", pszTargetPanelID, pContextPanel->GetID() );
 		Warning( "UiToolkit.ShowTextTooltip - Unable to find target panel %s.\n", pszTargetPanelID );
 		return;
 	}
 	
+	SE_PortTooltipProbe( "TTIP JS dispatch target=%s", pTargetPanel->GetID() );
 	panorama::UIEngine()->DispatchEvent( UIShowTextTooltip::MakeEvent( pTargetPanel->ClientPtr(), pszText ) );
 }
 
@@ -451,6 +461,7 @@ void CUiComponent_UiToolkit::ShowTextTooltipOnPanelStyled( panorama::CPanel2D *p
 //-----------------------------------------------------------------------------
 void CUiComponent_UiToolkit::HideTextTooltip()
 {
+	SE_PortTooltipProbe( "TTIP JS HideTextTooltip" );
 	panorama::UIEngine()->DispatchEvent( UIHideTextTooltip::MakeEvent( nullptr ) );
 }
 

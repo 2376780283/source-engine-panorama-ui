@@ -14,6 +14,9 @@
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include <tier0/memdbgon.h>
+// SE port (temporary tooltip probe, see SE_PortTooltipProbe below).
+#include <stdio.h>
+#include <stdarg.h>
 
 REGISTER_PANEL2D_FACTORY( CUI_TooltipManager, TooltipManager )
 
@@ -43,6 +46,30 @@ const char k_szTooltipClassAttribute[] = "tooltip_class";
 ConVar sticky_tooltips( "sticky_tooltips", "0", FCVAR_DEVELOPMENTONLY, "Don't ever hide tooltips. Helpful when debugging complicated tooltip layouts." );
 
 using namespace panorama;
+
+// SE port (temporary tooltip probe): when the DLL is hosted in the engine the panorama console is
+// not reachable, so tooltip problems are tracked through this file.  Remove once tooltips are
+// verified in game.
+void SE_PortTooltipProbe( const char *pMsgFmt, ... )
+{
+	static int s_nWritten = 0;
+
+	if ( s_nWritten >= 400 )
+		return;
+
+	FILE *fp = fopen( "D:\\cstrike\\se_tooltip_probe.txt", "a" );
+	if ( !fp )
+		return;
+
+	va_list args;
+	va_start( args, pMsgFmt );
+	vfprintf( fp, pMsgFmt, args );
+	va_end( args );
+	fputc( '\n', fp );
+	fclose( fp );
+
+	++s_nWritten;
+}
 
 CUI_TooltipManager::CUI_TooltipManager( CPanel2D *pParent, const char *pchID )
 	: CPanel2D( pParent, pchID )
@@ -166,16 +193,47 @@ bool CUI_TooltipManager::HideTooltip( const char *pszID )
 
 bool CUI_TooltipManager::ShowTextTooltip( const panorama::CPanelPtr< panorama::IUIPanel >& panelPtr, const char *pszText, const char *pszClass )
 {
+	SE_PortTooltipProbe( "TTIP mgr ShowTextTooltip panel=%p text=%.60s", panelPtr.Get(), pszText ? pszText : "(null)" );
+
 	if ( !ShouldHandleTooltipEvent( panelPtr ) )
+	{
+		SE_PortTooltipProbe( "TTIP mgr ShouldHandleTooltipEvent -> false" );
 		return false;
+	}
 
 	CUI_Tooltip_Text *pTooltip = EnsureTooltip< CUI_Tooltip_Text >( k_szTextTooltipID );
+	SE_PortTooltipProbe( "TTIP mgr EnsureTooltip -> %p (window=%p)", ( void * )pTooltip, ( void * )GetParentWindow() );
 
 	pTooltip->SetLocalizationParent( panelPtr );
 	pTooltip->SetText( pszText );
 	pTooltip->SwitchClass( k_szTooltipClassAttribute, pszClass );
 
-	return ShowTooltip( k_szTextTooltipID, panelPtr );
+	bool bShown = ShowTooltip( k_szTextTooltipID, panelPtr );
+	if ( pTooltip )
+	{
+		float flAbsX = pTooltip->GetActualXOffset();
+		float flAbsY = pTooltip->GetActualYOffset();
+		for ( CPanel2D *pParent = pTooltip->GetParent(); pParent; pParent = pParent->GetParent() )
+		{
+			flAbsX += pParent->GetActualXOffset();
+			flAbsY += pParent->GetActualYOffset();
+		}
+
+		SE_PortTooltipProbe( "TTIP mgr tooltip desired=%.1fx%.1f actualLayout=%.1fx%.1f abs=%.1f,%.1f visible=%d",
+			pTooltip->GetDesiredLayoutWidth(), pTooltip->GetDesiredLayoutHeight(),
+			pTooltip->GetActualLayoutWidth(), pTooltip->GetActualLayoutHeight(),
+			flAbsX, flAbsY, ( int )pTooltip->BIsVisible() );
+
+		SE_PortTooltipProbe( "TTIP mgr this=%p mgrVisible=%d mgrActual=%.1fx%.1f children=%d",
+			this, ( int )BIsVisible(), GetActualLayoutWidth(), GetActualLayoutHeight(), ( int )GetChildCount() );
+	}
+
+	SE_PortTooltipProbe( "TTIP mgr ShowTooltip -> %d visible=%d pos=%.1f,%.1f desired=%.1fx%.1f", ( int )bShown,
+		pTooltip ? ( int )pTooltip->BIsVisible() : -1,
+		pTooltip ? pTooltip->GetActualXOffset() : -1.0f, pTooltip ? pTooltip->GetActualYOffset() : -1.0f,
+		pTooltip ? pTooltip->GetDesiredLayoutWidth() : -1.0f, pTooltip ? pTooltip->GetDesiredLayoutHeight() : -1.0f );
+
+	return bShown;
 }
 
 bool CUI_TooltipManager::ShowTextTooltip( const panorama::CPanelPtr< panorama::IUIPanel >& panelPtr, const char *pszText )
@@ -185,6 +243,7 @@ bool CUI_TooltipManager::ShowTextTooltip( const panorama::CPanelPtr< panorama::I
 
 bool CUI_TooltipManager::HideTextTooltip( const panorama::CPanelPtr< panorama::IUIPanel >& panelPtr )
 {
+	SE_PortTooltipProbe( "TTIP mgr HideTextTooltip" );
 	return HideTooltip( k_szTextTooltipID );
 }
 
