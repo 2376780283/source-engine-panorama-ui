@@ -48,7 +48,7 @@
 #endif
 
 
-#if !defined(PLATFORM_GLIBC) && defined(LINUX) // fuck musl
+#if !defined(PLATFORM_GLIBC) && defined(LINUX) && !defined(ANDROID) // fuck musl
 #ifdef nullptr
 #undef nullptr
 #endif
