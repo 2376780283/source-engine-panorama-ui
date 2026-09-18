@@ -12,7 +12,7 @@
 #pragma once
 #endif
 
-#include "appframework/iappsystem.h"
+#include "appframework/IAppSystem.h"
 #include "inputsystem/iinputsystem.h"
 
 // SE port: the DECLARE_TIER2_INTERFACE at the bottom of this header comes from tier2/tier2.h (or

@@ -1,4 +1,4 @@
-//===== Copyright © 1996-2005, Valve Corporation, All rights reserved. ======//
+//===== Copyright  1996-2005, Valve Corporation, All rights reserved. ======//
 //
 // Purpose: 
 //
@@ -8,7 +8,7 @@
 #define IIMEMANAGER_H
 #pragma once
 
-#include "appframework/iappsystem.h"
+#include "appframework/IAppSystem.h"
 #include "tier0/platwindow.h"
 #include "imesystem/imeuiinterface.h"
 

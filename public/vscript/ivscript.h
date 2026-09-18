@@ -1,4 +1,4 @@
-//========== Copyright © 2008, Valve Corporation, All rights reserved. ========
+//========== Copyright  2008, Valve Corporation, All rights reserved. ========
 //
 // Purpose: VScript
 //
@@ -97,7 +97,7 @@
 
 #include "platform.h"
 #include "datamap.h"
-#include "appframework/iappsystem.h"
+#include "appframework/IAppSystem.h"
 #include "tier1/functors.h"
 #include "tier0/memdbgon.h"
 
