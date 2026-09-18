@@ -82,23 +82,38 @@
 | 压暗层(navbar/news 的 rgba wash) | 本来就对 | 不变(仍对) |
 | 纯色块 | 本来就精确 | 不变 |
 
-### 5. YUV 视频的例外(已尝试、已回退,遗留项)
+### 5. YUV 视频的例外(已修复,2026-09-19 第二阶段)
 
 - **shader 枚举**(`panoramafancy_ps30.fxc` 顶部,与 C++ `source2surface.h:191` 一致):
   `RGBA=1 / Alpha=2 / YUV=3 / YCoCg=4`。
 - CS:GO 对 texType==YUV 的三个平面用 `TEXTURE_BINDFLAGS_NONE`(`PanDxSetTexturesFancy`):I8/L8 亮度值
   必须按原始值采样,因为 fxc 的 YUV 分支**自己做 `pow(c,2.2)` 线性化**——平面被硬件解码一次 +
   shader 再 pow 一次 = 双重线性化 = 绿紫假色(本机驱动对 L8 也应用 sRGB 读)。
-- **尝试过**"`$srgbread` 材质参数门控 + wrapper 按 texType 选第二套材质"
-  (等价 CS:GO 的按 draw 设 flag):**把普通绘制的 sRGB 读也弄丢了**(灰阶回退到 0,73,...),已整体回退。
-  嫌疑:同一 shader 的两个 snapshot 只差 `D3DSAMP_SRGBTEXTURE` 时 transition table 的状态往返有问题,
-  根因未查(回退前灰阶实测回归,见 P104)。
-- **当前状态(成功态)**:无条件 EnableSRGBRead ⇒ 图片/纯色/压暗全对;**代价是背景视频帧颜色失真**
-  (之前是"全黑看不见",至少现在视频帧上屏了,只是色度不对)。
-- **下次接手方向**(按优先级):① 查 transition table 对"只差 sampler 状态的两个 snapshot"的处理
-  (`CTransitionTable` 的 diff/Apply 路径);② 或给 `IShaderAPI` 加 `SetSamplerSRGBRead(sampler,bool)`
-  动态接口(shader DYNAMIC_STATE 里按 texType 调,树里只有 2 个实现方,成本可控);
-  ③ 或让 MF 播放器直接出 RGB32(MF 本来就有该回退分支),视频走 RGBA=1 路径自然正确。
+- **YUV 平面必须豁免硬件 sRGB 解码**(CS:GO 对 texType==YUV 用 `TEXTURE_BINDFLAGS_NONE`,
+  `PanDxSetTexturesFancy`):fxc 的 YUV 分支自己做 `pow(2.2)` 线性化,要求平面是原始 BT.601 值;
+  若被解码一次再 pow 一次 = 双重线性化 = 绿紫假色(本机驱动对 L8 也应用解码)。
+- **尝试过并回退的方案**:"`$srgbread` 材质参数门控 + wrapper 按 texType 选第二套材质"
+  (等价 CS:GO 的按 draw 设 flag)——把普通绘制的 sRGB 读也弄丢了(灰阶回退 0,73,...),已回退。
+  嫌疑:同一 shader 两个只差 `D3DSAMP_SRGBTEXTURE` 的 snapshot 在 transition table 里的往返;根因未查。
+- **最终修法(已验证)**:**YUV 平面格式 I8→A8 + fxc 改读 .a 通道**——sRGB 解码 LUT 作用于 RGB/亮度
+  通道,永远不作用于 alpha 通道,所以 A8 平面天然免疫、与驱动无关,且不需要任何按 draw 的状态切换:
+  1. `panorama/source2/uirenderdevicesource2.cpp`:Y/U/V 三张平面的 `CTextureCreationDesc/CTextureDesc`
+     `m_nImageFormat` 6 处 `IMAGE_FORMAT_I8` → `IMAGE_FORMAT_A8`(上传布局同为 1 字节/像素,不变);
+  2. `materialsystem/stdshaders/panoramafancy_ps30.fxc` YUV 分支:三个 `Tex2D(...).r` → `.a`;
+  3. **fxc 是运行时编译的**:`vertexshaderdx8.h:29` 无条件 `#define DYNAMIC_SHADER_COMPILE`,
+     `GetShaderSourcePath()` 用 `__FILE__` 定位到源码树 `materialsystem/stdshaders/`,
+     `D3DXCompileShader`(d3dx9_33)按 combo 现场编译 ⇒ **改 fxc 保存即生效,不用构建**;
+     `.inc` 只是 combo 步长表,不含字节码,无需改动。
+  4. 构建:`waf build --targets=panoramauiclient`(格式改动所在),部署 panoramauiclient.dll。
+  验收:主菜单 vertigo.webm 蓝天/集装箱全部真实色彩(整窗 mean 89.5),灰阶仍逐条精确。
+- **架构事实(谁在渲染 webm 背景)**:真 CS:GO 渲染在 **panorama 内部**——`mainmenu.xml` 的
+  `MainMenuMovieSnippet` 里的 `<Movie id="MainMenuMovie">`(CMoviePlayer),由
+  `CCSGO_MainMenu::LoadBackgroundMovie()` 加载,经 `IUIDoubleBufferedYUV420Texture`(三平面)→
+  fancy shader YUV 分支,在合成层里画,主菜单的 blur 采样它。本端口有**两条桥并存**:
+  ① panorama 桥(移植的 LoadBackgroundMovie,真菜单里由 tick 激活,探针可见
+  `texType=3 tex0=[1_panorama_texture_y] ...`);② VGUI 兜底桥(`game/client/cstrike/se_background_video.cpp`,
+  CPU 解码 NV12→RGBA,画在 VGUI client root 上、panorama UI **后面**,panorama 电影正常时被盖住看不见,
+  且有 MF 初始化偶发失败的黑屏问题)。电影修好后 VGUI 桥可以考虑关闭(`se_background_video_enable 0`)。
 - **模糊重开时注意**(P104 遗留):blur 的源若含引擎写的 RT(`_rt_FullFrameFB` 等,引擎不做 sRGB 写),
   EnableSRGBRead 会把世界画面错误线性化——重开模糊(P65)时要把这个差异一并考虑。
 

@@ -136,7 +136,7 @@
 | 补 JS API 缺口（`RemoveAllOptions` 等） | ⬜ | 日志报 `settingsmenu_gamesettings.js:8` |
 | 补完本地化 token（`#CSGO_Tournament_Event_Location_[]` 等） | ⬜ | 日志 `Unable to localize` |
 | 移植 batch E 剩余 gameclient 文件 | ⬜ | —— |
-| 主菜单渲染整体验收（泛白单独处理完） | ✅（泛白部分，09-19） | 根因=shader 丢 SRGBREAD，修复后 mean 203.6→96.4，灰阶逐条精确；见 `csgo_panorama_port_breakthroughs.md` T1。遗留：背景视频帧色度失真（YUV 豁免尝试失败已回退，P104） |
+| 主菜单渲染整体验收（泛白单独处理完） | ✅（泛白部分，09-19） | 根因=shader 丢 SRGBREAD，修复后 mean 203.6→96.4，灰阶逐条精确；见 `csgo_panorama_port_breakthroughs.md` T1。视频假色也已修（YUV 平面 I8→A8 + fxc 读 .a，09-19 第二阶段，P104/T1） |
 | 方案 B：`panoramauiclient` 实现 `IGameUI`，panorama 正式接管 GameUI | ⬜ | 可回退任务 A 的三处守卫 |
 | 字体 D（可选）：`.uifont` 包（protobuf + OpenSSL AES） | ⬜ | 需拍板；CS:GO 自身内容不用它 |
 
@@ -180,7 +180,7 @@
 | 项 | 状态 | 思路/结论存档 | 估算 |
 |---|---|---|---|
 | **背景模糊（blurrects / CSGOBlurTarget）不生效** | 🅿️ **挂起（2026-09-17 用户拍板）** | 已关掉（`SE_PortSupportsBlurPasses()` → `false`，标注 PARKED）；**根因未找到**。完整记录 + 已排除清单 + 下次接手点见 `csgo_panorama_port_pitfalls.md` §I（P63–P65）。重新开工：先把开关改回 `true`，然后抓 sampler 里的纹理身份/尺寸 | —— |
-| **主菜单泛白** | ✅ 已修复（09-19） | 根因/修复/验收见 `csgo_panorama_port_breakthroughs.md` T1（SRGBREAD 丢失；mean 203.6→96.4）。遗留：背景视频帧色度失真（P104） | —— |
+| **主菜单泛白** | ✅ 已修复（09-19） | 根因/修复/验收见 `csgo_panorama_port_breakthroughs.md` T1（SRGBREAD 丢失；mean 203.6→96.4）。视频假色也已修（A8 方案，P104） | —— |
 | **Panorama 模型查看器**（查看游戏自带 `.mdl`，不要 CS:GO 皮肤） | ⬜ 未开工 | **`docs/panorama_model_viewer_plan.md`**（含关键事实：`IVModelRender` 在 `engine/l_studio.cpp:812`、`CStaticProp` 是现成模板、`csgo_backbufferimage.cpp` 是面板先例、光照风险与对策、两个待拍板点） | ≈ 1 周 |
 | **库存（Inventory）** | ⬜ 未开工 | 结论：**界面可行、真数据不可行**。物品定义 `items_game.txt` 在本机 `E:\SteamLibrary\steamapps\common\csgo legacy\csgo\scripts\items\`（6.79 MB）；econ 源码在 CS:GO `game/shared/econ/`（43 文件，本仓只有 `ihasowner.h`）；`public/gcsdk/gcclient/` 不存在 + 无 Steam 登录 ⇒ 只能"真 schema + 假库存"；3D 检视 `ui_itempreview_panel.cpp` 6861 行属独立大工程 | ≈ 1.5–2 周 |
 | 补 JS 数据 API 后端（`InventoryAPI`/`LoadoutAPI`/…31 个） | ⬜ 未开工 | 这 31 个在 CS:GO 源码树 **0 命中**（Valve 闭源 game client），**不可照抄**，只能按内容实际调用面自建 | —— |
