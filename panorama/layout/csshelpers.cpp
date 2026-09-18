@@ -4,7 +4,7 @@
 //=============================================================================//
 
 #include "stdafx.h"
-#include "color.h"
+#include "Color.h"
 #include "panorama/layout/csshelpers.h"
 #ifdef SOURCE2_PANORAMA
 #include "enumutils_panorama.h"
@@ -1695,7 +1695,7 @@ bool CSSHelpers::BParseNamedColor( Color *pColor, const char *pchString, const c
 			*pColor = s_namedColors[ iMid ].color;
 
 			// SE port: the table above is written for CS:GO's Color class, where Color( r, g, b ) leaves the
-			// alpha at 255 (D:\CSGO2019\public\color.h: "void SetColor( int _r, int _g, int _b, int _a = 255 )").
+			// alpha at 255 (D:\CSGO2019\public\Color.h: "void SetColor( int _r, int _g, int _b, int _a = 255 )").
 			// This tree compiles the same table against Source 1's Color, whose alpha defaults to *zero*
 			// (public/Color.h: "void SetColor(int _r, int _g, int _b, int _a = 0)"), so every named colour
 			// came out fully transparent.

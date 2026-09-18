@@ -24,7 +24,7 @@
 #include "input/iuiinput.h"
 #include "input/mousecursors.h"
 #include "iuiengine.h"
-#include "color.h"
+#include "Color.h"
 #include "uievent.h"
 #include "iuiwindow.h"
 #include "iuirenderengine.h"

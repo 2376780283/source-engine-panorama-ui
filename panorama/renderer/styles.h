@@ -8,7 +8,7 @@
 #pragma once
 
 #include <float.h>
-#include "color.h"
+#include "Color.h"
 #include "utlstring.h"
 #include "utlvector.h"
 #include "utlsymbol.h"

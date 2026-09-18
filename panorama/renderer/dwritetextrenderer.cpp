@@ -8,7 +8,7 @@
 #define INITGUID 1 
 #include "D3Dcommon.h"
 #include "panorama/layout/csshelpers.h"
-#include "color.h"
+#include "Color.h"
 #include "tier1/checksum_crc.h"
 #include "uienginewin32.h"
 

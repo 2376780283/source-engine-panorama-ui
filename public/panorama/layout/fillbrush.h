@@ -9,7 +9,7 @@
 #pragma once
 
 #include <float.h>
-#include "color.h"
+#include "Color.h"
 #include "utlvector.h"
 #include "uilength.h"
 #if defined( SOURCE2_PANORAMA )

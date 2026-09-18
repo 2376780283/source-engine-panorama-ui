@@ -24,7 +24,7 @@
 #include "panorama/uievent.h"
 #include "panorama/iuiwindow.h"
 #include "panorama/layout/panel2dfactory.h"
-#include "color.h"
+#include "Color.h"
 #include "utlvector.h"
 #include "utlstring.h"
 #include "panelptr.h"

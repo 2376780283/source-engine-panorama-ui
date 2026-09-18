@@ -18,7 +18,7 @@
 #include "fmtstr.h"
 #include "panorama/panoramatypes.h"
 #include "panorama/layout/csshelpers.h"
-#include "color.h"
+#include "Color.h"
 #include "tier1/checksum_crc.h"
 #include "renderer/uirenderengine.h"
 

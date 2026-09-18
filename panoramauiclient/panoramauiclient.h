@@ -8,7 +8,7 @@
 #define PANORAMAUICLIENT_H
 #pragma once
 
-#include "appframework/iappsystem.h"
+#include "appframework/IAppSystem.h"
 #include "tier3/tier3.h"
 #include "panorama/panorama.h"
 #include "panorama/iuiengine.h"
@@ -28,7 +28,7 @@ public:
 	// 7ls src1
 	virtual bool Connect( CreateInterfaceFn factory ) OVERRIDE;
 
-	// SE port: SE 2013's IAppSystem (public/appframework/iappsystem.h) has no
+	// SE port: SE 2013's IAppSystem (public/appframework/IAppSystem.h) has no
 	// GetDependencies()/AppSystemInfo_t - CS:GO added them.  The engine finds the panorama
 	// engine through its own app system group, so the dependency list is not needed here.
 	// virtual const AppSystemInfo_t *GetDependencies() OVERRIDE;

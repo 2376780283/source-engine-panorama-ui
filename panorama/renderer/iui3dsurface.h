@@ -11,7 +11,7 @@
 #endif
 
 #include "panorama/renderer/rendercommands.h"
-#include "color.h"
+#include "Color.h"
 #if !defined( SOURCE2_PANORAMA )
 #include "../../overlay/common/shmemstream.h"
 #include "uitoplevelwindowoverlay.h"

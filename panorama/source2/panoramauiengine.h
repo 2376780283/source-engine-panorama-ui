@@ -8,7 +8,7 @@
 
 #include "panorama/source2/ipanoramaui.h" 
 #include "panorama/iuiengine.h"
-#include "appframework/iappsystem.h"
+#include "appframework/IAppSystem.h"
 #include "tier3/tier3.h"
 
 #include "refcount.h"

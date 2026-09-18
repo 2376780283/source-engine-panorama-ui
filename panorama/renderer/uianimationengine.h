@@ -12,7 +12,7 @@
 #include "tier1/utllinkedlist.h"
 #include "panorama/renderer/rendercommands.h"
 #include "panorama/transformations.h"
-#include "color.h"
+#include "Color.h"
 #include "tier1/mempool.h"
 #include "panorama/controls/panelptr.h"
 #include "panorama/input/iuiinput.h"

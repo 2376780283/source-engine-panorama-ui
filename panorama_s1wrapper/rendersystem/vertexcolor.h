@@ -1,4 +1,4 @@
-//==== Copyright © 1996-2008, Valve Corporation, All rights reserved. =======//
+//==== Copyright  1996-2008, Valve Corporation, All rights reserved. =======//
 //
 // Purpose: A color format which works on 360 + PC
 //
@@ -9,7 +9,7 @@
 #pragma once
 
 #include "tier0/platform.h"
-#include "color.h"
+#include "Color.h"
 #include "mathlib/vector4d.h"
 
 
