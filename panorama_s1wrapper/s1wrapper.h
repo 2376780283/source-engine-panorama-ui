@@ -18,7 +18,7 @@
 #include "tier0/threadtools.h"
 #include "tier0/vprof.h"
 #include "tier1/strtools.h"
-#include "tier1/keyvalues.h"
+#include "tier1/KeyValues.h"
 #include "tier1/convar.h"
 #include "tier1/checksum_crc.h"
 #include "tier1/fmtstr.h"

@@ -42,7 +42,7 @@
 #endif
 #include "vstdlib/random.h"
 #include "filesystem.h"
-#include "tier1/keyvalues.h"
+#include "tier1/KeyValues.h"
 #include "vstdlib/osversion.h"
 #include "tier0/vprof.h"
 

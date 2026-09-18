@@ -8,7 +8,7 @@
 
 #include "tier0/platform.h"
 #include "tier0/dbg.h"
-#include "tier1/keyvalues.h"   // SE port: used in inline bodies below (was implied by the panorama stdafx)
+#include "tier1/KeyValues.h"   // SE port: used in inline bodies below (was implied by the panorama stdafx)
 #include "filesystem/iasyncfilesystem.h"
 #include "tier1/utlstringtoken.h"
 #include "UtlStringMap.h"

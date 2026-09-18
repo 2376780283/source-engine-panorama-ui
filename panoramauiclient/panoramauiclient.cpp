@@ -31,7 +31,7 @@
 #include "tier1/utldelegate.h"
 // SE port (temporary bring-up probe): the process exits silently while the UI engine is being set up,
 // and Warning() output is lost with it, so these probes append straight to a file.
-#include "tier1/keyvalues.h"
+#include "tier1/KeyValues.h"
 // SE port (temporary bring-up probe): the process exits silently while the UI engine is being set up,
 // and Warning() output is lost with it, so these probes append straight to a file.
 #include "panorama/controls/panel2d.h"
