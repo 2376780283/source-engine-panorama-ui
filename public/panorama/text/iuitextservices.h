@@ -14,7 +14,7 @@
 #include "panorama/layout/uilength.h"
 
 #if defined(SOURCE2_PANORAMA)
-#include "appframework/iappsystem.h"
+#include "appframework/IAppSystem.h"
 #endif
 
 class CJob;
