@@ -43,6 +43,24 @@ ConVar ui_mainmenu_bkgnd_movie( "ui_mainmenu_bkgnd_movie", "anubis720", FCVAR_AR
 //-----------------------------------------------------------------------------
 ConVar cl_scoreboard_mouse_enable_binding( "cl_scoreboard_mouse_enable_binding", "+attack2", FCVAR_ARCHIVE, "Name of the binding to enable mouse selection in the scoreboard" );
 
+//-----------------------------------------------------------------------------
+// SE port (2026-09-18): the two switches for the startup popups.  They are plain ConVars of this
+// module, so they need the explicit RegisterConCommand() in SE_PortInstallGameInterfaceBindings()
+// below - see uicomponent_gameinterface.cpp::Helper_CreateSettingsPreference for why a ConVar of
+// this module does not reach ICvar by itself.  Registration happens during SetupUIEngine(), which
+// Host_Init calls before Host_ReadConfiguration(), so config.cfg / autoexec.cfg / the console can set
+// them; the menu scripts read them through GameInterfaceAPI.GetSettingString().
+//   se_popup_news    1 (default) = the news panel's "unread article" popup (popup_news.xml) comes up
+//                    once per launch, as the content scripts intend; 0 = the demo feed is pre-marked
+//                    read and the popup never comes up.
+//   se_popup_legacy  1 (default) = the "Legacy version of CS:GO" notice comes up once per launch
+//                    (the retail legacy branch's behaviour); 0 = never show it.
+//-----------------------------------------------------------------------------
+ConVar se_popup_news( "se_popup_news", "1", FCVAR_ARCHIVE,
+	"Show the unread-news popup once per launch (1) or never (0)" );
+ConVar se_popup_legacy( "se_popup_legacy", "1", FCVAR_ARCHIVE,
+	"Show the 'Legacy version of CS:GO' notice once per launch (1) or never (0)" );
+
 const char* Helper_GetMouseEnableBindingName()
 {
 	const char* szScoreboardKey = cl_scoreboard_mouse_enable_binding.GetString();
@@ -95,6 +113,18 @@ void SE_PortInstallGameInterfaceBindings()
 
 	IUiComponentGlobalInstanceBase *pGameInterface = CUiComponent_GameInterface::GetInstance();
 	pGameInterface->InstallPanoramaBindings();
+
+	// SE port (2026-09-18): hand the two popup switches to ICvar.  This runs inside
+	// CPanoramaUIClient::SetupUIEngine(), which Host_Init calls before Host_ReadConfiguration(), so a
+	// "se_popup_news 0" / "se_popup_legacy 0" line in config.cfg (or autoexec.cfg, or the console)
+	// reaches the menu scripts - and FCVAR_ARCHIVE keeps the choice across launches.
+	if ( g_pCVar )
+	{
+		g_pCVar->RegisterConCommand( &se_popup_news );
+		g_pCVar->RegisterConCommand( &se_popup_legacy );
+		Msg( "SE port: popup switches se_popup_news='%s' se_popup_legacy='%s'\n",
+			se_popup_news.GetString(), se_popup_legacy.GetString() );
+	}
 
 	Msg( "SE port: installed the GameInterfaceAPI JS bindings (CUiComponent_GameInterface); "
 		 "ui_mainmenu_bkgnd_movie='%s'\n", ui_mainmenu_bkgnd_movie.GetString() );
