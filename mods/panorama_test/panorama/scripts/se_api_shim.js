@@ -9,6 +9,11 @@
 (function () {
 	var g = Function("return this")();
 
+	// SE port: start timestamp for the injection cost probe.  Every layout gets its own JavaScript
+	// context (CUIPanel::BLoadLayout deletes and recreates it), so the three injected files run again
+	// on *every page navigation* - the session sim (loaded last) reports the total as a JSINIT line.
+	g.SE_PORT_JS_T0 = Date.now();
+
 	// Every stub carries two side tables:
 	//   overrides - entries installed by seDefine() below; they win over the placeholder behaviour,
 	//               which is how a call can be made to answer with a real 0/false/"{}" instead of
@@ -31,6 +36,11 @@
 					return undefined;
 				}
 				if (hasOwn(overrides, prop)) { return overrides[prop]; }
+				// hasOwnProperty has to behave like the real one: several CS:GO scripts gate on
+				// "Jso.hasOwnProperty('eventdata')", and a stub hands out a *stub* for any method call -
+				// which is truthy, so the script walked into branches that expected real data
+				// (mainmenu_watch.js:289 was that shape).
+				if (prop === "hasOwnProperty") { return function () { return false; }; }
 				// Behave like an empty collection: panorama converts .length results straight into numbers, and a
 				// stub object there made V8ParamToPanoramaType throw (and the throw took the game down).
 				if (prop === "length" || prop === "size" || prop === "count") { return 0; }
@@ -263,6 +273,20 @@
 	tolerant("UnregisterForUnhandledEvent");
 	tolerant("RegisterEventHandler");
 	tolerant("UnregisterEventHandler");
+
+	// CS:GO scripts call $.LocalizeSafe(), which this engine build does not expose at all: "TypeError:
+	// $.LocalizeSafe is not a function" aborted SetupPopup() of the game-mode flags popup
+	// (popups/popup_play_gamemodeflags.js:8, the dialog behind a mode click) and the WATCH page's
+	// event schedule (mainmenu_watch_eventsched.js:410) plus commonutil.js' country/language names.
+	// Semantics: like $.Localize but it never fails - a missing key hands the raw token back.
+	if (typeof $ !== "undefined" && typeof $.LocalizeSafe !== "function") {
+		$.LocalizeSafe = function (token) {
+			try {
+				var s = $.Localize(token);
+				return (s === undefined || s === null || s === "") ? token : s;
+			} catch (e) { return token; }
+		};
+	}
 
 	// Install an override on a dotted API path ("MatchStatsAPI.GetUiExperienceType"), creating the
 	// intermediate stubs on the way.  The value lands in the stub's override table (see makeStub).
@@ -512,4 +536,44 @@
 			return "";
 		});
 	}
+
+	// ------------------------------------------------------------------------------------------
+	// Typed answers for the calls whose *result type* the engine checks (found 2026-09-17 with the
+	// JSEXC probe: panorama/uiengine.cpp::OutputJSExceptionToConsole now appends every JS exception to
+	// D:\cstrike\se_ui_probe.txt, which is how these were caught - a manual run leaves no other
+	// trace).
+	//
+	// This is a different failure from the truthiness problem above: when the place expects a bool
+	// (a panel's `.enabled`, a `var x = Api.IsY()`), the engine converts the JS value with
+	// V8ParamToPanoramaType and throws "expected bool type to convert, but got something else ([])"
+	// when it finds a stub object - and the throw skips the *rest of the script*.  That is how
+	// mainmenu_play.js::_ShowActiveMapSelectionTab() died right after switching the map container
+	// (line 1323), so the map list never followed a game mode click, and why several other scripts
+	// (crafting, report popup, ...) aborted mid-initialisation.
+	// ------------------------------------------------------------------------------------------
+	seDefine("SteamOverlayAPI.IsEnabled", function () { return false; });
+	seDefine("InventoryAPI.IsCraftReady", function () { return false; });
+	seDefine("GameStateAPI.IsReportCategoryEnabledForSelectedPlayer", function (xuid, category) { return false; });
+
+	// InventoryAPI sort methods: mainmenu_inventory.js / mainmenu_inventory_search.js /
+	// crafting.js build a sort DropDown from GetSortMethodsCount() + GetSortMethodByIndex(i) and
+	// then *select* one of the returned ids.  With the stub the build loop never ran (i < <stub>
+	// evaluates to 0) and SetSelected( <stub> ) left the DropDown without any selection, so the next
+	// statement (GetSelected().id) threw "Cannot read property 'id' of null" and took the whole
+	// inventory / crafting item list with it.  The ids are the localization tokens of the menu
+	// entries (csgo_english.txt: inv_sort_*), quality first like the CS:GO menu.
+	var SE_SORT_METHODS = [ "inv_sort_rarity", "inv_sort_age", "inv_sort_alpha", "inv_sort_slot",
+		"inv_sort_collection", "inv_sort_equipped", "inv_sort_wear", "inv_sort_paint" ];
+	seDefine("InventoryAPI.GetSortMethodsCount", function () { return SE_SORT_METHODS.length; });
+	seDefine("InventoryAPI.GetSortMethodByIndex", function (i) {
+		var idx = Number(i);
+		return (idx >= 0 && idx < SE_SORT_METHODS.length) ? SE_SORT_METHODS[idx] : SE_SORT_METHODS[0];
+	});
+
+	// Watch -> Tournaments builds its team lists from TournamentsAPI.GetProEventDataJSO(i, 8).
+	// With the stub, "ProEventJSO.hasOwnProperty('eventdata')" answered truthy (a stub call returns a
+	// stub), so the page believed the event had data and walked into the stub's empty players table
+	// (mainmenu_watch.js:289 "Cannot read property '1' of undefined").  {} = "no event data", which
+	// keeps the tournament tiles in their "champions TBD" state.
+	seDefine("TournamentsAPI.GetProEventDataJSO", function () { return {}; });
 })();
