@@ -1470,6 +1470,10 @@ HRenderTexture S1Wrapper_CreateTexture( const char *pResourceName, uint16 nUniqu
 {
 	HRenderTexture hTexture = RESOURCE_HANDLE_INVALID;
 
+	// SE port probe (bring-up aid): creating a texture from image data is the last main-thread step of
+	// an image load, so its duration decides whether the page-switch hitches come from here.
+	double const flSETexStart = Plat_FloatTime();
+
 	S1Wrapper_Texture_t *pTexture = new S1Wrapper_Texture_t();
 	if ( pTexture && pTexture->InitFromData( pResourceName, nUniqueId, pDescriptor, pDataDesc, pData, nDataSize ) )
 	{
@@ -1479,6 +1483,23 @@ HRenderTexture S1Wrapper_CreateTexture( const char *pResourceName, uint16 nUniqu
 	{
 		// Failed to create texture, free memory
 		delete pTexture;
+	}
+
+	{
+		static int s_nSETexProbe = 0;
+		double const flTexMs = ( Plat_FloatTime() - flSETexStart ) * 1000.0;
+		if ( s_nSETexProbe < 500 && ( flTexMs >= 10.0 || s_nSETexProbe < 60 ) )
+		{
+			++s_nSETexProbe;
+			FILE *fp = fopen( "D:\\cstrike\\se_ui_probe.txt", "a" );
+			if ( fp )
+			{
+				fprintf( fp, "TEXCREATE #%d ms=%.2f thr=%u name=%s\n", s_nSETexProbe, flTexMs,
+					(unsigned)ThreadGetCurrentId(), pResourceName ? pResourceName : "?" );
+				fflush( fp );
+				fclose( fp );
+			}
+		}
 	}
 
 	return hTexture;

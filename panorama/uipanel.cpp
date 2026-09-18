@@ -678,6 +678,12 @@ bool CUIPanel::BLoadLayout( const char *pchFile, bool bOverrideExisting, bool bP
 {
 	VPROF_BUDGET( "CUIPanel::BLoadLayout", VPROF_BUDGETGROUP_TENFOOT );
 
+	// SE port probe (bring-up aid): a page switch creates a fresh JavaScript context and re-applies
+	// the layout (XML -> panels -> styles -> layout scripts + the injected SE scripts).  The user
+	// report is "the first click on a page stutters, the next one does not", so this is the number
+	// that has to be attributed: one LAYOUTLOAD line per sync layout load.
+	double const flSELayoutLoadStart = Plat_FloatTime();
+
 	V8_CtxDbgMsg( "BLoadLayout: Panel %x (%s), loading layout file %s\n", this, GetID(), pchFile );
 
 	// only load one layout file
@@ -719,6 +725,22 @@ bool CUIPanel::BLoadLayout( const char *pchFile, bool bOverrideExisting, bool bP
 		AddStyleFlag( k_EStyleFlagLayoutLoadFailed );
 		AssertMsg1( false, "Couldn't apply layout file %s", pchFile );
 		return false;
+	}
+
+	{
+		static int s_nSELayoutLoadProbe = 0;
+		if ( s_nSELayoutLoadProbe < 300 )
+		{
+			++s_nSELayoutLoadProbe;
+			FILE *fp = fopen( "D:\\cstrike\\se_ui_probe.txt", "a" );
+			if ( fp )
+			{
+				fprintf( fp, "LAYOUTLOAD #%d ms=%.2f file=%s\n", s_nSELayoutLoadProbe,
+					( Plat_FloatTime() - flSELayoutLoadStart ) * 1000.0, pchFile ? pchFile : "?" );
+				fflush( fp );
+				fclose( fp );
+			}
+		}
 	}
 
 	return true;

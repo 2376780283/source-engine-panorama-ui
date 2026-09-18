@@ -608,6 +608,9 @@ bool CImageData::SetImageDataR8G8B8A8( const byte *pchData, int cbData, const ch
 	VPROF_BUDGET( "CImageData::SetImageDataR8G8B8A8", VPROF_BUDGETGROUP_TENFOOT );
 	CFastTimer timer;
 	timer.Start();
+	// SE port probe: how long the decode of this image took (the IMG probe below reports it) - this
+	// is what tells apart "the map icons re-rasterise on every mode switch" from other hitch sources.
+	double const flSEImgStart = Plat_FloatTime();
 
 	if ( !loadParams.ValidateMaxSize( nWide, nTall ) )
 		return false;
@@ -767,8 +770,9 @@ bool CImageData::SetImageDataR8G8B8A8( const byte *pchData, int cbData, const ch
 			FILE *fp = fopen( "D:\\cstrike\\se_ui_probe.txt", "a" );
 			if ( fp )
 			{
-				fprintf( fp, "IMG #%d ok=%d %dx%d srcfmt=%d path=%s\n", s_nSEImgProbe, bLoadedImage ? 1 : 0,
-					(int)m_nWide, (int)m_nTall, (int)m_eSourceFormat, pchFilePath );
+				fprintf( fp, "IMG #%d ok=%d %dx%d srcfmt=%d ms=%.2f thr=%u path=%s\n", s_nSEImgProbe, bLoadedImage ? 1 : 0,
+					(int)m_nWide, (int)m_nTall, (int)m_eSourceFormat,
+					( Plat_FloatTime() - flSEImgStart ) * 1000.0, (unsigned)ThreadGetCurrentId(), pchFilePath );
 				fflush( fp );
 				fclose( fp );
 			}
@@ -1428,6 +1432,12 @@ IImageSource *CImageResourceManager::LoadImageInternal( const IUIPanel *pPanel, 
 //-----------------------------------------------------------------------------
 bool CImageResourceManager::OnImageLoaded( CFileResource & resource, CImageData *pImage, const UIImageLoadParams_t &loadParams )
 {
+	// SE port probe: the *main thread* side of an image load.  The decode itself runs on the decode
+	// worker (CImageDecodeWorkItem, see the IMG probe), so this timer is what tells whether the
+	// 50-300 ms hitches while switching pages come from the completion path (texture creation +
+	// panel update) or from somewhere else entirely.
+	double const flSELoadStart = Plat_FloatTime();
+
 	UrlImageKey_t key;
 	key.fileResource = resource;
 	key.loadParams = loadParams;
@@ -1445,6 +1455,23 @@ bool CImageResourceManager::OnImageLoaded( CFileResource & resource, CImageData 
 	m_mapImagesByURL[iIndex]->SetImageSource( pImage );
 
 	m_mapImagesByURL[iIndex]->OnImageLoaded();
+
+	{
+		static int s_nSEImgLoadProbe = 0;
+		if ( s_nSEImgLoadProbe < 600 )
+		{
+			++s_nSEImgLoadProbe;
+			FILE *fp = fopen( "D:\\cstrike\\se_ui_probe.txt", "a" );
+			if ( fp )
+			{
+				fprintf( fp, "IMGLOAD #%d ms=%.2f thr=%u path=%s\n", s_nSEImgLoadProbe,
+					( Plat_FloatTime() - flSELoadStart ) * 1000.0, (unsigned)ThreadGetCurrentId(),
+					resource.GetReferencePath() ? resource.GetReferencePath() : "?" );
+				fflush( fp );
+				fclose( fp );
+			}
+		}
+	}
 	return true;
 }
 
