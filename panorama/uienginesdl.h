@@ -12,7 +12,7 @@
 #include "renderer/iui3dsurface.h"
 #include "utlstring.h"
 #include "utlmap.h"
-#include "utlsortvector.h"
+#include "UtlSortVector.h"
 
 #include <SDL.h>
 #include <SDL_opengl.h>

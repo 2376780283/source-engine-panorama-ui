@@ -1,4 +1,4 @@
-//===== Copyright © 2005-2005, Valve Corporation, All rights reserved. ======//
+//===== Copyright  2005-2005, Valve Corporation, All rights reserved. ======//
 //
 // Purpose: A higher level link library for general use in the game and tools.
 //
@@ -22,7 +22,7 @@ IPhysics2ResourceManager *g_pPhysics2ResourceManager = 0;
 IEventSystem *g_pEventSystem = 0;
 ILocalize *g_pLocalize = 0;
 
-// for utlsortvector.h
+// for UtlSortVector.h
 #ifndef _WIN32
 void *g_pUtlSortVectorQSortContext = NULL;
 #endif

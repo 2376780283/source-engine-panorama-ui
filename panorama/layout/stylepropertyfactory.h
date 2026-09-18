@@ -13,7 +13,7 @@
 #include "tier0/validator.h"
 #include "utlsymbol.h"
 #include "utlvector.h"
-#include "utlsortvector.h"
+#include "UtlSortVector.h"
 #include "utlstring.h"
 #include "layout/stylesymbol.h"
 #include "iuistylefactory.h"

@@ -47,7 +47,7 @@
 #include "materialsystem/MaterialSystemUtil.h"
 #include "materialsystem/itexture.h"
 #include "materialsystem/imesh.h"
-#include "utlsortvector.h"
+#include "UtlSortVector.h"
 #include "pixelwriter.h"
 #include "tier1/KeyValues.h"
 #include "iimemanager.h"

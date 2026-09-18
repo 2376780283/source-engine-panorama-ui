@@ -14,7 +14,7 @@
 #include "utlsymbol.h"
 #include "utlmap.h"
 #include "utldict.h"
-#include "utlsortvector.h"
+#include "UtlSortVector.h"
 #include "tier1/utlptrarray.h"
 #include "../renderer/styles.h"
 #include "uipanel.h"

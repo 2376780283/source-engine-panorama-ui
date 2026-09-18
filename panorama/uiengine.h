@@ -33,7 +33,7 @@
 #include "utllinkedlist.h"
 #include "reliabletimer.h"
 #include "utlmap.h"
-#include "utlsortvector.h"
+#include "UtlSortVector.h"
 #include "tier0/tslist.h"
 #include "steam/isteamhttp.h"
 #include "steam/steam_api.h"

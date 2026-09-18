@@ -26,7 +26,7 @@ FORWARD_DECLARE_HANDLE( InputContextHandle_t );
 #include "tier1/utlstring.h"
 #include "tier1/utldelegate.h"
 #include "tier0/validator.h"
-#include "tier1/utlsortvector.h"
+#include "tier1/UtlSortVector.h"
 #include "language.h"
 #include "panorama/layout/panel2dfactory.h"
 #include "iuistylefactory.h"

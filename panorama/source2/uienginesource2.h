@@ -13,7 +13,7 @@
 #include "renderer/iui3dsurface.h"
 #include "utlstring.h"
 #include "utlmap.h"
-#include "utlsortvector.h"
+#include "UtlSortVector.h"
 #include "inputsystem/InputEnums.h"
 #include "resourcesystem/iresourcesystem.h"
 #include "rendersystem/irenderdevice.h"

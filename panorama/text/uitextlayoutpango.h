@@ -21,7 +21,7 @@
 #include "panorama/text/iuitextlayout.h"
 #include "panorama/text/iuitextservices.h"
 #include "tier0/threadtools.h"
-#include "tier1/utlsortvector.h"
+#include "tier1/UtlSortVector.h"
 
 namespace panorama
 {

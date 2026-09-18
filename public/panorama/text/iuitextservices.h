@@ -7,7 +7,7 @@
 #define IUITEXTSERVICES_H
 #pragma once
 
-#include "tier1/utlsortvector.h"
+#include "tier1/UtlSortVector.h"
 #include "language.h"
 #include "panorama/panoramatypes.h"
 #include "panorama/text/uitexttypes.h"
