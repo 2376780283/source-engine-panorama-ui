@@ -1,4 +1,4 @@
-//===== Copyright © 1996-2005, Valve Corporation, All rights reserved. ======//
+//===== Copyright  1996-2005, Valve Corporation, All rights reserved. ======//
 //
 // Purpose:   Provides IAsyncFileRequest and IAsyncFileSystem Interfaces
 //                     and supporting objects and values
@@ -23,7 +23,7 @@
 #include "tier1/functors.h" 
 #include "tier1/checksum_crc.h"
 #include "tier1/utlqueue.h"
-#include "appframework/iappsystem.h"
+#include "appframework/IAppSystem.h"
 #include "tier2/tier2.h"
 
 
