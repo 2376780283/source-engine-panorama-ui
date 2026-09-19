@@ -164,6 +164,12 @@ void CGameConsole::SetParent( intp parent )
 void CGameConsole::OnCmdCondump()
 {
 #ifndef _XBOX
+	// SE port (2026-09-18): the console now normally comes from panoramauiclient.dll (the panorama module),
+	// so this instance is never Initialize()d here - guard against the NULL panel instead of crashing when
+	// the CS:S gameui console is the one asked to dump (the panorama side registers its own condump).
+	if ( !g_GameConsole.m_pConsole )
+		return;
+
 	g_GameConsole.m_pConsole->DumpConsoleTextToFile();
 #endif
 }

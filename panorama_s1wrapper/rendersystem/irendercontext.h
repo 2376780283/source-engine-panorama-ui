@@ -1137,6 +1137,8 @@ public:
 				pVMTKeyValuesFancy->SetInt( "$renderattr_high", 0 );
 #endif
 				m_apFancyMaterial[ i ] = g_pMaterialSystem->CreateMaterial( mtlName, pVMTKeyValuesFancy );
+				// SE port: a second $srgbread 0 variant for YUV video planes was tried and ROLLED BACK
+				// - regular draws regressed to washed-out (pitfalls P104).
 			}
 		}
 	}

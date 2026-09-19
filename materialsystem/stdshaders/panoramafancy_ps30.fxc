@@ -181,9 +181,15 @@ float4 SampleTextureRGB(float2 vecSamplePos)
 	#elif ( D_TEXTURETYPE == TEXTURETYPE_YUV )
 	{
 		// direct decoding of YV12 or I420 video
-		float y = Tex2D( g_tTexture0, vecSamplePos ).r;
-		float u = Tex2D( g_tTexture1, vecSamplePos ).r;
-		float v = Tex2D( g_tTexture2, vecSamplePos ).r;
+		// SE port (webm false-color fix, 2026-09-19): the video planes are A8 textures (see
+		// uirenderdevicesource2.cpp) and the Y/U/V values live in the alpha channel - the panorama
+		// shaders enable hardware sRGB read on all samplers (T1 washout fix), and the sRGB decode LUT
+		// never touches an A8 texture's alpha, so these are raw BT.601 values exactly as CS:GO's
+		// TEXTURE_BINDFLAGS_NONE YUV binding delivers.  (.r on the old I8/L8 planes got decoded and
+		// the pow(2.2) below then double-linearized -> green/purple chroma corruption.)
+		float y = Tex2D( g_tTexture0, vecSamplePos ).a;
+		float u = Tex2D( g_tTexture1, vecSamplePos ).a;
+		float v = Tex2D( g_tTexture2, vecSamplePos ).a;
 
 		y = 1.1643 * ( y - 0.0625 );
 		u = u - 0.5;

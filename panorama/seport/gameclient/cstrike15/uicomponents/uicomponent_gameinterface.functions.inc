@@ -18,3 +18,9 @@ UI_COMPONENT_FUNCTIONLIST_ELEMENT( void,		SetSettingString )
 UI_COMPONENT_FUNCTIONLIST_ELEMENT( number,		GetEngineSoundSystemsRunning )
 UI_COMPONENT_FUNCTIONLIST_ELEMENT( number,		HasCommandLineParm )
 // ARGUMENTS	"-parm"
+
+// SE port (2026-09-18): opens a URL with the OS default handler (store "市场" links, news
+// entries, popup links).  The scripts route SteamOverlayAPI.OpenURL /
+// OpenUrlInOverlayOrExternalBrowser here - see se_session_sim.js.
+UI_COMPONENT_FUNCTIONLIST_ELEMENT( void,		OpenURLInBrowser )
+// ARGUMENTS	"url"

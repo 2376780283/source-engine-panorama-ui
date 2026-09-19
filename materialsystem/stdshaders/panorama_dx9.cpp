@@ -27,8 +27,8 @@
 DEFINE_FALLBACK_SHADER( panorama, panorama_dx9 )
 BEGIN_VS_SHADER( panorama_dx9, "Help for panorama" )
 	BEGIN_SHADER_PARAMS
-		SHADER_PARAM( BLENDSTATE, SHADER_PARAM_TYPE_INTEGER, "0", "" )
-		SHADER_PARAM( RENDERATTR, SHADER_PARAM_TYPE_INTEGER, "0", "" )
+	SHADER_PARAM( BLENDSTATE, SHADER_PARAM_TYPE_INTEGER, "0", "" )
+	SHADER_PARAM( RENDERATTR, SHADER_PARAM_TYPE_INTEGER, "0", "" )
 #ifdef PLATFORM_64BITS
 		SHADER_PARAM( RENDERATTR_HIGH, SHADER_PARAM_TYPE_INTEGER, "0", "" )
 #endif
@@ -65,6 +65,15 @@ BEGIN_VS_SHADER( panorama_dx9, "Help for panorama" )
 			pShaderShadow->EnableCulling( false );
 
 			pShaderShadow->EnableTexture( SHADER_SAMPLER0, true );
+			// SE port (main-menu washout fix): CS:GO binds this sampler with TEXTURE_BINDFLAGS_SRGBREAD
+			// (panorama_cshader.cpp:162), so the hardware decodes sRGB textures to linear at sample time.
+			// This tree's CBaseShader::BindTexture() takes no bind-flags argument, so the flag was lost in
+			// the port - images got one extra gamma encode on the way out (the washed-out main menu).
+			// The SE transition table commits this shadow state as D3DSAMP_SRGBTEXTURE on PC
+			// (TransitionTable.cpp ApplySRGBReadEnable), so request it here.
+			// NOTE: unconditional for now - the $srgbread-gated variant + per-texType material routing
+			// (P104) regressed regular draws back to washed-out and got rolled back; root cause TBD.
+			pShaderShadow->EnableSRGBRead( SHADER_SAMPLER0, true );
 
 			pShaderShadow->EnableAlphaToCoverage( false );
 			pShaderShadow->EnableBlending( true );

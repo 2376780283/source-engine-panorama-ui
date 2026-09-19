@@ -395,7 +395,12 @@ void CPanel2D::SetupJavascriptObjectTemplate()
 	RegisterJSMethod( "AddClass", PANORAMA_DELEGATE_RESOLVE( &CPanel2D::AddClass, const char* ) );
 	RegisterJSMethod( "RemoveClass", PANORAMA_DELEGATE_RESOLVE( &CPanel2D::RemoveClass, const char* ) );
 	RegisterJSMethod( "BHasClass", PANORAMA_DELEGATE_RESOLVE( &CPanel2D::BHasClass, const char* ) );
-	RegisterJSMethod( "SetHasClass", PANORAMA_DELEGATE_RESOLVE( &CPanel2D::SetHasClass, const char*, bool ) );
+	// SE port: the shipped CS:GO content also calls SetHasClass with a *single* argument ("add the
+	// class") - mainmenu_play.js:1976 does it when it resets the search timer.  The tuple form
+	// required exactly two arguments and threw "Panorama JS method requires 2 arguments; only 1
+	// given.", which aborts the rest of the calling script (six times in a single test run).  The
+	// raw form accepts one or two arguments.
+	RegisterJSMethodRaw( "SetHasClass", PANORAMA_DELEGATE( &CPanel2D::JSSetHasClass ) );
 	RegisterJSMethod( "ToggleClass", PANORAMA_DELEGATE_RESOLVE( &CPanel2D::ToggleClass, const char* ) );
 	RegisterJSMethod( "SwitchClass", PANORAMA_DELEGATE_RESOLVE( &CPanel2D::SwitchClass, const char*, const char* ) );
 	RegisterJSMethod( "TriggerClass", PANORAMA_DELEGATE_RESOLVE( &CPanel2D::TriggerClass, const char * ) );
@@ -442,6 +447,11 @@ void CPanel2D::SetupJavascriptObjectTemplate()
 	RegisterJSMethod( "LoadLayoutFromStringAsync", PANORAMA_DELEGATE( &CPanel2D::LoadLayoutFromStringAsync ) );
 	RegisterJSMethod( "LoadLayoutAsync", PANORAMA_DELEGATE( &CPanel2D::LoadLayoutAsync ) );
 	RegisterJSMethod( "BLoadLayoutSnippet", PANORAMA_DELEGATE( &CPanel2D::BLoadLayoutSnippet ) );
+	// SE port: the shipped scripts call this before loading a snippet (mainmenu_play.js builds the
+	// map group tiles with it); the panel implementation existed (CUIPanel::BHasLayoutSnippet) but
+	// was never exposed to JS, so the play page threw "container.BHasLayoutSnippet is not a function"
+	// and the map list / matchmaking setup stopped there.
+	RegisterJSMethod( "BHasLayoutSnippet", PANORAMA_DELEGATE( &CPanel2D::BHasLayoutSnippet ) );
 	RegisterJSMethod( "BCreateChildren", PANORAMA_DELEGATE( &CPanel2D::BCreateChildren ) );
 	RegisterJSMethod( "SetTopOfInputContext", PANORAMA_DELEGATE( &CPanel2D::SetTopOfInputContext ) );
 
@@ -508,6 +518,29 @@ void CPanel2D::GetJSData( const v8::FunctionCallbackInfo< v8::Value > &args )
 	}
 
 	args.GetReturnValue().Set( *m_pJSData );
+}
+
+
+//-----------------------------------------------------------------------------
+// Purpose: SE port, see the registration of "SetHasClass" above -
+//          panel.SetHasClass( "class" [, bAdd] ); the two argument tuple delegate rejected the one
+//          argument form the content uses.
+//-----------------------------------------------------------------------------
+void CPanel2D::JSSetHasClass( const v8::FunctionCallbackInfo< v8::Value > &args )
+{
+	if ( args.Length() < 1 )
+		return;
+
+	v8::Isolate *pIsolate = args.GetIsolate();
+	v8::String::Utf8Value className( pIsolate, args[0] );
+	if ( !*className || className.length() == 0 )
+		return;
+
+	bool bAdd = true;                       // one argument = "add the class", like the newer content expects
+	if ( args.Length() >= 2 && !args[1]->IsUndefined() && !args[1]->IsNull() )
+		bAdd = args[1]->BooleanValue();
+
+	SetHasClass( *className, bAdd );
 }
 
 

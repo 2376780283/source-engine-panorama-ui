@@ -852,7 +852,28 @@ void CResourceSystem::ReloadEditedResources( bool bForceReload )
 			Msg( "Checking resource %s\n", pFixedResourceName );
 
 			CUtlBuffer buf;
-			if ( !g_pFullFileSystem->ReadFile( pFixedResourceName, NULL, buf ) )
+			// SE port probe (bring-up aid): this reads layout / script / style / vsvg files from disk.
+			// A slow read here runs on whatever thread asked for the resource - which is what a page
+			// switch does *first* (before the decode worker ever sees the bytes).
+			double const flSEFSReadStart = Plat_FloatTime();
+			bool const bSEReadOk = g_pFullFileSystem->ReadFile( pFixedResourceName, NULL, buf );
+			{
+				static int s_nSEFSReadProbe = 0;
+				double const flReadMs = ( Plat_FloatTime() - flSEFSReadStart ) * 1000.0;
+				if ( s_nSEFSReadProbe < 500 && ( flReadMs >= 20.0 || s_nSEFSReadProbe < 60 ) )
+				{
+					++s_nSEFSReadProbe;
+					FILE *fp = fopen( "D:\\cstrike\\se_ui_probe.txt", "a" );
+					if ( fp )
+					{
+						fprintf( fp, "FSREAD #%d ms=%.2f ok=%d thr=%u file=%s\n", s_nSEFSReadProbe, flReadMs,
+							bSEReadOk ? 1 : 0, (unsigned)ThreadGetCurrentId(), pFixedResourceName );
+						fflush( fp );
+						fclose( fp );
+					}
+				}
+			}
+			if ( !bSEReadOk )
 			{
 				Msg( "Resource %s failed to load.\n", pFixedResourceName );
 				continue;

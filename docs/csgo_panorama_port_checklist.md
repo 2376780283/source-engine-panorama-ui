@@ -136,7 +136,7 @@
 | 补 JS API 缺口（`RemoveAllOptions` 等） | ⬜ | 日志报 `settingsmenu_gamesettings.js:8` |
 | 补完本地化 token（`#CSGO_Tournament_Event_Location_[]` 等） | ⬜ | 日志 `Unable to localize` |
 | 移植 batch E 剩余 gameclient 文件 | ⬜ | —— |
-| 主菜单渲染整体验收（泛白单独处理完） | ⬜ | —— |
+| 主菜单渲染整体验收（泛白单独处理完） | ✅（泛白部分，09-19） | 根因=shader 丢 SRGBREAD，修复后 mean 203.6→96.4，灰阶逐条精确；见 `csgo_panorama_port_breakthroughs.md` T1。视频假色也已修（YUV 平面 I8→A8 + fxc 读 .a，09-19 第二阶段，P104/T1） |
 | 方案 B：`panoramauiclient` 实现 `IGameUI`，panorama 正式接管 GameUI | ⬜ | 可回退任务 A 的三处守卫 |
 | 字体 D（可选）：`.uifont` 包（protobuf + OpenSSL AES） | ⬜ | 需拍板；CS:GO 自身内容不用它 |
 
@@ -167,8 +167,9 @@
    “背景模糊为什么不生效” 归入 **暂时查不出的 bug**，细节/已排除项/遗留疑点在 `docs/csgo_panorama_port_pitfalls.md` §I（P63–P65）。
    关掉后实测：静态背景的主菜单**仍然泛白**（mean 203.6），开背景视频则背景全黑 ⇒ 泛白另有根因（背景亮 → 没有压暗），不是模糊。
    下次开工：把那个函数改回 `true`，先抓 “进 sampler 的究竟是不是 error texture / 尺寸多少”，别再重读算法。
-2. ⬜ **泛白单独查**（与模糊解耦）：CS:GO 用 `CSGOBlurTarget` 把背景**模糊+压暗**，端口两条都没有 ⇒ 截图里背景原图直接上屏。
-   候选方向：`#JsNewsPanel` 的 `rgba(40,40,40,0.3)` 这类压暗层有没有真的画上去；背景图/视频面板的 `opacity`、`sRGB` 写入。
+2. ✅ **泛白已破案并修复**（2026-09-19，与压暗层无关）：真因 = panorama shader 绑纹理丢了 `TEXTURE_BINDFLAGS_SRGBREAD`，
+   纹理按 sRGB 原值进"线性混合+输出编码"管线被多提亮一次 gamma。修复 = 两个 shader SHADOW_STATE 补 `EnableSRGBRead`（stdshader_dx9）。
+   实测：灰阶 17→73 修到逐条精确，整窗 mean 203.6→96.4。压暗层其实一直在画且数学正确。详见 T1/P101-P104。
 3. ⬜ 清探针 + 回滚临时诊断（`se_port_opaque_blend`、`FANCYQUAD`、DRAW 探针、`SE audio`/`MF sync`）+ 还原 `tasks.json`，然后提交一次「收尾」。
 4. ⬜ 补齐面板类型与 JS API → 设置页/统计页能看。
 5. ⬜ 主菜单渲染整体验收 → 更新测试包 → 上第二台机器测。
@@ -179,7 +180,7 @@
 | 项 | 状态 | 思路/结论存档 | 估算 |
 |---|---|---|---|
 | **背景模糊（blurrects / CSGOBlurTarget）不生效** | 🅿️ **挂起（2026-09-17 用户拍板）** | 已关掉（`SE_PortSupportsBlurPasses()` → `false`，标注 PARKED）；**根因未找到**。完整记录 + 已排除清单 + 下次接手点见 `csgo_panorama_port_pitfalls.md` §I（P63–P65）。重新开工：先把开关改回 `true`，然后抓 sampler 里的纹理身份/尺寸 | —— |
-| **主菜单泛白**（与模糊解耦后仍存在） | ⬜ 未开工 | 关掉模糊后实测 mean 203.6 / >200 像素 65.6% ⇒ 背景原图太亮且没有任何压暗层。CS:GO 靠 `CSGOBlurTarget` 模糊+压暗，端口两条都缺 | —— |
+| **主菜单泛白** | ✅ 已修复（09-19） | 根因/修复/验收见 `csgo_panorama_port_breakthroughs.md` T1（SRGBREAD 丢失；mean 203.6→96.4）。视频假色也已修（A8 方案，P104） | —— |
 | **Panorama 模型查看器**（查看游戏自带 `.mdl`，不要 CS:GO 皮肤） | ⬜ 未开工 | **`docs/panorama_model_viewer_plan.md`**（含关键事实：`IVModelRender` 在 `engine/l_studio.cpp:812`、`CStaticProp` 是现成模板、`csgo_backbufferimage.cpp` 是面板先例、光照风险与对策、两个待拍板点） | ≈ 1 周 |
 | **库存（Inventory）** | ⬜ 未开工 | 结论：**界面可行、真数据不可行**。物品定义 `items_game.txt` 在本机 `E:\SteamLibrary\steamapps\common\csgo legacy\csgo\scripts\items\`（6.79 MB）；econ 源码在 CS:GO `game/shared/econ/`（43 文件，本仓只有 `ihasowner.h`）；`public/gcsdk/gcclient/` 不存在 + 无 Steam 登录 ⇒ 只能"真 schema + 假库存"；3D 检视 `ui_itempreview_panel.cpp` 6861 行属独立大工程 | ≈ 1.5–2 周 |
 | 补 JS 数据 API 后端（`InventoryAPI`/`LoadoutAPI`/…31 个） | ⬜ 未开工 | 这 31 个在 CS:GO 源码树 **0 命中**（Valve 闭源 game client），**不可照抄**，只能按内容实际调用面自建 | —— |

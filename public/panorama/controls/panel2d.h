@@ -927,6 +927,10 @@ private:
 	void BJSLoadLayoutFromString( const v8::FunctionCallbackInfo<v8::Value> &args );
 
 	void GetJSData( const v8::FunctionCallbackInfo< v8::Value > &args );
+
+	// SE port: JS form of SetHasClass that also accepts the one-argument call the shipped content
+	// uses (see the registration in panel2d.cpp).
+	void JSSetHasClass( const v8::FunctionCallbackInfo< v8::Value > &args );
 	
 	// event handler functions, these CANNOT be virtual, if you need to override then
 	// have this function call into another helper that is virtual to override behavior

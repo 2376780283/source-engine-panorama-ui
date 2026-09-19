@@ -293,8 +293,11 @@ static void SE_LayerProbe( const char *pFmt, ... )
 
 static bool SE_LayerProbeThis( int &nCounter, int nHead )
 {
+	// bring-up aid: the head burst, then a sparse sample.  Was 240 while the blur path was under the
+	// microscope; 1200 keeps a few lines per minute so a normal test run does not pay for the file I/O
+	// (every call is a fopen/fprintf/fflush/fclose on the render thread).
 	++nCounter;
-	return ( nCounter <= nHead ) || ( ( nCounter % 240 ) == 0 );
+	return ( nCounter <= nHead ) || ( ( nCounter % 1200 ) == 0 );
 }
 ConVar s_convarPanoramaDisableRenderCallbacks( "@panorama_disable_render_callbacks", "0", FCVAR_DEVELOPMENTONLY | FCVAR_CHEAT );
 ConVar s_convarPanoramaDisableDrawFancyQuad( "@panorama_disable_draw_fancy_quad", "0", FCVAR_DEVELOPMENTONLY | FCVAR_CHEAT );
@@ -1748,12 +1751,56 @@ bool CSource2Surface::BUpdateWindowSizeIfNeeded( uint32 nWidth, uint32 nHeight )
 //-----------------------------------------------------------------------------
 void CSource2Surface::BeginFrame( const BeginFrameRenderCommand_t &renderCommand )
 {
-	// SE port (bring-up aid): rate-limited frame counter for the surface render thread.
+	// SE port (bring-up aid): frame pacing probe - the interesting "stutter" question is whether the
+	// frame rate is low in general or whether there are periodic spikes, and that cannot be read from
+	// a screenshot.  One "FRAME" line per second (fps + average + worst frame of the window).
 	{
-		static int s_nSEBeginFrame = 0;
-		s_nSEBeginFrame++;
-		if ( ( s_nSEBeginFrame % 60 ) == 0 )
+		static double s_flLastFrame = 0.0;
+		static double s_flWindowStart = 0.0;
+		static int s_nWindowFrames = 0;
+		static double s_flWindowSumMs = 0.0;
+		static double s_flWindowMaxMs = 0.0;
+		static int s_nSEFrameProbe = 0;
+
+		double const flNow = Plat_FloatTime();
+		if ( s_flLastFrame > 0.0 )
 		{
+			double const flFrameMs = ( flNow - s_flLastFrame ) * 1000.0;
+			++s_nWindowFrames;
+			s_flWindowSumMs += flFrameMs;
+			if ( flFrameMs > s_flWindowMaxMs ) { s_flWindowMaxMs = flFrameMs; }
+		}
+		s_flLastFrame = flNow;
+		if ( s_flWindowStart <= 0.0 ) { s_flWindowStart = flNow; }
+
+		if ( flNow - s_flWindowStart >= 1.0 )
+		{
+			if ( s_nSEFrameProbe < 900 )
+			{
+				++s_nSEFrameProbe;
+
+				// Is our window the foreground one?  A multi second "frame" gap that happens while the game
+				// is in the background is the engine throttling, not the stutter the user reports - so it
+				// has to be part of the line.
+				DWORD dwForegroundPid = 0;
+				HWND hForeground = GetForegroundWindow();
+				if ( hForeground ) { GetWindowThreadProcessId( hForeground, &dwForegroundPid ); }
+				bool const bForeground = ( dwForegroundPid == GetCurrentProcessId() );
+
+				FILE *fp = fopen( "D:\\cstrike\\se_ui_probe.txt", "a" );
+				if ( fp )
+				{
+					double const flAvg = ( s_nWindowFrames > 0 ) ? ( s_flWindowSumMs / s_nWindowFrames ) : 0.0;
+					fprintf( fp, "FRAME #%d fps=%d avg=%.1fms max=%.1fms fg=%d\n",
+						s_nSEFrameProbe, s_nWindowFrames, flAvg, s_flWindowMaxMs, bForeground ? 1 : 0 );
+					fflush( fp );
+					fclose( fp );
+				}
+			}
+			s_flWindowStart = flNow;
+			s_nWindowFrames = 0;
+			s_flWindowSumMs = 0.0;
+			s_flWindowMaxMs = 0.0;
 		}
 	}
 

@@ -47,6 +47,10 @@
 // SE port (temporary bring-up probe): the process exits silently while the UI engine is being set up,
 // and Warning() output is lost with it, so these probes append straight to a file.
 #include "panorama/panoramatypes.h"
+// SE port (UI sounds): provides IEngineSound and IENGINESOUND_CLIENT_INTERFACE_VERSION for the sound
+// interfaces that Connect() below hands to the s1wrapper sound ops ("IEngineSoundClient003", which
+// is what this tree's engine.dll publishes - see engine/EngineSoundClient.cpp).
+#include "engine/IEngineSound.h"
 // SE port (batch E): installs the cstrike15 UI component JS bindings (the "UiToolkitAPI" global).
 #include "se_uicomponents.h"
 // SE port (temporary bring-up probe): the process exits silently while the UI engine is being set up,
@@ -202,7 +206,31 @@ bool CPanoramaUIClient::Connect( CreateInterfaceFn factory )
 	//                     (ClientCmd_Unrestricted); the engine exposes its implementation as
 	//                     VENGINE_CLIENT_INTERFACE_VERSION (engine/cdll_engine_int.cpp).
 	engine = (IVEngineClient *)factory( VENGINE_CLIENT_INTERFACE_VERSION, NULL );
-	Msg( "panoramauiclient: gameuifuncs=%p gameeventmanager=%p engine=%p\n", (void *)gameuifuncs, (void *)gameeventmanager, (void *)engine );
+
+	//   enginesound / soundemittersystem - the panorama UI sound system (CUISoundSystem::PlaySound in
+	//                     panorama/uisoundsystem.cpp) plays CS:GO's "UIPanorama.*" sound-script entries
+	//                     through the s1wrapper sound ops (panorama_s1wrapper/wrap_sound.cpp).  Those
+	//                     ops read g_pEnginesound and g_pSoundEmitterSystemBase, which this port had
+	//                     declared and defined but never assigned - every PlaySoundEffect from the
+	//                     content died on the wrapper's NULL check and the whole UI was silent.
+	//                     The sound emitter system is loaded by the game client app system group
+	//                     (game/client/cdll_client_int.cpp AddAppSystem "soundemittersystem") and may
+	//                     not have connected yet, so the factory is also handed to wrap_sound.cpp,
+	//                     which retries the lookups on first use.  Version strings: engine.dll
+	//                     publishes IEngineSoundClient003 (engine/EngineSoundClient.cpp), and the
+	//                     sound emitter system publishes VSoundEmitter002, the version that
+	//                     public/SoundEmitterSystem/isoundemittersystembase.h declares (the
+	//                     "VSoundEmitter003" in public/interfaces/interfaces.h is stale, hence the
+	//                     literal below).
+	extern class IEngineSound *g_pEnginesound;
+	extern class ISoundEmitterSystemBase *g_pSoundEmitterSystemBase;
+	extern CreateInterfaceFn g_pPanoramaConnectFactory;
+	g_pPanoramaConnectFactory = factory;
+	g_pEnginesound = (IEngineSound *)factory( IENGINESOUND_CLIENT_INTERFACE_VERSION, NULL );
+	g_pSoundEmitterSystemBase = (ISoundEmitterSystemBase *)factory( "VSoundEmitter002", NULL );
+
+	Msg( "panoramauiclient: gameuifuncs=%p gameeventmanager=%p engine=%p enginesound=%p soundemittersystem=%p\n",
+		(void *)gameuifuncs, (void *)gameeventmanager, (void *)engine, (void *)g_pEnginesound, (void *)g_pSoundEmitterSystemBase );
 
 	return true;
 

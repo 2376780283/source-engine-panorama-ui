@@ -546,11 +546,17 @@ bool CSource2DoubleBufferedYUV420Texture::BUpdateTextureDataInternal( STexture &
 	{
 		// Luminance component
 		// Create as anonymous. Not on main thread during known resource system tolerant interval
+		// SE port (webm false-color fix, 2026-09-19): the planes must be A8, not I8/L8.  The panorama
+		// shaders enable hardware sRGB read on their samplers (main-menu washout fix, T1), and the
+		// sRGB decode LUT applies to the RGB/luminance channels of an I8 texture - but never to the
+		// alpha channel of an A8 texture.  The YUV shader branch (panoramafancy_ps30.fxc) therefore
+		// samples the planes from .a and expects raw BT.601 values, exactly like CS:GO's
+		// TEXTURE_BINDFLAGS_NONE for texType==YUV (PanDxSetTexturesFancy).
 		CTextureCreationDesc textureDesc;
 		textureDesc.m_nWidth = nYWidth;
 		textureDesc.m_nHeight = nYHeight;
 		textureDesc.m_nDepth = 1;
-		textureDesc.m_nImageFormat = IMAGE_FORMAT_I8;
+		textureDesc.m_nImageFormat = IMAGE_FORMAT_A8;
 		textureDesc.m_nNumMipLevels = 1;
 		textureDesc.m_nMultisampleType = RENDER_MULTISAMPLE_NONE;
 		textureDesc.m_nFlags = TSPEC_SUGGEST_CLAMPS | TSPEC_SUGGEST_CLAMPT | TSPEC_NO_LOD;
@@ -568,7 +574,7 @@ bool CSource2DoubleBufferedYUV420Texture::BUpdateTextureDataInternal( STexture &
 		dataDesc.m_nWidth = nYWidth;
 		dataDesc.m_nHeight = nYHeight;
 		dataDesc.m_nDepth = 1;
-		dataDesc.m_nImageFormat = IMAGE_FORMAT_I8;
+		dataDesc.m_nImageFormat = IMAGE_FORMAT_A8;
 		dataDesc.m_nNumMipLevels = 1;
 
 		// SE port fix: hand the S1 wrapper tightly packed plane data and let *it* own a copy (it copies
@@ -610,7 +616,7 @@ bool CSource2DoubleBufferedYUV420Texture::BUpdateTextureDataInternal( STexture &
 		textureDesc.m_nWidth = nUVWidth;
 		textureDesc.m_nHeight = nUVHeight;
 		textureDesc.m_nDepth = 1;
-		textureDesc.m_nImageFormat = IMAGE_FORMAT_I8;
+		textureDesc.m_nImageFormat = IMAGE_FORMAT_A8;
 		textureDesc.m_nNumMipLevels = 1;
 		textureDesc.m_nMultisampleType = RENDER_MULTISAMPLE_NONE;
 		textureDesc.m_nFlags = TSPEC_SUGGEST_CLAMPS | TSPEC_SUGGEST_CLAMPT | TSPEC_NO_LOD;
@@ -628,7 +634,7 @@ bool CSource2DoubleBufferedYUV420Texture::BUpdateTextureDataInternal( STexture &
 		dataDesc.m_nWidth = nUVWidth;
 		dataDesc.m_nHeight = nUVHeight;
 		dataDesc.m_nDepth = 1;
-		dataDesc.m_nImageFormat = IMAGE_FORMAT_I8;
+		dataDesc.m_nImageFormat = IMAGE_FORMAT_A8;
 		dataDesc.m_nNumMipLevels = 1;
 
 		// SE port fix: same as the luminance plane above - the wrapper makes its own copy, so no pooled
@@ -666,7 +672,7 @@ bool CSource2DoubleBufferedYUV420Texture::BUpdateTextureDataInternal( STexture &
 		textureDesc.m_nWidth = nUVWidth;
 		textureDesc.m_nHeight = nUVHeight;
 		textureDesc.m_nDepth = 1;
-		textureDesc.m_nImageFormat = IMAGE_FORMAT_I8;
+		textureDesc.m_nImageFormat = IMAGE_FORMAT_A8;
 		textureDesc.m_nNumMipLevels = 1;
 		textureDesc.m_nMultisampleType = RENDER_MULTISAMPLE_NONE;
 		textureDesc.m_nFlags = TSPEC_SUGGEST_CLAMPS | TSPEC_SUGGEST_CLAMPT | TSPEC_NO_LOD;
@@ -684,7 +690,7 @@ bool CSource2DoubleBufferedYUV420Texture::BUpdateTextureDataInternal( STexture &
 		dataDesc.m_nWidth = nUVWidth;
 		dataDesc.m_nHeight = nUVHeight;
 		dataDesc.m_nDepth = 1;
-		dataDesc.m_nImageFormat = IMAGE_FORMAT_I8;
+		dataDesc.m_nImageFormat = IMAGE_FORMAT_A8;
 		dataDesc.m_nNumMipLevels = 1;
 
 		// SE port fix: same as the luminance plane above - the wrapper makes its own copy, so no pooled
