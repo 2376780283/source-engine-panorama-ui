@@ -63,7 +63,7 @@
 #include "ienginevgui.h"	// VGuiPanel_t / EngineVGui()->GetPanel
 #include "vgui_baseui_interface.h"	// EngineVGui()
 #include <GameUI/IGameConsole.h>	// IGameConsole (SE console bridge below, 2026-09-18)
-#include "vgui/ipanel.h"	// vgui::ipanel()->SetVisible
+#include "vgui/IPanel.h"	// vgui::ipanel()->SetVisible
 #include <vgui_controls/Controls.h>	// vgui::ipanel() lives here
 #include <vgui/ISurface.h>	// vgui::surface()->IsCursorLocked/IsCursorVisible (probe)
 #include "seport/se_background_movie.h"	// SE_PortLoadMainMenuBackgroundMovie (background webm)
