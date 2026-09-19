@@ -893,11 +893,12 @@ public:
 
 FORCEINLINE bool Plat_IsWindowFocused( PlatWindow_t  hWindow ) 
 {
-#ifdef PLATFORM_POSIX
-	return true;
-#else
+#if defined(PLATFORM_WINDOWS) || defined(_WIN32)
 	return ((HWND)hWindow == ::GetFocus());
+#else
+	return true;
 #endif
+}
 }
 #ifdef PLATFORM_WINDOWS
 FORCEINLINE HWND Plat_WindowToOsSpecificHandle( PlatWindow_t hWindow )
