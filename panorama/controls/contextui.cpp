@@ -11,6 +11,9 @@
 
 using namespace panorama;
 
+// SE port (temporary tooltip probe, shares ui_tooltip_manager.cpp's probe file).
+extern void SE_PortTooltipProbe( const char *pMsgFmt, ... );
+
 /*static*/ void CContextUI::SetupTargetForPanel( SLayoutTarget &layoutTarget, CPanel2D *pPanel, IUIWindow *pContainerWindow )
 {
 	float flWindowWidth = pContainerWindow ? pContainerWindow->GetSurfaceWidth() : 0.0f;
@@ -62,6 +65,12 @@ using namespace panorama;
 	float flWindowWidth, flWindowHeight;
 	flWindowWidth = pWindow->GetSurfaceWidth();
 	flWindowHeight = pWindow->GetSurfaceHeight();
+
+	// SE port (temporary tooltip probe): target rect + window size + first candidate position.
+	SE_PortTooltipProbe( "TTIP ctxui: panel=%s win=%.0fx%.0f target=(%.0f,%.0f %.0fx%.0f) vis=%d first_pos=%d",
+		pContainer->GetID() ? pContainer->GetID() : "?", flWindowWidth, flWindowHeight,
+		layoutTarget.flTargetX, layoutTarget.flTargetY, layoutTarget.flTargetWidth, layoutTarget.flTargetHeight,
+		( int )layoutTarget.bTargetVisible, ( int )layoutPosition.ePositions[0] );
 
 	// Load the components of the tooltip.  These might be NULL
 	CPanel2D *pLeftArrowPanel = pContainer->FindChildTraverse( "LeftArrow" );
@@ -306,10 +315,12 @@ using namespace panorama;
 		}
 
 		SetContextUIPanelPosition( pContainer, flContainerX, flContainerY );
+		SE_PortTooltipProbe( "TTIP ctxui result: pos=%d container=(%.0f,%.0f)", ( int )ePosition, flContainerX, flContainerY );
 		return ePosition;
 	}
 
 	// Can't fit this context ui anywhere? Just throw it in the top left corner. Tooltip or target is probably just way too big.
+	SE_PortTooltipProbe( "TTIP ctxui: NO FIT -> top-left corner (0,0) panel=%s", pContainer->GetID() ? pContainer->GetID() : "?" );
 	CUILength lenZero( 0, CUILength::k_EUILengthLength );
 	pContainer->SetPosition( lenZero, lenZero, lenZero );
 
@@ -323,8 +334,15 @@ using namespace panorama;
 		return;
 
 	// Always place things on pixel boundaries or else we get fuzzy text
-	float xPosition = RoundFloatToInt( x / pPanel->GetActualUIScaleX() );
-	float yPosition = RoundFloatToInt( y / pPanel->GetActualUIScaleY() );
+	float flSETipScaleX = pPanel->GetActualUIScaleX();
+	float flSETipScaleY = pPanel->GetActualUIScaleY();
+	float xPosition = RoundFloatToInt( x / flSETipScaleX );
+	float yPosition = RoundFloatToInt( y / flSETipScaleY );
+
+	// SE port (temporary tooltip probe): the applied translate + the ui scale it was divided by
+	// (a zero scale here would push the panel to +/- infinity and make it invisible).
+	SE_PortTooltipProbe( "TTIP ctxui apply: panel=%s x=%.0f y=%.0f scale=%.3fx%.3f -> (%.0f,%.0f)",
+		pPanel->GetID() ? pPanel->GetID() : "?", x, y, flSETipScaleX, flSETipScaleY, xPosition, yPosition );
 
 	// Use a transform rather than SetPosition, because flow layout already uses SetPosition
 	CUtlVector< CTransform3D* > vecTransforms;

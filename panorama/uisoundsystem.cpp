@@ -5,6 +5,11 @@
 
 #include "stdafx.h"
 #include "uisoundsystem.h"
+// SE port (UI sounds): the "UIPanorama.*" fallback in CUISoundSystem::PlaySound below plays through
+// the s1wrapper sound ops, exactly like CUISoundSystemSource2 does upstream (see
+// panorama/source2/uisoundsystemsource2.cpp) - same two headers it uses.
+#include "soundsystem/isoundsystem.h"
+#include "soundsystem/isoundopsystem.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include <tier0/memdbgon.h>
@@ -397,6 +402,37 @@ void *CUISoundSystem::PlaySound( const char *pchSoundName, IUIPanel* pUIPanel , 
 #else
 		return NULL;
 #endif
+	}
+
+	// SE port (UI sounds): CS:GO dispatches its UI sounds as sound-script names -
+	// PlaySoundEffect("UIPanorama.generic_button_press") and friends from
+	// scripts/game_sounds_ui_panorama.txt - not as files under {sounds}, so the .wav/.mp3 probe above
+	// never matches; and with SUPPORTS_AUDIO undefined in this port even a matching file could not
+	// play.  Route everything the file probe did not handle through the sound ops, mirroring
+	// CUISoundSystemSource2::PlaySound: wrap_sound.cpp resolves the script name to its wave (through
+	// the IEngineSound/ISoundEmitterSystemBase that panoramauiclient's Connect() supplies) and plays
+	// it with the engine's EmitSound.
+	if ( g_pSoundOpSystem )
+	{
+		SoundEventGuid_t nGuid = g_pSoundOpSystem->StartSoundEvent( pchSoundName, pUIPanel, SOUND_FROM_LOCAL_PLAYER, VOICE_LAYER_UI, INVALID_SOSRANDSEED, NULL, 0, pSoundPosition );
+		if ( nGuid != INVALID_SOUNDEVENT_GUID )
+		{
+			// The caller's volume (scaled by the master/effects volume, honoring CUISoundSystem::
+			// SetSoundMuted) and pan become sound op parameters; the wrapper applies "volume_atten".
+			float flEffectiveVolume = flVolume * GetSoundVolume( soundType );
+			if ( flEffectiveVolume != 1.0f )
+			{
+				g_pSoundOpSystem->SetSoundEventParam( nGuid, "volume_atten", CSosFieldDataFloat( flEffectiveVolume ) );
+			}
+			if ( flVolumePan != 0.5f )
+			{
+				g_pSoundOpSystem->SetSoundEventParam( nGuid, "pan", CSosFieldDataFloat( flVolumePan ) );
+			}
+
+			// Same HAUDIOSAMPLE encoding as CUISoundSystemSource2::ConvertSoundEventGuidToHAUDIOSAMPLE
+			// (that helper is a static member of the Source 2 subclass, so it is spelled out here).
+			return reinterpret_cast< void * >( ( intp )nGuid.GetRaw() );
+		}
 	}
 
 	Msg( "PlaySound attempted to play a sound that doesn't exist: %s\n", pchSoundName );

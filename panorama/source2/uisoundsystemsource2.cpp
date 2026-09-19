@@ -7,6 +7,8 @@
 #include "uisoundsystemsource2.h"
 #include "soundsystem/isoundopsystem.h"
 #include "soundsystem/isoundsystem.h"
+// SE port (temporary UI sound probe in OnPlaySoundEffect).
+#include <stdio.h>
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include <tier0/memdbgon.h>
@@ -237,6 +239,21 @@ void CUISoundSystemSource2::AudioSinkAvailabilityChanged( bool bAvailable )
 //-----------------------------------------------------------------------------
 bool CUISoundSystemSource2::OnPlaySoundEffect( const CPanelPtr< IUIPanel > &pPanel, const char *pchSoundEffect, const char* panelID )
 {
+	// SE port (temporary UI sound probe): proves the event reached the active (Source 2) sound system.
+	{
+		static int s_nProbed = 0;
+		if ( s_nProbed < 40 )
+		{
+			++s_nProbed;
+			FILE *fp = fopen( "D:\\cstrike\\se_sound_probe.txt", "a" );
+			if ( fp )
+			{
+				fprintf( fp, "SNDEVT name=%s panel=%s\n", pchSoundEffect ? pchSoundEffect : "(null)", panelID ? panelID : "(null)" );
+				fclose( fp );
+			}
+		}
+	}
+
 	if ( !UIEngine()->BIsRunning() )
 	{
 		//If the UI Engine is shutting down we don't play sound effects.

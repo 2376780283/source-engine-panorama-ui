@@ -9,6 +9,9 @@
 // memdbgon must be the last include file in a .cpp file!!!
 #include <tier0/memdbgon.h>
 
+// SE port (temporary tooltip probe, implemented in panorama/ui_tooltip_manager.cpp).
+extern void SE_PortTooltipProbe( const char *pMsgFmt, ... );
+
 REGISTER_PANEL2D( CUI_Tooltip_Text, TooltipText )
 
 using namespace panorama;
@@ -26,8 +29,12 @@ CUI_Tooltip_Text::CUI_Tooltip_Text( IUIWindow *pParent, const char *pchName ) : 
 void CUI_Tooltip_Text::Initialize()
 {
 	CPanel2D *pContentsPanel = GetContentsPanel();
-	DbgVerify( pContentsPanel->BLoadLayout( "file://{resources}/layout/tooltips/tooltip_text.xml" ) );
-	m_pTextLabel = panel_cast< CLabel * >( pContentsPanel->FindChildInLayoutFile( "TextLabel" ) );
+	bool bLayoutLoaded = pContentsPanel ? pContentsPanel->BLoadLayout( "file://{resources}/layout/tooltips/tooltip_text.xml" ) : false;
+	SE_PortTooltipProbe( "TTIP text BLoadLayout(tooltip_text.xml)=%d contents=%p", ( int )bLayoutLoaded, ( void * )pContentsPanel );
+	DbgVerify( bLayoutLoaded );
+
+	m_pTextLabel = pContentsPanel ? panel_cast< CLabel * >( pContentsPanel->FindChildInLayoutFile( "TextLabel" ) ) : nullptr;
+	SE_PortTooltipProbe( "TTIP text label=%p", ( void * )m_pTextLabel );
 }
 
 CUI_Tooltip_Text::~CUI_Tooltip_Text()

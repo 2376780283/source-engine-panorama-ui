@@ -38,6 +38,19 @@ def build(bld):
 		'panoramauiclient.cpp',
 		'../panorama_s1wrapper/utlstringbuilder.cpp',
 		'../panorama_s1wrapper/wrap_misc.cpp',
+		# SE port: vgui_controls requires every module that uses its panels to compile this file itself
+		# (it defines the control-factory table and the "you forgot to add vgui_controls.cpp" sentinel
+		# that vgui_controls.lib references - without it the link fails with LNK2001 on
+		# g_nYou_Must_Add_Public_Vgui_Controls_Vgui_ControlsCpp_To_Your_Project).  gameui/wscript and
+		# engine/wscript list it the same way; the console panels (CConsoleDialog/CConsolePanel) are
+		# vgui_controls panels, hence the new requirement in this module.
+		'../public/vgui_controls/vgui_controls.cpp',
+		# SE port: ... and it also requires this one.  vgui_controls.cpp::VGui_InitInterfacesList() checks
+		# _heapmin() == 1 and calls Error( "Must include memoverride.cpp in your project." ) otherwise -
+		# which is exactly the Engine Error that showed up when the panorama module first tried to bind
+		# its vgui interfaces.  Every vgui_controls consumer compiles it (gameui/wscript, engine/wscript,
+		# materialsystem/wscript, inputsystem/wscript, ...).
+		'../public/tier0/memoverride.cpp',
 		# SE port: CS:GO creates its main-menu background movie from the game-client panel class
 		# (csgo_mainmenu.cpp::LoadBackgroundMovie); this is that code, exported for engine.dll.
 		'se_background_movie.cpp',
@@ -88,6 +101,15 @@ def build(bld):
 		# top popup / dispatch the content's "Cancelled" panel event).  Exported to engine/keys.cpp through
 		# engine/panoramaenginehandler.cpp, same GetProcAddress pattern as the tick above.
 		'se_escape.cpp',
+		# SE port (2026-09-18, "console into panorama"): CS:GO's console is vgui2 code owned by the module
+		# that also hosts panorama (game/client/cstrike15/gameui/gameconsole.cpp in client.dll) - the engine
+		# gets IGameConsole from that module's factory.  This module plays that role now: the engine asks
+		# se_gameconsole.cpp::SE_PortGetGameConsole() first and only falls back to the CS:S gameui.dll
+		# console when it returns NULL.  (Note: panorama/controls/debug/console.cpp is *not* this - that one
+		# is commented out in CS:GO's own panorama.vpc as well.)
+		'../panorama/seport/gameclient/cstrike15/gameui/gameconsole.cpp',
+		'../panorama/seport/gameclient/cstrike15/gameui/gameconsoledialog.cpp',
+		'se_gameconsole.cpp',
 		# SE port: batch E (JS component framework) - CS:GO's cstrike15 uicomponents, which is what
 		# publishes the "UiToolkitAPI" global to the panorama JavaScript (popups/tooltips/context menus/
 		# deny-input + the JS callback plumbing).  See docs/panorama_stage2_plan.md.

@@ -37,6 +37,12 @@ static const int64 k_nAutoReloadFailedFileLoadDelay = 100 * k_nThousand;
 // SE port: script that installs the CS:GO API objects into a layout's JavaScript context.  It is injected
 // as the first script of every layout - see CLayoutFile::BAddJavaScript.
 #define SE_PORT_API_SHIM "file://{resources}/scripts/se_api_shim.js"
+// SE port: the game mode / map group table (generated from gamemodes.txt by build/_gen_gametypes.ps1)
+// and the simulated lobby / matchmaking / rank data layer.  Both are injected right after the shim:
+// the data first (the sim reads it while it loads), then the sim, which replaces the shim's "no data"
+// placeholders for LobbyAPI / PartyListAPI / PartyBrowserAPI / SessionUtil / GameTypesAPI / rank.
+#define SE_PORT_GAME_TYPES "file://{resources}/scripts/se_gametypes.js"
+#define SE_PORT_SESSION_SIM "file://{resources}/scripts/se_session_sim.js"
 
 #if !defined( SOURCE2_PANORAMA )
 static CCommandLineParam g_DevMode( "-dev", "Developer mode" );
@@ -2967,6 +2973,11 @@ bool CLayoutFile::BAddJavaScript( const char *pchPath )
 			// do not fail the layout if the shim itself cannot be loaded
 			BAddJavaScript( SE_PORT_API_SHIM );
 		}
+
+		// SE port: the data table and the simulated session layer load after the shim and override its
+		// placeholders for the lobby / matchmaking / rank APIs (see se_session_sim.js).
+		BAddJavaScript( SE_PORT_GAME_TYPES );
+		BAddJavaScript( SE_PORT_SESSION_SIM );
 	}
 
 	CUtlString resolvedPath;

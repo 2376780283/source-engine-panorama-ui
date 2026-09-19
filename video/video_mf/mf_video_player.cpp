@@ -446,28 +446,84 @@ public:
 
 		const uint32 unTargetMS = GetCurrentPlaybackTime();
 
-		for ( int iGuard = 0; iGuard < 8; ++iGuard )
+	// SE port bring-up probe: the video path runs *on the UI thread* (VideoPlaybackRunFrame), so its
+	// per frame cost is part of the menu's frame time.  ReadNextSample() is a synchronous (blocking)
+	// Media Foundation call that decodes a frame, and PresentSample() does the planar conversion plus
+	// the texture upload - timing the two apart decides where the time goes (a decode thread is a
+	// very different fix from a cheaper conversion).  One "MFFRAME" line per second.
+	static double s_flMFWindowStart = 0.0;
+	static int s_nMFDecodes = 0, s_nMFPresents = 0, s_nMFProbe = 0;
+	static double s_flMFDecodeSumMs = 0.0, s_flMFDecodeMaxMs = 0.0;
+	static double s_flMFPresentSumMs = 0.0, s_flMFPresentMaxMs = 0.0;
+
+	for ( int iGuard = 0; iGuard < 8; ++iGuard )
+	{
+		if ( !m_pPendingSample )
 		{
-			if ( !m_pPendingSample )
-			{
-				if ( !ReadNextSample() )
-					break;
-			}
-
-			if ( !m_pPendingSample )
+			double const flDecodeStart = Plat_FloatTime();
+			bool const bRead = ReadNextSample();
+			double const flDecodeMs = ( Plat_FloatTime() - flDecodeStart ) * 1000.0;
+			++s_nMFDecodes;
+			s_flMFDecodeSumMs += flDecodeMs;
+			if ( flDecodeMs > s_flMFDecodeMaxMs ) { s_flMFDecodeMaxMs = flDecodeMs; }
+			if ( !bRead )
 				break;
-
-			LONGLONG llSampleTime = 0;
-			m_pPendingSample->GetSampleTime( &llSampleTime );
-			const uint32 unSampleMS = (uint32)( llSampleTime / 10000 );
-			if ( unSampleMS > unTargetMS )
-				break;						// not due yet - wait for the next call
-
-			PresentSample( m_pPendingSample );
-			SE_SAFE_RELEASE( m_pPendingSample );
 		}
 
-		PumpAudio();
+		if ( !m_pPendingSample )
+			break;
+
+		LONGLONG llSampleTime = 0;
+		m_pPendingSample->GetSampleTime( &llSampleTime );
+		const uint32 unSampleMS = (uint32)( llSampleTime / 10000 );
+		if ( unSampleMS > unTargetMS )
+			break;						// not due yet - wait for the next call
+
+		// Late frames are *dropped* instead of presented.  The playback clock is the wall clock, and a
+		// window that was in the background (engine throttles RunFrame when occluded) comes back
+		// seconds behind - presenting every one of those frames turned the return into a burst of
+		// 150+ decodes/copies (measured: ~0.7-1.5 s of stutter right after refocusing).  The audio
+		// side already drops late samples the same way (SE_MF_AUDIO_CATCHUP_MS).
+		if ( unTargetMS - unSampleMS > 250 )
+		{
+			SE_SAFE_RELEASE( m_pPendingSample );
+			continue;
+		}
+
+		double const flPresentStart = Plat_FloatTime();
+		PresentSample( m_pPendingSample );
+		double const flPresentMs = ( Plat_FloatTime() - flPresentStart ) * 1000.0;
+		++s_nMFPresents;
+		s_flMFPresentSumMs += flPresentMs;
+		if ( flPresentMs > s_flMFPresentMaxMs ) { s_flMFPresentMaxMs = flPresentMs; }
+		SE_SAFE_RELEASE( m_pPendingSample );
+	}
+
+	{
+		double const flNow = Plat_FloatTime();
+		if ( s_flMFWindowStart <= 0.0 ) { s_flMFWindowStart = flNow; }
+		if ( flNow - s_flMFWindowStart >= 1.0 )
+		{
+			if ( s_nMFProbe < 900 )
+			{
+				++s_nMFProbe;
+				SE_MFProbe( "MFFRAME #%d decodes=%d dec_avg=%.2fms dec_max=%.2fms presents=%d pres_avg=%.2fms pres_max=%.2fms\n",
+					s_nMFProbe, s_nMFDecodes,
+					s_nMFDecodes ? ( s_flMFDecodeSumMs / s_nMFDecodes ) : 0.0, s_flMFDecodeMaxMs,
+					s_nMFPresents,
+					s_nMFPresents ? ( s_flMFPresentSumMs / s_nMFPresents ) : 0.0, s_flMFPresentMaxMs );
+			}
+			s_flMFWindowStart = flNow;
+			s_nMFDecodes = 0;
+			s_nMFPresents = 0;
+			s_flMFDecodeSumMs = 0.0;
+			s_flMFDecodeMaxMs = 0.0;
+			s_flMFPresentSumMs = 0.0;
+			s_flMFPresentMaxMs = 0.0;
+		}
+	}
+
+	PumpAudio();
 
 		// TEMPORARY A/V sync probe: wall clock vs the audio reader's position and the engine queue.
 		if ( m_bAudioReady && m_pAudioCallback && Plat_FloatTime() - m_flSyncProbeTime >= 1.0 )

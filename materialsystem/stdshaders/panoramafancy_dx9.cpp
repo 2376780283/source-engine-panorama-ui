@@ -19,8 +19,8 @@
 DEFINE_FALLBACK_SHADER( panoramafancy, panoramafancy_dx9 )
 BEGIN_VS_SHADER( panoramafancy_dx9, "Help for panorama" )
 	BEGIN_SHADER_PARAMS
-		SHADER_PARAM( BLENDSTATE, SHADER_PARAM_TYPE_INTEGER, "0", "" )
-		SHADER_PARAM( RENDERATTR, SHADER_PARAM_TYPE_INTEGER, "0", "" )
+	SHADER_PARAM( BLENDSTATE, SHADER_PARAM_TYPE_INTEGER, "0", "" )
+	SHADER_PARAM( RENDERATTR, SHADER_PARAM_TYPE_INTEGER, "0", "" )
 #ifdef PLATFORM_64BITS
 		SHADER_PARAM( RENDERATTR_HIGH, SHADER_PARAM_TYPE_INTEGER, "0", "" )
 #endif
@@ -60,6 +60,20 @@ BEGIN_VS_SHADER( panoramafancy_dx9, "Help for panorama" )
 			pShaderShadow->EnableTexture( SHADER_SAMPLER1, true );
 			pShaderShadow->EnableTexture( SHADER_SAMPLER2, true );
 			pShaderShadow->EnableTexture( SHADER_SAMPLER3, true );
+			// SE port (main-menu washout fix): CS:GO binds these samplers with TEXTURE_BINDFLAGS_SRGBREAD
+			// (panoramafancy_cshader.cpp:174-186).  The flag was lost because this tree's
+			// CBaseShader::BindTexture() takes no bind-flags argument - sampled values stayed sRGB while
+			// the rest of the pipeline blends linear and encodes once on output, so every image was
+			// gamma-lifted twice (the washed-out main menu).  The SE transition table commits this
+			// shadow state as D3DSAMP_SRGBTEXTURE on PC (TransitionTable.cpp ApplySRGBReadEnable).
+			// NOTE: unconditional for now.  A $srgbread-gated variant + per-texType material routing
+			// (the CS:GO-equivalent YUV exemption) regressed REGULAR draws back to washed-out and was
+			// rolled back - suspected transition-table interaction when two snapshots of the same
+			// shader differ only in D3DSAMP_SRGBTEXTURE; root cause TBD (pitfalls P104).
+			pShaderShadow->EnableSRGBRead( SHADER_SAMPLER0, true );
+			pShaderShadow->EnableSRGBRead( SHADER_SAMPLER1, true );
+			pShaderShadow->EnableSRGBRead( SHADER_SAMPLER2, true );
+			pShaderShadow->EnableSRGBRead( SHADER_SAMPLER3, true );
 
 			pShaderShadow->EnableAlphaToCoverage( false );
 			pShaderShadow->EnableBlending( true );

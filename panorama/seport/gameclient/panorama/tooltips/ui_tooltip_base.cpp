@@ -11,6 +11,9 @@
 // memdbgon must be the last include file in a .cpp file!!!
 #include <tier0/memdbgon.h>
 
+// SE port (temporary tooltip probe, implemented in panorama/ui_tooltip_manager.cpp).
+extern void SE_PortTooltipProbe( const char *pMsgFmt, ... );
+
 REGISTER_PANEL2D( CUI_Tooltip_Base, TooltipBase )
 REGISTER_PANEL2D_FACTORY( CUI_TooltipContents, TooltipContents )
 
@@ -28,8 +31,17 @@ CUI_Tooltip_Base::CUI_Tooltip_Base( IUIWindow *pParent, const char *pchName ) : 
 
 void CUI_Tooltip_Base::Initialize()
 {
-	DbgVerify( BLoadLayout( "file://{resources}/layout/tooltips/tooltip_base.xml" ) );
+	bool bLayoutLoaded = BLoadLayout( "file://{resources}/layout/tooltips/tooltip_base.xml" );
+	SE_PortTooltipProbe( "TTIP base BLoadLayout(tooltip_base.xml)=%d", ( int )bLayoutLoaded );
+	DbgVerify( bLayoutLoaded );
+
 	m_pContentsPanel = panel_cast< CUI_TooltipContents * >( FindChildInLayoutFile( "Contents" ) );
+	SE_PortTooltipProbe( "TTIP base contents=%p", ( void * )m_pContentsPanel );
+	if ( !m_pContentsPanel )
+	{
+		return;
+	}
+
 	m_pContentsPanel->SetTooltip( this );
 
 	if ( !UIEngine()->BHaveEventHandlersRegisteredForType( CUI_Tooltip_Base::GetPanelSymbol() ) )

@@ -678,6 +678,12 @@ bool CUIPanel::BLoadLayout( const char *pchFile, bool bOverrideExisting, bool bP
 {
 	VPROF_BUDGET( "CUIPanel::BLoadLayout", VPROF_BUDGETGROUP_TENFOOT );
 
+	// SE port probe (bring-up aid): a page switch creates a fresh JavaScript context and re-applies
+	// the layout (XML -> panels -> styles -> layout scripts + the injected SE scripts).  The user
+	// report is "the first click on a page stutters, the next one does not", so this is the number
+	// that has to be attributed: one LAYOUTLOAD line per sync layout load.
+	double const flSELayoutLoadStart = Plat_FloatTime();
+
 	V8_CtxDbgMsg( "BLoadLayout: Panel %x (%s), loading layout file %s\n", this, GetID(), pchFile );
 
 	// only load one layout file
@@ -719,6 +725,22 @@ bool CUIPanel::BLoadLayout( const char *pchFile, bool bOverrideExisting, bool bP
 		AddStyleFlag( k_EStyleFlagLayoutLoadFailed );
 		AssertMsg1( false, "Couldn't apply layout file %s", pchFile );
 		return false;
+	}
+
+	{
+		static int s_nSELayoutLoadProbe = 0;
+		if ( s_nSELayoutLoadProbe < 300 )
+		{
+			++s_nSELayoutLoadProbe;
+			FILE *fp = fopen( "D:\\cstrike\\se_ui_probe.txt", "a" );
+			if ( fp )
+			{
+				fprintf( fp, "LAYOUTLOAD #%d ms=%.2f file=%s\n", s_nSELayoutLoadProbe,
+					( Plat_FloatTime() - flSELayoutLoadStart ) * 1000.0, pchFile ? pchFile : "?" );
+				fflush( fp );
+				fclose( fp );
+			}
+		}
 	}
 
 	return true;
@@ -3849,6 +3871,66 @@ void CUIPanel::PaintPanelInspection()
 void CUIPanel::PaintBackground()
 {
 	VPROF_BUDGET_DETAILED( "CUIPanel::PaintBackground", VPROF_BUDGETGROUP_TENFOOT );
+
+	// SE port (TEMPORARY probe, 2026-09-18): tooltip visibility investigation (U1 in
+	// docs/csgo_panorama_port_open_bugs.md).  The logic probes in ui_tooltip_manager.cpp show
+	// ShowTextTooltip / SetTooltipVisible firing, but the black tooltip box never appears.
+	// This logs the *paint* side: whether a tooltip panel reaches PaintBackground at all, and
+	// with what computed opacity.  The TooltipManager panel is skipped (it paints every frame
+	// with no styles and used to eat the whole budget).  Throttle: first 120, every 8th, plus
+	// every opacity/visibility change; cap 900.  Same probe file as the manager.
+	{
+		const char *pchSETipProbeID = GetID();
+		const char *pchSETipProbeType = GetPanelType().String();
+		bool bSETipMatch = ( ( pchSETipProbeID && strstr( pchSETipProbeID, "Tooltip" ) ) || ( pchSETipProbeType && strstr( pchSETipProbeType, "Tooltip" ) ) );
+		if ( bSETipMatch && pchSETipProbeType && !strstr( pchSETipProbeType, "TooltipManager" ) )
+		{
+			static int s_nSETipPaints = 0;
+			static float s_flSETipLastOpacity = -2.0f;
+			static bool s_bSETipLastVisible = false;
+
+			++s_nSETipPaints;
+
+			bool bSETipVis = BIsVisible();
+			float flSETipOpacity = -1.0f;
+			AccessStyle()->GetOpacity( flSETipOpacity );
+
+			bool bSETipLog = ( s_nSETipPaints <= 120 ) || ( ( s_nSETipPaints % 8 ) == 0 ) ||
+				( flSETipOpacity != s_flSETipLastOpacity ) || ( bSETipVis != s_bSETipLastVisible );
+
+			if ( bSETipLog && s_nSETipPaints <= 900 )
+			{
+				s_flSETipLastOpacity = flSETipOpacity;
+				s_bSETipLastVisible = bSETipVis;
+
+				float flSETipPosX = 0.0f, flSETipPosY = 0.0f;
+				for ( IUIPanel *pSETipWalk = this; pSETipWalk; pSETipWalk = pSETipWalk->GetParent() )
+				{
+					flSETipPosX += pSETipWalk->GetActualXOffset();
+					flSETipPosY += pSETipWalk->GetActualYOffset();
+				}
+
+				char rgchSETipClasses[ 220 ] = { 0 };
+				const CUtlVector< CPanoramaSymbol > &vecSETipClasses = GetClasses();
+				for ( int i = 0; i < vecSETipClasses.Count() && V_strlen( rgchSETipClasses ) < ( int )sizeof( rgchSETipClasses ) - 40; ++i )
+				{
+					V_strncat( rgchSETipClasses, vecSETipClasses[ i ].String(), sizeof( rgchSETipClasses ) );
+					V_strncat( rgchSETipClasses, " ", sizeof( rgchSETipClasses ) );
+				}
+
+				FILE *fpSETip = fopen( "D:\\cstrike\\se_tooltip_probe.txt", "a" );
+				if ( fpSETip )
+				{
+					fprintf( fpSETip, "TTIP paint #%d vis=%d opacity=%6.3f pos=%.0f,%.0f size=%.0fx%.0f styles=0x%X type=%s id=\"%s\" class=\"%s\"\n",
+						s_nSETipPaints, ( int )bSETipVis, flSETipOpacity, flSETipPosX, flSETipPosY,
+						m_flActualLayoutWidth, m_flActualLayoutHeight, ( unsigned int )m_unStylesPresentFlags,
+						pchSETipProbeType ? pchSETipProbeType : "<?>", pchSETipProbeID ? pchSETipProbeID : "<null>", rgchSETipClasses );
+					fflush( fpSETip );
+					fclose( fpSETip );
+				}
+			}
+		}
+	}
 
 	// SE port (TEMPORARY probe, 2026-09-16): the main menu / settings pages come out washed white - those
 	// pages get drawn nearly white, while panels like the tooltip are correctly dark.  Log every large

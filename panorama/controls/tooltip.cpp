@@ -9,6 +9,9 @@
 #include "contextui.h"
 #include "uijsregistration.h"
 
+// SE port (temporary tooltip probe, implemented in panorama/seport/.../ui_tooltip_manager.cpp).
+extern void SE_PortTooltipProbe( const char *pMsgFmt, ... );
+
 // memdbgon must be the last include file in a .cpp file!!!
 #include <tier0/memdbgon.h>
 
@@ -72,6 +75,13 @@ void CTooltip::OnLayoutTraverse( float flFinalWidth, float flFinalHeight )
 {
 	BaseClass::OnLayoutTraverse( flFinalWidth, flFinalHeight );
 
+	SE_PortTooltipProbe( "TTIP tooltip OnLayoutTraverse %.0fx%.0f visible=%d", flFinalWidth, flFinalHeight, ( int )BIsVisible() );
+	{
+		float flSETipOpLayout = -1.0f;
+		AccessStyle()->GetOpacity( flSETipOpLayout );
+		SE_PortTooltipProbe( "TTIP tooltip   layout opacity=%.3f", flSETipOpLayout );
+	}
+
 	// PANORAMA_USE_S1WRAPPER: Always update the position on layout traverse
 	// Fixed issue on friendlist tooltips - tooltip wouldn't always show at the right position
 	// Note: need to check the perf implications.
@@ -101,10 +111,18 @@ void CTooltip::SetTooltipVisible( bool bVisible )
 {
 	static const CPanoramaSymbol symTooltipVisible( "TooltipVisible" );
 
+	SE_PortTooltipProbe( "TTIP tooltip SetTooltipVisible %d (this=%p target=%p panelVis=%d size=%.0fx%.0f)", ( int )bVisible, this, m_pTooltipTarget.Get(), ( int )BIsVisible(), GetActualLayoutWidth(), GetActualLayoutHeight() );
+
 	bool bBecomingVisible = bVisible && !IsTooltipVisible();
 	bool bBecomingHidden = !bVisible && IsTooltipVisible();
 
 	SetHasClass( symTooltipVisible, bVisible );
+
+	{
+		float flSETipOpAfter = -1.0f;
+		AccessStyle()->GetOpacity( flSETipOpAfter );
+		SE_PortTooltipProbe( "TTIP tooltip   after SetHasClass(%d): opacity=%.3f", ( int )bVisible, flSETipOpAfter );
+	}
 
 	if ( bBecomingVisible )
 	{

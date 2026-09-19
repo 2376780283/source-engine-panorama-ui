@@ -5309,6 +5309,25 @@ void CUIEngine::OutputJSExceptionToConsole( v8::TryCatch &try_catch, IUIPanel *p
 		strOut.Format( "JS Exception!!\n\n(undefined:0) - %s", V8ToCString( error ) );
 	}
 	
+	// SE port probe (bring-up aid): a JS exception thrown inside an event handler was only visible in
+	// the panorama console, which this port does not write to a log file - a plain (not -condebug)
+	// test run therefore left no trace of the failure.  Append it to the probe file the rest of the
+	// port's diagnostics use, capped so a broken script cannot fill the disk.
+	{
+		static int s_nSEJSExceptionProbe = 0;
+		if ( s_nSEJSExceptionProbe < 300 )
+		{
+			++s_nSEJSExceptionProbe;
+			FILE *fp = fopen( "D:\\cstrike\\se_ui_probe.txt", "a" );
+			if ( fp )
+			{
+				fprintf( fp, "JSEXC #%d\n%s\n", s_nSEJSExceptionProbe, strOut.String() );
+				fflush( fp );
+				fclose( fp );
+			}
+		}
+	}
+
 	if ( pPanelContext )
 	{
 		OutputJSString( pPanelContext, strOut.String(), true );
@@ -5581,6 +5600,11 @@ void CUIEngine::RunScript( IUIPanel *pPanelContext, const char *pchScriptString,
 	int nSourceBeginLine, int nSourceBeginCol, bool bPrintRetValue, bool bIsReload )
 {
 	VPROF_BUDGET( "CUIEngine::RunScript (compile+run)", VPROF_BUDGETGROUP_TENFOOT );
+
+	// SE port probe (bring-up aid): every layout applies its scripts by compiling them from source again
+	// (no V8 code cache here), so this is where a page's script cost is.  Logs the first scripts and
+	// every slow one - the user report is that the *first* click on a page stutters.
+	double const flSEScriptStart = Plat_FloatTime();
 	
 	char szAbsolutePathScratch[MAX_PATH + 1];
 	if ( !V_strnicmp( "file://", pchScriptFile, 7 ) || !V_strnicmp( "s2r://", pchScriptFile, 6 ) || !V_strnicmp( "raw://", pchScriptFile, 6 ) )
@@ -5644,7 +5668,24 @@ void CUIEngine::RunScript( IUIPanel *pPanelContext, const char *pchScriptString,
 #endif	// V8_DEBUGGING_ENABLED
 
 	v8::Handle<v8::Value> returnval = RunJSScriptInternal( pPanelContext, script, false, bIsReload );
-	
+
+	{
+		static int s_nSEScriptProbe = 0;
+		double const flScriptMs = ( Plat_FloatTime() - flSEScriptStart ) * 1000.0;
+		if ( s_nSEScriptProbe < 400 && ( flScriptMs >= 20.0 || s_nSEScriptProbe < 100 ) )
+		{
+			++s_nSEScriptProbe;
+			FILE *fp = fopen( "D:\\cstrike\\se_ui_probe.txt", "a" );
+			if ( fp )
+			{
+				fprintf( fp, "SCRIPT #%d ms=%.2f file=%s\n", s_nSEScriptProbe, flScriptMs,
+					pchScriptFile ? pchScriptFile : "(inline)" );
+				fflush( fp );
+				fclose( fp );
+			}
+		}
+	}
+
 	return;
 }
 
