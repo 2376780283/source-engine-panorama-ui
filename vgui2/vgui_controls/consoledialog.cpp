@@ -363,17 +363,17 @@ void CConsolePanel::OnThink()
 	// walks - a reliable "the console participates in the frame" marker (PerformLayout can be forced
 	// manually, so it proves nothing).
 	static bool s_bProbedThink = false;
-	if ( !s_bProbedThink )
+	/* if ( !s_bProbedThink )
 	{
 		s_bProbedThink = true;
 		FILE *fp = fopen( "D:\\cstrike\\se_console_probe.txt", "a" );
 		if ( fp )
 		{
-			fprintf( fp, "CConsolePanel::OnThink visible=%d parent=%d\n", (int)IsVisible(), (int)GetParent() );
-			fflush( fp );
-			fclose( fp );
+			 fprintf( fp, "CConsolePanel::OnThink visible=%d parent=%d\n", (int)IsVisible(), (int)GetParent() );
+			 fflush( fp );
+			 fclose( fp );
 		}
-	}
+	} */
 
 	if ( !IsVisible() )
 		return;
