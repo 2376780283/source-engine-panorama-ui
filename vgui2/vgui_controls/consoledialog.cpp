@@ -1213,9 +1213,9 @@ void CConsoleDialog::PerformLayout()
 		s_bProbedLayout = true;
 		FILE *fp = fopen( "D:\\cstrike\\se_console_probe.txt", "a" );
 		if ( fp )
-		{
-			fprintf( fp, "CConsoleDialog::PerformLayout client=(%d,%d,%d,%d) visible=%d parent=%d\n",
-				x, y, w, h, (int)IsVisible(), (int)GetParent() );
+		{		
+            DevMsg( "ConsoleDialog: %d %d %d %d %d %p\n", 
+                x, y, w, h, (int)IsVisible(), (void *)GetParent() );
 			fflush( fp );
 			fclose( fp );
 		}
