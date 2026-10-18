@@ -7,15 +7,15 @@
 
 #include "stdafx.h"
 #include "ToolCamera.h"
-#include "SaveInfo.h"
+#include "saveinfo.h"
 #include "MainFrm.h"			// dvs: remove?
-#include "MapDefs.h"
-#include "MapDoc.h"
-#include "MapView2D.h"
-#include "MapView3D.h"
-#include "Options.h"
-#include "Render2D.h"
-#include "StatusBarIDs.h"		// dvs: remove
+#include "mapdefs.h"
+#include "mapdoc.h"
+#include "mapview2d.h"
+#include "mapview3d.h"
+#include "options.h"
+#include "render2d.h"
+#include "statusbarids.h"		// dvs: remove
 #include "ToolManager.h"
 #include "hammer_mathlib.h"
 #include "vgui/Cursor.h"

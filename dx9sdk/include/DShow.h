@@ -44,7 +44,7 @@
 // Include DirectShow include files
 ///////////////////////////////////////////////////////////////////////////
 #include <strmif.h>     // Generated IDL header file for streams interfaces
-#include <amvideo.h>    // ActiveMovie video interfaces and definitions
+#include <Amvideo.h>    // ActiveMovie video interfaces and definitions
 #include <amaudio.h>    // ActiveMovie audio interfaces and definitions
 #include <control.h>    // generated from control.odl
 #include <evcode.h>     // event code definitions

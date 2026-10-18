@@ -5,20 +5,20 @@
 //=============================================================================//
 
 #include "stdafx.h"
-#include "Box3D.h"
-#include "StockSolids.h"
-#include "GlobalFunctions.h"
+#include "box3d.h"
+#include "stocksolids.h"
+#include "globalfunctions.h"
 #include "hammer_mathlib.h"
-#include "MapDoc.h"
-#include "MapEntity.h"
-#include "MapWorld.h"
-#include "KeyFrame/KeyFrame.h"
-#include "MapKeyFrame.h"
-#include "MapAnimator.h"
-#include "Render3D.h"
-#include "TextureSystem.h"
+#include "mapdoc.h"
+#include "mapentity.h"
+#include "mapworld.h"
+#include "keyframe/keyframe.h"
+#include "mapkeyframe.h"
+#include "mapanimator.h"
+#include "render3d.h"
+#include "texturesystem.h"
 #include "materialsystem/imesh.h"
-#include "Material.h"
+#include "material.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include <tier0/memdbgon.h>

@@ -15,8 +15,8 @@
 #pragma once
 
 
-#include "Box3D.h"
-#include "ToolInterface.h"
+#include "box3d.h"
+#include "toolinterface.h"
 
 
 class CChunkFile;

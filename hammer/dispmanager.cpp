@@ -8,12 +8,12 @@
 //=============================================================================//
 
 #include <stdafx.h>
-#include "UtlLinkedList.h"
+#include "utllinkedlist.h"
 //#include "DispManager.h"
-#include "MapFace.h"
-#include "MapDisp.h"
-#include "DispSubdiv.h"
-#include "History.h"
+#include "mapface.h"
+#include "mapdisp.h"
+#include "dispsubdiv.h"
+#include "history.h"
 #include "tier0/minidump.h"
 
 // memdbgon must be the last include file in a .cpp file!!!

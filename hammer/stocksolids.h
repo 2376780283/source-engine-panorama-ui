@@ -16,7 +16,7 @@
 #include <fstream>
 #pragma warning(pop)
 #include "mathlib/vector.h"
-#include "MapFace.h"
+#include "mapface.h"
 
 
 class BoundBox;

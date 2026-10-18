@@ -6,14 +6,14 @@
 
 #include "stdafx.h"
 #include <shlobj.h>
-#include "GameConfig.h"
-#include "EditGameConfigs.h"
+#include "gameconfig.h"
+#include "editgameconfigs.h"
 #include "hammer.h"
-#include "OPTConfigs.h"
+#include "optconfigs.h"
 #include "ConfigManager.h"
 #include "process.h"
-#include "Options.h"
-#include "TextureBrowser.h"
+#include "options.h"
+#include "texturebrowser.h"
 
 #include "tier2/vconfig.h"
 

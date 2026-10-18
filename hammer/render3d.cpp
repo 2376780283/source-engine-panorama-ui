@@ -6,8 +6,8 @@
 //=============================================================================//
 
 #include <windows.h>
-#include "Render3D.h"
-#include "Render3DMS.h"
+#include "render3d.h"
+#include "render3dms.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include <tier0/memdbgon.h>

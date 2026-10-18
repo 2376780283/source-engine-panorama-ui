@@ -19,7 +19,7 @@
 #endif
 
 
-#include <mxtk/mxMatSysWindow.h>
+#include <mxtk/mxmatsyswindow.h>
 #include "materialsystem/imaterialsystem.h"
 #include "interface.h"
 

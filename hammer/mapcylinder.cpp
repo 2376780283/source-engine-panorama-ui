@@ -15,15 +15,15 @@
 //=============================================================================//
 
 #include "stdafx.h"
-#include "Box3D.h"
-#include "MapEntity.h"
-#include "MapCylinder.h"
-#include "MapWorld.h"
-#include "Render2D.h"
-#include "Render3D.h"
-#include "TextureSystem.h"
+#include "box3d.h"
+#include "mapentity.h"
+#include "mapcylinder.h"
+#include "mapworld.h"
+#include "render2d.h"
+#include "render3d.h"
+#include "texturesystem.h"
 #include "materialsystem/imesh.h"
-#include "Material.h"
+#include "material.h"
 #include "mapdoc.h"
 #include "options.h"
 

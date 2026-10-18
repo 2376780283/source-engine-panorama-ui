@@ -6,24 +6,24 @@
 //=============================================================================//
 
 #include "stdafx.h"
-#include "Box3D.h"
-#include "GlobalFunctions.h"
-#include "fgdlib/HelperInfo.h"
+#include "box3d.h"
+#include "globalfunctions.h"
+#include "fgdlib/helperinfo.h"
 #include "materialsystem/imaterialsystem.h"
 #include "materialsystem/imesh.h"
 #include "MainFrm.h"			// For refreshing the object properties dialog
-#include "MapDoc.h"
-#include "MapSweptPlayerHull.h"
-#include "MapPlayerHullHandle.h"
-#include "MapPointHandle.h"
-#include "MapView2D.h"
-#include "Material.h"
-#include "Options.h"
-#include "ObjectProperties.h"	// For refreshing the object properties dialog
-#include "Render2D.h"
-#include "Render3D.h"
+#include "mapdoc.h"
+#include "mapsweptplayerhull.h"
+#include "mapplayerhullhandle.h"
+#include "mappointhandle.h"
+#include "mapview2d.h"
+#include "material.h"
+#include "options.h"
+#include "objectproperties.h"	// For refreshing the object properties dialog
+#include "render2d.h"
+#include "render3d.h"
 #include "ToolManager.h"
-#include "ToolSweptHull.h"
+#include "toolswepthull.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include <tier0/memdbgon.h>

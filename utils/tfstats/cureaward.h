@@ -5,7 +5,7 @@
 // $NoKeywords: $
 //
 //=============================================================================//
-#include "Award.h"
+#include "award.h"
 #include <map>
 
 using namespace std;

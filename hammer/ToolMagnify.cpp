@@ -6,8 +6,8 @@
 //=============================================================================//
 
 #include "stdafx.h"
-#include "MapDoc.h"
-#include "MapView2D.h"
+#include "mapdoc.h"
+#include "mapview2d.h"
 #include "resource.h"
 #include "ToolMagnify.h"
 #include "HammerVGui.h"

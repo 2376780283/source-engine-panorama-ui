@@ -11,7 +11,7 @@
 #pragma once
 
 
-#include "ChunkFile.h"
+#include "chunkfile.h"
 
 
 class CMapClass;

@@ -13,7 +13,7 @@
 #include "vmpi.h"
 #include "bitbuf.h"
 #include "tier1/strtools.h"
-#include "patchtimeout.h"
+#include "PatchTimeout.h"
 #include "SetPasswordDlg.h"
 #include "vmpi_browser_helpers.h"
 #include <io.h>

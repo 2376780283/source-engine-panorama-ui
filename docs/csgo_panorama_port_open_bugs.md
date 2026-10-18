@@ -91,3 +91,91 @@
 
 ### 优先级
 - 用户 2026-09-18 判定：**不重要**（开关能关、弹不弹不影响功能），已存档等后续顺手修。
+
+---
+
+## U3. 控制台面板不显示 —— 只画出一条 ~55px 的窄条（2026-09-19，未解决）
+
+### 现象（用户实测）
+- 按 `` ` ``（反引号）打开控制台：**功能全对** —— 能看到版本号、Tab 命令补全能用、命令能执行；**就是看不到控制台面板**。
+- 主菜单里和进地图后都是这样。
+
+### 反向证据（2026-09-19 自动化：`build/_ingame_console_test.ps1` = `+map de_dust2 +toggleconsole` + 定时截图 + 读探针）
+
+1. **控制台确实被创建、被激活、且可见**（`D:\cstrike\se_console_probe.txt`）：
+   ```
+   Activate: init=1 visible=0 bounds=(544,24,712,528) parent=0 embedded=...
+   CConsoleDialog::Activate visible=1
+   CConsoleDialog::PerformLayout client=(8,27,696,495) visible=1 parent=0
+   ```
+2. **绘制时刻几何完全正确，而且每帧都在画**（2026-09-19 新加的探针，`CGameConsoleDialog::Paint()`）：
+   ```
+   CGameConsoleDialog::Paint #22 abs=(544,24) size=(712,528) clip=(544,24,1256,552) screen=1280x720 prop=0 vis=1 parent=0
+   ...（连续 #22..#40，每帧一条）
+   ```
+   ⇒ 面板自己认为的位置 / 尺寸 / 裁剪都对，`Paint()` 也真的被调用了。
+3. **但标称矩形里没有它的像素**（`engine/view.cpp` 的 A/B/C 回读探针，控制台可见时在地图分支采 (900,120) 与 (5,5)）：
+   ```
+   SE console probe A (after View_Render):  rt=NULL in=123,132,132,255 out=132,132,132,255
+   SE console probe B (after panorama):    in=123,132,132,255
+   SE console probe C (after vgui repaint): in=123,132,132,255
+   ```
+   A/B/C 三点同值（≈世界画面）⇒ 控制台渲染前后，(900,120) 没有任何变化。
+4. **却在客户端左侧出现一条窄条**（截图 `build/_ingame_t30.png`，放大 `build/_svg_zoom.png`）：
+   x ≈ 0..55、y ≈ 330..460 一条暗色带，内容是控制台的东西（`+` / `∨` 一行 + 高亮的 `SE cons…` +
+   两行带小图标的 `powers…`），文字被右侧**硬裁**。
+
+### 已排除
+| 假设 | 排除依据 |
+|---|---|
+| 控制台没被创建 / 用的是 gameui.dll 那个 | `engine.log`: `SE port: IGameConsole provided by panoramauiclient.dll`；`se_console_probe.txt` 有 `Factory`/`Initialize` |
+| 没被激活 / `visible=0` | `CConsoleDialog::Activate visible=1`、`Paint()` 探针 `vis=1` |
+| 父面板被隐藏 ⇒ 链上 `IsFullyVisible()=0` | 父为 0（**顶层 popup，引擎故意不设父**，CS:GO 式；这条已经修掉了，见 `vgui_baseui_interface.cpp::Init()` 的 `#ifdef PANORAMA_ENABLE` 分支） |
+| 它不是 popup / 不在 popup 列表里 | `Paint()` 每帧被调 ⇒ popup 循环走得到它 |
+| 几何 / 裁剪算错 | `Paint()` 探针：`abs` / `size` / `clip` 全对 |
+| 输入没到控制台 | 用户实测：补全、执行都正常 |
+| 泛白 / sRGB 同族问题 | 无关：sRGB 修复前后都是这个现象 |
+| 主菜单 vs 地图差异 | 两种场景现象一致 |
+
+### 当前最大嫌疑（按可能性排序）
+1. **popup 绘制被 stencil 掩掉**：`CMatSystemSurface::PaintTraverseEx` 的 popup 循环对每个 popup 做
+   `pRenderContext->SetStencilReferenceValue( bIsTopmostPopup ? 255 : nStencilRef )` ⇒ popup 是**带 stencil 测试**画的。
+   若 panorama 的合成/裁剪把 stencil 留在某个小矩形上，popup（控制台）就只在那块矩形里出像素；
+   而普通面板（HUD / 雷达 / 聊天）不走 stencil ⇒ 正好解释"其它 VGUI 正常、只有这个 popup 被裁成一条"。
+2. **scissor 残留**：本 port 的 scissor 是降级实现（单矩形 `SetScissorRect(l,t,r,b,bool)`，**没有栈**），
+   panorama 画过的矩形可能留下一个窄 scissor。
+3. 画到了非当前 RT / 视口不同（可能性较低：clip 正确、且每帧都在画）。
+
+### 下一步（接手就从这里开始）
+1. **红块定位法**：在 `CGameConsoleDialog::Paint()` 开头（`BaseClass::Paint()` 之前）画一个满面板的红矩形：
+   `surface()->DrawSetColor(255,0,0,255); surface()->DrawFilledRect(0,0,712,528);`
+   - 红色出现在 (544,24) ⇒ 绘制链没问题，是**被谁盖住 / 掩掉**；
+   - 红色也只出现在左侧窄条 ⇒ **掩码类**问题（stencil / scissor），直接做第 2 步。
+2. **stencil A/B**：在 `PaintTraverseEx` 的 popup 循环里，`ipanel()->PaintTraverse(popupPanel, true)` 之前加
+   `pRenderContext->SetStencilEnable( false );`（或 `SetStencilReferenceValue(0)`），看控制台是否立刻出现。
+3. 打印 popup 画完那一刻的 **scissor / viewport**（`IMatRenderContext`），并与 panorama 最后一次 draw 的状态比对；
+   顺便确认 panorama 收尾有没有把 scissor / stencil 恢复。
+
+### 本轮为调查加的临时设施（收尾要清）
+- `panorama/seport/gameclient/cstrike15/gameui/gameconsoledialog.{h,cpp}`：`CGameConsoleDialog::Paint()` 几何探针（上限 40 条）
+- `panorama/seport/gameclient/cstrike15/gameui/gameconsole.cpp`：**红色背景 hack**（`SetBgColor(200,30,30,255)`，用来区分
+  "画了但没颜色" vs "根本没画"）+ `Initialize`/`Activate`/`IsConsoleVisible` 探针
+- `engine/view.cpp`：A/B/C 像素回读探针（只在 `Con_IsVisible()` 时打）
+- `vgui2/vgui_controls/consoledialog.cpp`：`Activate` / `PerformLayout` / `OnThink` 探针
+- `vguimatsurface/MatSystemSurface.cpp`：`SE popup pass` 探针（popup 列表 + 受限面板）
+- 脚本：`build/_ingame_console_test.ps1`（本次复现）、`build/_shotbox.ps1`（截图布局测量）、`build/_svg_zoom.ps1`（放大裁剪）
+
+### 测量口径提醒（本轮踩到）
+- 截图会被 **DWM 缩放**：`_ingame_t30.png` 实际是 **1029x604**（对应 1280x720 客户区，缩放 ≈0.8）。
+  量像素 / 换算坐标前先看图的真实尺寸，别按 1280x720 直接算。
+- 同一张图里，客户区之外还有未绘制的区域（左侧黑带 / 右侧发白）——那是窗口比渲染区大或缩放的产物，
+  不一定是 bug。
+
+### 优先级
+- 待用户定。功能可用（能输入、能执行、有补全），只是面板看不到 ⇒ 观感问题，不挡其它工作。
+
+### 证据文件索引
+- 截图：`build/_ingame_t30.png`（整窗）、`build/_svg_zoom.png`（左侧窄条放大 ×6 / ×10）
+- 数值：`build/_ingame_console_test.txt`（运行报告）、`build/_logcheck.txt`（`SE console probe` 扫描 = 978 条）
+- probe：`D:\cstrike\se_console_probe.txt`、`D:\cstrike\se_ui_probe.txt`（`SE console probe A/B/C`）、
+  `D:\cstrike\se_popup_probe.txt`（`SE popup pass`）

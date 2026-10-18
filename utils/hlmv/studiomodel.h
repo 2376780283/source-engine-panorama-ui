@@ -12,7 +12,7 @@
 #include "mathlib/mathlib.h"
 #include "studio.h"
 #include "mouthinfo.h"
-#include "UtlLinkedList.h"
+#include "utllinkedlist.h"
 #include "utlsymbol.h"
 #include "bone_setup.h"
 #include "datacache/imdlcache.h"

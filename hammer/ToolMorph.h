@@ -11,12 +11,12 @@
 #pragma once
 #endif
 
-#include "MapClass.h"			// dvs: For CMapObjectList
-#include "Box3D.h"
-#include "SSolid.h"
-#include "Resource.h"
-#include "ScaleVerticesDlg.h"
-#include "ToolInterface.h"
+#include "mapclass.h"			// dvs: For CMapObjectList
+#include "box3d.h"
+#include "ssolid.h"
+#include "resource.h"
+#include "scaleverticesdlg.h"
+#include "toolinterface.h"
 #include "mathlib/vector.h"
 
 

@@ -511,6 +511,479 @@
 				"_inv_prereq.ps1"
 			],
 			"group": "none"
+		},
+		{
+			"label": "SE blur switch status",
+			"type": "shell",
+			"command": "d:\\source-engine\\build\\se_run.cmd",
+			"args": [
+				"_blurst.ps1"
+			],
+			"group": "none"
+		},
+		{
+			"label": "SE blur cfg ON test",
+			"type": "shell",
+			"command": "d:\\source-engine\\build\\se_run.cmd",
+			"args": [
+				"_bluroff_verify3.ps1",
+				"-Settle",
+				"10",
+				"-ShotPath",
+				"d:\\source-engine\\build\\_seblur_on.png",
+				"-ReportPath",
+				"d:\\source-engine\\build\\_seblur_on_report.txt"
+			],
+			"group": "none"
+		},
+		{
+			"label": "SE se_blur 0 test",
+			"type": "shell",
+			"command": "d:\\source-engine\\build\\se_run.cmd",
+			"args": [
+				"_seblur_ab.ps1",
+				"-Value",
+				"0",
+				"-Tag",
+				"off"
+			],
+			"group": "none"
+		},
+		{
+			"label": "SE blur cfg show",
+			"type": "shell",
+			"command": "d:\\source-engine\\build\\se_run.cmd",
+			"args": [
+				"_seblur_cfgshow.ps1"
+			],
+			"group": "none"
+		},
+		{
+			"label": "SE se_blur probe build",
+			"type": "shell",
+			"command": "d:\\source-engine\\build\\se_run.cmd",
+			"args": [
+				"_build_pano.ps1",
+				"-Targets",
+				"panorama,panoramauiclient",
+				"-Log",
+				"d:\\source-engine\\build\\_seblur2_build.log"
+			],
+			"group": "none"
+		},
+		{
+			"label": "SE blur switch status 2",
+			"type": "shell",
+			"command": "d:\\source-engine\\build\\se_run.cmd",
+			"args": [
+				"_blurst.ps1"
+			],
+			"group": "none"
+		},
+		{
+			"label": "SE blur probe-in-dll check",
+			"type": "shell",
+			"command": "d:\\source-engine\\build\\se_run.cmd",
+			"args": [
+				"_blurst2.ps1"
+			],
+			"group": "none"
+		},
+		{
+			"label": "SE blur forced rebuild",
+			"type": "shell",
+			"command": "d:\\source-engine\\build\\se_run.cmd",
+			"args": [
+				"_blurrebuld.ps1"
+			],
+			"group": "none"
+		},
+		{
+			"label": "SE blur rebuild check",
+			"type": "shell",
+			"command": "d:\\source-engine\\build\\se_run.cmd",
+			"args": [
+				"_blurst2.ps1"
+			],
+			"group": "none"
+		},
+		{
+			"label": "SE blur switch OFF run",
+			"type": "shell",
+			"command": "d:\\source-engine\\build\\se_run.cmd",
+			"args": [
+				"_blur_sw.ps1",
+				"-Value",
+				"0",
+				"-Tag",
+				"off"
+			],
+			"group": "none"
+		},
+		{
+			"label": "SE cmd survey",
+			"type": "shell",
+			"command": "d:\\source-engine\\build\\se_run.cmd",
+			"args": [
+				"_cmdsurvey.ps1"
+			],
+			"group": "none"
+		},
+		{
+			"label": "SE console state",
+			"type": "shell",
+			"command": "d:\\source-engine\\build\\se_run.cmd",
+			"args": [
+				"_progress_check.ps1"
+			],
+			"group": "none"
+		},
+		{
+			"label": "SE console state2",
+			"type": "shell",
+			"command": "d:\\source-engine\\build\\se_run.cmd",
+			"args": [
+				"_console_state.ps1"
+			],
+			"group": "none"
+		},
+		{
+			"label": "SE console paint test",
+			"type": "shell",
+			"command": "d:\\source-engine\\build\\se_run.cmd",
+			"args": [
+				"_ingame_console_test.ps1"
+			],
+			"group": "none"
+		},
+		{
+			"label": "SE console zoom",
+			"type": "shell",
+			"command": "d:\\source-engine\\build\\se_run.cmd",
+			"args": [
+				"_svg_zoom.ps1",
+				"-Src",
+				"d:\\source-engine\\build\\_ingame_t30.png",
+				"-X",
+				"0",
+				"-Y",
+				"310",
+				"-W",
+				"120",
+				"-H",
+				"150",
+				"-Scale",
+				"6"
+			],
+			"group": "none"
+		},
+		{
+			"label": "SE console rect crop",
+			"type": "shell",
+			"command": "d:\\source-engine\\build\\se_run.cmd",
+			"args": [
+				"_svg_zoom.ps1",
+				"-Src",
+				"d:\\source-engine\\build\\_ingame_t30.png",
+				"-X",
+				"500",
+				"-Y",
+				"0",
+				"-W",
+				"780",
+				"-H",
+				"600",
+				"-Scale",
+				"1"
+			],
+			"group": "none"
+		},
+		{
+			"label": "SE shot box measure",
+			"type": "shell",
+			"command": "d:\\source-engine\\build\\se_run.cmd",
+			"args": [
+				"_shotbox.ps1",
+				"-Src",
+				"d:\\source-engine\\build\\_ingame_t30.png"
+			],
+			"group": "none"
+		},
+		{
+			"label": "SE console text zoom",
+			"type": "shell",
+			"command": "d:\\source-engine\\build\\se_run.cmd",
+			"args": [
+				"_svg_zoom.ps1",
+				"-Src",
+				"d:\\source-engine\\build\\_ingame_t30.png",
+				"-X",
+				"0",
+				"-Y",
+				"330",
+				"-W",
+				"80",
+				"-H",
+				"130",
+				"-Scale",
+				"10"
+			],
+			"group": "none"
+		},
+		{
+			"label": "SE conprobe build check",
+			"type": "shell",
+			"command": "d:\\source-engine\\build\\se_run.cmd",
+			"args": [
+				"_scan_log.ps1",
+				"d:\\source-engine\\build\\_conprobe_build.log",
+				"finished successfully",
+				"5"
+			],
+			"group": "none"
+		},
+		{
+			"label": "SE deploy conprobe",
+			"type": "shell",
+			"command": "d:\\source-engine\\build\\se_run.cmd",
+			"args": [
+				"_deploy_both.ps1"
+			],
+			"group": "none"
+		},
+		{
+			"label": "SE console probe run2",
+			"type": "shell",
+			"command": "d:\\source-engine\\build\\se_run.cmd",
+			"args": [
+				"_ingame_console_test.ps1"
+			],
+			"group": "none"
+		},
+		{
+			"label": "SE log powers scan",
+			"type": "shell",
+			"command": "d:\\source-engine\\build\\se_run.cmd",
+			"args": [
+				"_scan_log.ps1",
+				"D:\\cstrike\\engine.log",
+				"power",
+				"12"
+			],
+			"group": "none"
+		},
+		{
+			"label": "SE loc build",
+			"type": "shell",
+			"command": "d:\\source-engine\\build\\se_run.cmd",
+			"args": [
+				"_build_pano.ps1",
+				"-Targets",
+				"panoramauiclient",
+				"-Log",
+				"d:\\source-engine\\build\\_loc_build.log"
+			],
+			"group": "none"
+		},
+		{
+			"label": "SE loc build err",
+			"type": "shell",
+			"command": "d:\\source-engine\\build\\se_run.cmd",
+			"args": [
+				"_scan_log.ps1",
+				"d:\\source-engine\\build\\_loc_build.log",
+				"error C",
+				"12"
+			],
+			"group": "none"
+		},
+		{
+			"label": "SE loc deploy",
+			"type": "shell",
+			"command": "d:\\source-engine\\build\\se_run.cmd",
+			"args": [
+				"_deploy_both.ps1"
+			],
+			"group": "none"
+		},
+		{
+			"label": "SE loc run zh",
+			"type": "shell",
+			"command": "d:\\source-engine\\build\\se_run.cmd",
+			"args": [
+				"_bluroff_verify3.ps1",
+				"-Settle",
+				"10",
+				"-ShotPath",
+				"d:\\source-engine\\build\\_loc_shot.png",
+				"-ReportPath",
+				"d:\\source-engine\\build\\_loc_report.txt"
+			],
+			"group": "none"
+		},
+		{
+			"label": "SE loc log check",
+			"type": "shell",
+			"command": "d:\\source-engine\\build\\se_run.cmd",
+			"args": [
+				"_scan_log.ps1",
+				"d:\\source-engine\\build\\_bluroff_engine.log",
+				"localization",
+				"10"
+			],
+			"group": "none"
+		},
+		{
+			"label": "SE loc run en",
+			"type": "shell",
+			"command": "d:\\source-engine\\build\\se_run.cmd",
+			"args": [
+				"_bluroff_verify3.ps1",
+				"-Settle",
+				"10",
+				"-ShotPath",
+				"d:\\source-engine\\build\\_loc_shot_en.png",
+				"-ReportPath",
+				"d:\\source-engine\\build\\_loc_report_en.txt",
+				"-Extra",
+				"-language",
+				"english"
+			],
+			"group": "none"
+		},
+		{
+			"label": "SE loc run en2",
+			"type": "shell",
+			"command": "d:\\source-engine\\build\\se_run.cmd",
+			"args": [
+				"_loc_run_en.ps1"
+			],
+			"group": "none"
+		},
+		{
+			"label": "SE move backend",
+			"type": "shell",
+			"command": "d:\\source-engine\\build\\se_run.cmd",
+			"args": [
+				"_move_backend.ps1"
+			],
+			"group": "none"
+		},
+		{
+			"label": "SE deploy after move",
+			"type": "shell",
+			"command": "d:\\source-engine\\build\\se_run.cmd",
+			"args": [
+				"_deploy_se_js.ps1"
+			],
+			"group": "none"
+		},
+		{
+			"label": "SE backend smoke",
+			"type": "shell",
+			"command": "d:\\source-engine\\build\\se_run.cmd",
+			"args": [
+				"_bluroff_verify3.ps1",
+				"-Settle",
+				"10",
+				"-ShotPath",
+				"d:\\source-engine\\build\\_bak_smoke.png",
+				"-ReportPath",
+				"d:\\source-engine\\build\\_bak_smoke_report.txt"
+			],
+			"group": "none"
+		},
+		{
+			"label": "SE backend deploy check",
+			"type": "shell",
+			"command": "d:\\source-engine\\build\\se_run.cmd",
+			"args": [
+				"_deploy_se_js.ps1"
+			],
+			"group": "none"
+		},
+		{
+			"label": "SE loc cleanup",
+			"type": "shell",
+			"command": "d:\\source-engine\\build\\se_run.cmd",
+			"args": [
+				"_loc_cleanup.ps1"
+			],
+			"group": "none"
+		},
+		{
+			"label": "SE loc deploy2",
+			"type": "shell",
+			"command": "d:\\source-engine\\build\\se_run.cmd",
+			"args": [
+				"_deploy_se_js.ps1"
+			],
+			"group": "none"
+		},
+		{
+			"label": "SE git state backend",
+			"type": "shell",
+			"command": "d:\\source-engine\\build\\se_run.cmd",
+			"args": [
+				"_progress_check.ps1"
+			],
+			"group": "none"
+		},
+		{
+			"label": "SE backend sync",
+			"type": "shell",
+			"command": "d:\\source-engine\\build\\se_run.cmd",
+			"args": [
+				"_backend_sync.ps1"
+			],
+			"group": "none"
+		},
+		{
+			"label": "SE revert recon",
+			"type": "shell",
+			"command": "d:\\source-engine\\build\\se_run.cmd",
+			"args": [
+				"_revert_recon.ps1"
+			],
+			"group": "none"
+		},
+		{
+			"label": "SE revert recon2",
+			"type": "shell",
+			"command": "d:\\source-engine\\build\\se_run.cmd",
+			"args": [
+				"_revert_recon2.ps1"
+			],
+			"group": "none"
+		},
+		{
+			"label": "SE stage tchinese",
+			"type": "shell",
+			"command": "d:\\source-engine\\build\\se_run.cmd",
+			"args": [
+				"_stage_loc.ps1",
+				"-Languages",
+				"tchinese"
+			],
+			"group": "none"
+		},
+		{
+			"label": "SE loc deploy zhTW",
+			"type": "shell",
+			"command": "d:\\source-engine\\build\\se_run.cmd",
+			"args": [
+				"_deploy_se_js.ps1"
+			],
+			"group": "none"
+		},
+		{
+			"label": "SE loc deploy zhTW2",
+			"type": "shell",
+			"command": "d:\\source-engine\\build\\se_run.cmd",
+			"args": [
+				"_deploy_se_js.ps1"
+			],
+			"group": "none"
 		}
 	]
 }

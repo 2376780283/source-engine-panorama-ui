@@ -1,11 +1,11 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
 #include "cbase.h"
-#include "vguiwnd.h"
+#include "VGuiWnd.h"
 #include <vgui_controls/EditablePanel.h>
 #include "vgui/ISurface.h"
 #include "vgui/IVGui.h"
 #include "VGuiMatSurface/IMatSystemSurface.h"
-#include "FacePoser_VGui.h"
+#include "faceposer_vgui.h"
 // #include "material.h"
 #include "materialsystem/imaterialvar.h"
 #include "materialsystem/imaterial.h"

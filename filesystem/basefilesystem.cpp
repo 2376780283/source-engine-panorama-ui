@@ -38,7 +38,7 @@
 #endif
 
 #if defined( _X360 )
-#include "xbox\xbox_win32stubs.h"
+#include "xbox/xbox_win32stubs.h"
 #undef GetCurrentDirectory
 #endif
 

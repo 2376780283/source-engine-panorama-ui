@@ -11,8 +11,8 @@
 #include "vgui/KeyCode.h"
 #include "vgui_controls/FileOpenDialog.h"
 #include "filesystem.h"
-#include "vgui/ilocalize.h"
-#include "dme_controls/elementpropertiestree.h"
+#include "vgui/ILocalize.h"
+#include "dme_controls/ElementPropertiesTree.h"
 #include "tier0/icommandline.h"
 #include "materialsystem/imaterialsystem.h"
 #include "VGuiMatSurface/IMatSystemSurface.h"
@@ -20,7 +20,7 @@
 #include "particlesystemdefinitionbrowser.h"
 #include "particlesystempropertiescontainer.h"
 #include "dme_controls/AttributeStringChoicePanel.h"
-#include "dme_controls/ParticleSystemPanel.h"
+#include "dme_controls/particlesystempanel.h"
 #include "datamodel/dmelementfactoryhelper.h"
 #include "matsys_controls/picker.h"
 #include "tier2/fileutils.h"
@@ -28,7 +28,7 @@
 #include "particles/particles.h"
 #include "dmserializers/idmserializers.h"
 #include "dme_controls/dmepanel.h"
-#include "vgui/ivgui.h"
+#include "vgui/IVGui.h"
 
 using namespace vgui;
 

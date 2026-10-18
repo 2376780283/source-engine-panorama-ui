@@ -19,7 +19,7 @@
 
 #include <list>
 #include <map>
-#include "LogEvent.h"
+#include "logevent.h"
 #include "util.h"
 
 

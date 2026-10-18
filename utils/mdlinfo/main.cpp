@@ -4,7 +4,7 @@
 
 
 // Valve includes
-#include "appframework/appframework.h"
+#include "appframework/AppFramework.h"
 #include "appframework/tier3app.h"
 #include "filesystem.h"
 #include "icommandline.h"

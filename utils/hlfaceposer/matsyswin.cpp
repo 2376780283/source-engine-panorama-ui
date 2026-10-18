@@ -5,20 +5,20 @@
 //=============================================================================//
 
 #include <mxtk/mx.h>
-#include <mxtk/mxMessageBox.h>
-#include <mxtk/mxTga.h>
-#include <mxtk/mxPcx.h>
-#include <mxtk/mxBmp.h>
-#include <mxtk/mxMatSysWindow.h>
+#include <mxtk/mxmessagebox.h>
+#include <mxtk/mxtga.h>
+#include <mxtk/mxpcx.h>
+#include <mxtk/mxbmp.h>
+#include <mxtk/mxmatsyswindow.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
 #include <string.h>
-#include "MatSysWin.h"
-#include "MDLViewer.h"
-#include "StudioModel.h"
-#include "ControlPanel.h"
-#include "ViewerSettings.h"
+#include "matsyswin.h"
+#include "mdlviewer.h"
+#include "studiomodel.h"
+#include "controlpanel.h"
+#include "viewersettings.h"
 #include "materialsystem/imaterialsystem.h"
 #include "materialsystem/imaterialproxyfactory.h"
 #include "filesystem.h"
@@ -27,9 +27,9 @@
 #include "expressions.h"
 #include "hlfaceposer.h"
 #include "ifaceposersound.h"
-#include "materialsystem/IMaterialSystemHardwareConfig.h"
+#include "materialsystem/imaterialsystemhardwareconfig.h"
 #include "materialsystem/itexture.h"
-#include "materialsystem/MaterialSystem_Config.h"
+#include "materialsystem/materialsystem_config.h"
 #include "istudiorender.h"
 #include "choreowidgetdrawhelper.h"
 #include "faceposer_models.h"

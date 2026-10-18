@@ -14,8 +14,8 @@
 #pragma once
 #endif
 
-#include "vgui_controls/panel.h"
-#include "vgui/mousecode.h"
+#include "vgui_controls/Panel.h"
+#include "vgui/MouseCode.h"
 
 
 //-----------------------------------------------------------------------------

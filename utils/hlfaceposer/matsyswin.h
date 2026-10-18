@@ -16,7 +16,7 @@
 #pragma once
 
 
-#include <mxtk/mxMatSysWindow.h>
+#include <mxtk/mxmatsyswindow.h>
 #include "materialsystem/imaterialsystem.h"
 #include "faceposertoolwindow.h"
 #include "interface.h"

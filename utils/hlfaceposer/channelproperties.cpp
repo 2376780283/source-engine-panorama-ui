@@ -6,8 +6,8 @@
 //=============================================================================//
 #include <stdio.h>
 #include "resource.h"
-#include "ChannelProperties.h"
-#include "ChoreoView.h"
+#include "channelproperties.h"
+#include "choreoview.h"
 #include "choreoactor.h"
 #include "choreoscene.h"
 #include "mdlviewer.h"

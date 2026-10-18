@@ -10,10 +10,10 @@
 
 #include "stdafx.h"
 #include "hammer.h"
-#include "PakFrame.h"
-#include "PakDoc.h"
-#include "PakViewDirec.h"
-#include "PakViewFiles.h"
+#include "pakframe.h"
+#include "pakdoc.h"
+#include "pakviewdirec.h"
+#include "pakviewfiles.h"
 
 #ifdef _DEBUG
 #define new DEBUG_NEW

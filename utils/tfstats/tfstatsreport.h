@@ -19,8 +19,8 @@
 #define __TFSTATSREPORT_H
 #pragma warning(disable:4786)
 #include <time.h>
-#include "BinaryResource.h"
-#include "MatchInfo.h"
+#include "binaryresource.h"
+#include "matchinfo.h"
 #include "HTML.h"
 #include "util.h"	
 

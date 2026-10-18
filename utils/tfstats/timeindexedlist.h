@@ -16,7 +16,7 @@
 #pragma once
 #endif
 #include <list>
-#include "TFStatsApplication.h"
+#include "tfstatsapplication.h"
 #include "util.h"
 //------------------------------------------------------------------------------------------------------
 // Purpose: CTimedIndexedList is a list of elements indexed by time_t's.

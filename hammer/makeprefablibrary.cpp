@@ -8,8 +8,8 @@
 
 #include "stdafx.h"
 #include "hammer.h"
-#include "Prefabs.h"
-#include "Prefab3d.h"
+#include "prefabs.h"
+#include "prefab3d.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include <tier0/memdbgon.h>

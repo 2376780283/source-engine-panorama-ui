@@ -10,7 +10,7 @@
 #pragma once
 #endif
 
-#include "ObjectPage.h"
+#include "objectpage.h"
 #include "FilteredComboBox.h"
 
 class GDclass;

@@ -15,12 +15,12 @@
 //=============================================================================//
 
 #include "stdafx.h"
-#include "ChunkFile.h"
-#include "fgdlib/GameData.h"
-#include "GameConfig.h"
-#include "EditGameClass.h"
-#include "MapEntity.h"
-#include "mathlib/Mathlib.h"
+#include "chunkfile.h"
+#include "fgdlib/gamedata.h"
+#include "gameconfig.h"
+#include "editgameclass.h"
+#include "mapentity.h"
+#include "mathlib/mathlib.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include <tier0/memdbgon.h>

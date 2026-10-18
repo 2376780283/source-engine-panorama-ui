@@ -15,7 +15,7 @@
 #define GIZMO_H
 #pragma once
 
-#include "MapAtom.h"
+#include "mapatom.h"
 
 
 #define GIZMO_AXIS_X			0x10

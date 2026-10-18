@@ -29,9 +29,9 @@
 #include "pakviewer.h"
 #include "mdlviewer.h"
 // #include "GlWindow.h"
-#include "StudioModel.h"
-#include "ControlPanel.h"
-#include "FileAssociation.h"
+#include "studiomodel.h"
+#include "controlpanel.h"
+#include "fileassociation.h"
 
 
 

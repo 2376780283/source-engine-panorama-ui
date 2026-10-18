@@ -13,7 +13,7 @@
 #include "DialogGameInfo.h"
 #include "inetapi.h"
 #include "TokenLine.h"
-#include "dialogkickplayer.h"
+#include "DialogKickPlayer.h"
 #include <string.h>
 
 extern void v_strncpy(char *dest, const char *src, int bufsize);

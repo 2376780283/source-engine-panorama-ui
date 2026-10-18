@@ -5,9 +5,9 @@
 // $NoKeywords: $
 //=============================================================================
 
-#include "ServerPingMsgHandler.h"
+#include "serverpingmsghandler.h"
 
-#include "ServerPing.h"
+#include "serverping.h"
 
 //-----------------------------------------------------------------------------
 // Purpose: Constructor

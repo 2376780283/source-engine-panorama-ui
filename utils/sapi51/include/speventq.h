@@ -10,11 +10,11 @@
 #define SPEventQ_h
 
 #ifndef SPHelper_h
-#include <SPHelper.h>
+#include <sphelper.h>
 #endif
 
 #ifndef SPCollec_h
-#include <SPCollec.h>
+#include <spcollec.h>
 #endif
 
 //=== Inline helpers for copying and deleting events ============================

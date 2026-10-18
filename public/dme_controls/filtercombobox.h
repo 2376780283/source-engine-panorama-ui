@@ -11,7 +11,7 @@
 #pragma once
 #endif
 
-#include "vgui_controls/combobox.h"
+#include "vgui_controls/ComboBox.h"
 
 
 //-----------------------------------------------------------------------------

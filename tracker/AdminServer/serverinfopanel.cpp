@@ -5,7 +5,7 @@
 // $NoKeywords: $
 //=============================================================================
 
-#include "ServerInfoPanel.h"
+#include "serverinfopanel.h"
 #include "MapCycleEditDialog.h"
 
 #include <vgui/ISystem.h>

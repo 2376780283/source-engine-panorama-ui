@@ -12,7 +12,7 @@
 #include "SoundEmitterSystem/isoundemittersystembase.h"
 #include "snd_wave_source.h"
 #include "filesystem.h"
-#include "UtlBuffer.h"
+#include "utlbuffer.h"
 #include "phonemeeditor.h"
 
 //-----------------------------------------------------------------------------

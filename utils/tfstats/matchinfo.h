@@ -18,7 +18,7 @@
 #endif
 #include <map>
 #include <string>
-#include "EventList.h"
+#include "eventlist.h"
 #include "util.h"
 #include "player.h"
 #include "time.h"

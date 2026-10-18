@@ -6,11 +6,11 @@
 //
 //===========================================================================//
 #include "materialsystem/imaterialsystem.h"
-#include "materialsystem/MaterialSystem_Config.h"
+#include "materialsystem/materialsystem_config.h"
 #include "tier0/dbg.h"
 #include <windows.h>
 #include "filesystem.h"
-#include "FileSystem_Tools.h"
+#include "filesystem_tools.h"
 #include "../materialsystem/ishadersystem.h"
 #include "utlvector.h"
 #include "tier0/icommandline.h"

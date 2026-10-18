@@ -9,7 +9,7 @@
 //=============================================================================//
 
 #include "dme_controls/BaseAttributePanel.h"
-#include "dme_controls/attributewidgetfactory.h"
+#include "dme_controls/AttributeWidgetFactory.h"
 #include "tier1/KeyValues.h"
 #include "vgui_controls/Label.h"
 #include "movieobjects/dmeeditortypedictionary.h"

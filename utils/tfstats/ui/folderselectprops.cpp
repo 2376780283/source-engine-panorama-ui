@@ -9,8 +9,8 @@
 //
 
 #include "stdafx.h"
-#include "UI.h"
-#include "FolderSelectProps.h"
+#include "ui.h"
+#include "folderselectprops.h"
 
 #ifdef _DEBUG
 #define new DEBUG_NEW

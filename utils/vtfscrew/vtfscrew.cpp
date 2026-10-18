@@ -10,7 +10,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include "vtf/vtf.h"
-#include "UtlBuffer.h"
+#include "utlbuffer.h"
 
 int main( int argc, char **argv )
 {

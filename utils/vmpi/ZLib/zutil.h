@@ -81,7 +81,7 @@ extern const char *z_errmsg[10]; /* indexed by 2-zlib_error */
        void _Cdecl farfree( void *block );
        void *_Cdecl farmalloc( unsigned long nbytes );
 #    else
-#     include <alloc.h>
+#     include <Alloc.h>
 #    endif
 #  else /* MSC or DJGPP */
 #    include <malloc.h>

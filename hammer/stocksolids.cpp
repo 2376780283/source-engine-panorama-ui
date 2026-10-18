@@ -6,9 +6,9 @@
 
 #include "stdafx.h"
 #include "hammer.h"
-#include "StockSolids.h"
+#include "stocksolids.h"
 #include "hammer_mathlib.h"
-#include "MapSolid.h"
+#include "mapsolid.h"
 
 
 // memdbgon must be the last include file in a .cpp file!!!

@@ -10,9 +10,9 @@
 #pragma once
 
 
-#include "BlockArray.h"
-#include "MapClass.h"
-#include "MapFace.h"
+#include "blockarray.h"
+#include "mapclass.h"
+#include "mapface.h"
 
 
 enum TextureAlignment_t;

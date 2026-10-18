@@ -6,13 +6,13 @@
 
 #include "stdafx.h"
 #include "hammer.h"
-#include "FilterControl.h"
-#include "ControlBarIDs.h"
-#include "MapWorld.h"
-#include "GlobalFunctions.h"
-#include "EditGroups.h"
-#include "CustomMessages.h"
-#include "VisGroup.h"
+#include "filtercontrol.h"
+#include "controlbarids.h"
+#include "mapworld.h"
+#include "globalfunctions.h"
+#include "editgroups.h"
+#include "custommessages.h"
+#include "visgroup.h"
 #include "Selection.h"
 
 // memdbgon must be the last include file in a .cpp file!!!

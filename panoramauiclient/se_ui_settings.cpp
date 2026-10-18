@@ -61,6 +61,13 @@ ConVar se_popup_news( "se_popup_news", "1", FCVAR_ARCHIVE,
 ConVar se_popup_legacy( "se_popup_legacy", "1", FCVAR_ARCHIVE,
 	"Show the 'Legacy version of CS:GO' notice once per launch (1) or never (0)" );
 
+//-----------------------------------------------------------------------------
+// SE port (2026-09-19): the panorama backdrop-blur switch.  It is defined next to the code that reads
+// it (panorama/source2/renderer/source2surface.cpp, SE_PortSupportsBlurPasses) and registered here
+// because SE_PortInstallGameInterfaceBindings() below is the one place in this module that has ICvar.
+//-----------------------------------------------------------------------------
+extern ConVar se_blur;
+
 const char* Helper_GetMouseEnableBindingName()
 {
 	const char* szScoreboardKey = cl_scoreboard_mouse_enable_binding.GetString();
@@ -122,8 +129,10 @@ void SE_PortInstallGameInterfaceBindings()
 	{
 		g_pCVar->RegisterConCommand( &se_popup_news );
 		g_pCVar->RegisterConCommand( &se_popup_legacy );
-		Msg( "SE port: popup switches se_popup_news='%s' se_popup_legacy='%s'\n",
-			se_popup_news.GetString(), se_popup_legacy.GetString() );
+		g_pCVar->RegisterConCommand( &se_blur );
+		Msg( "SE port: popup switches se_popup_news='%s' se_popup_legacy='%s' se_blur='%s' (@%p icvar=%p)\n",
+			se_popup_news.GetString(), se_popup_legacy.GetString(), se_blur.GetString(),
+			&se_blur, (void *)g_pCVar->FindVar( "se_blur" ) );
 	}
 
 	Msg( "SE port: installed the GameInterfaceAPI JS bindings (CUiComponent_GameInterface); "

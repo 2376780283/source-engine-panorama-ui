@@ -17,7 +17,7 @@
 #include "tier0/icommandline.h"
 #include "datamodel/idatamodel.h"
 #include "filesystem.h"
-#include "appframework/appframework.h"
+#include "appframework/AppFramework.h"
 #include "tier1/utlbuffer.h"
 #include "dmserializers/idmserializers.h"
 #include "tier1/utlstring.h"

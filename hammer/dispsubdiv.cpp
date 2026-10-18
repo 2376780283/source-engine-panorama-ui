@@ -7,11 +7,11 @@
 //=============================================================================//
 
 #include <stdafx.h>
-#include "DispSubdiv.h"
-#include "MapDisp.h"
-#include "UtlLinkedList.h"
+#include "dispsubdiv.h"
+#include "mapdisp.h"
+#include "utllinkedlist.h"
 #include "utlvector.h"
-#include "GlobalFunctions.h"
+#include "globalfunctions.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include <tier0/memdbgon.h>

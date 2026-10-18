@@ -15,7 +15,7 @@
 #ifdef WIN32
 #pragma once
 #endif
-#include "Report.h"
+#include "report.h"
 
 //------------------------------------------------------------------------------------------------------
 // Purpose: CDialogueReadout is a full page report element that outputs a listing

@@ -6,7 +6,7 @@
 //=============================================================================//
 #include "cbase.h"
 #include "resource.h"
-#include "MultipleRequest.h"
+#include "multiplerequest.h"
 #include "workspacemanager.h"
 
 static CMultipleParams g_Params;

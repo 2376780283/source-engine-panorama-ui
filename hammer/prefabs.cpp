@@ -15,8 +15,8 @@
 
 
 #include "stdafx.h"
-#include "Prefabs.h"
-#include "Prefab3D.h"
+#include "prefabs.h"
+#include "prefab3d.h"
 #include "hammer.h"
 #include <io.h>
 #include <fcntl.h>

@@ -13,8 +13,8 @@
 
 
 #include "resource.h"
-#include "GroupList.h"
-#include "HammerBar.h"
+#include "grouplist.h"
+#include "hammerbar.h"
 
 
 class CSelectModeDlgBar : public CHammerBar

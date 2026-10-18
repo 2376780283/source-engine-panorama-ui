@@ -8,7 +8,7 @@
 #include <mxtk/mx.h>
 #include <stdio.h>
 #include "resource.h"
-#include "EventProperties.h"
+#include "eventproperties.h"
 #include "mdlviewer.h"
 
 static CEventParams g_Params;

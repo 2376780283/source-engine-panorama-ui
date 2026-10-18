@@ -26,7 +26,7 @@
 #include <tchar.h>
 #include <ImageHlp.h>
 #include "tier0/valve_on.h"
-#include "ExtendedTrace.h"
+#include "extendedtrace.h"
 
 #define BUFFERSIZE   0x200
 

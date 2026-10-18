@@ -10,8 +10,8 @@
 #pragma once
 
 
-#include "MapClass.h"
-#include "MapKeyFrame.h"
+#include "mapclass.h"
+#include "mapkeyframe.h"
 
 
 class CMapAnimator : public CMapKeyFrame

@@ -3,8 +3,8 @@
 // Purpose: 
 //=============================================================================//
 
-#include <Gl/gl.h>
-#include <Gl/GLext.h>
+#include <GL/gl.h>
+#include <GL/glext.h>
 
 extern void InitGLFunctionPointers();
 

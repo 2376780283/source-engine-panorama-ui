@@ -12,9 +12,9 @@
 #endif
 
 
-#include "Box3D.h"
-#include "MapClass.h"			// For CMapObjectList
-#include "ToolInterface.h"
+#include "box3d.h"
+#include "mapclass.h"			// For CMapObjectList
+#include "toolinterface.h"
 #include "utlvector.h"
 
 

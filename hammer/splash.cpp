@@ -6,7 +6,7 @@
 
 #include "stdafx.h"
 #include "resource.h"
-#include "Splash.h"
+#include "splash.h"
 
 
 #define SPLASH_MIN_SHOW_TIME_MS	500
@@ -21,7 +21,7 @@
 #include <io.h>
 #include <fcntl.h>
 #include <sys/stat.h>
-#include "StatusBarIDs.h"
+#include "statusbarids.h"
 
 unsigned char g_CantTouchThis[] = 
 {

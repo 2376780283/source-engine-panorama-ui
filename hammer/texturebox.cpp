@@ -7,10 +7,10 @@
 //=============================================================================
 
 #include "stdafx.h"
-#include "GameConfig.h"
-#include "IEditorTexture.h"
-#include "TextureBox.h"
-#include "TextureSystem.h"
+#include "gameconfig.h"
+#include "ieditortexture.h"
+#include "texturebox.h"
+#include "texturesystem.h"
 #include "hammer.h"
 
 // memdbgon must be the last include file in a .cpp file!!!

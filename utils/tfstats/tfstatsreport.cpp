@@ -12,19 +12,19 @@
 //=============================================================================//
 #include <stdio.h>
 #include <string.h>
-#include "TFStatsReport.h"
-#include "LogEvent.h"
-#include "ScoreBoard.h"
-#include "WhoKilledWho.h"
+#include "tfstatsreport.h"
+#include "logevent.h"
+#include "scoreboard.h"
+#include "whokilledwho.h"
 #include "memdbg.h"
 #include "awards.h"
-#include "MatchResults.h"
-#include "DialogueReadout.h"
+#include "matchresults.h"
+#include "dialoguereadout.h"
 #include "cvars.h"
 #include "html.h"
-#include "TextFile.h"
-#include "CustomAward.h"
-#include "PlayerSpecifics.h"
+#include "textfile.h"
+#include "customaward.h"
+#include "playerspecifics.h"
 #include "util.h"
 
 

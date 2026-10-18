@@ -11,7 +11,7 @@
 
 
 #include "resource.h"
-#include "AutoSelCombo.h"
+#include "autoselcombo.h"
 #include "texturewindow.h"
 
 

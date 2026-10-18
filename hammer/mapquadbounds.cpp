@@ -6,11 +6,11 @@
 //=============================================================================//
 
 #include "stdafx.h"
-#include "Box3D.h"
-#include "fgdlib/HelperInfo.h"
-#include "MapQuadBounds.h"
-#include "mathlib/MathLib.h"
-#include "Render3D.h"
+#include "box3d.h"
+#include "fgdlib/helperinfo.h"
+#include "mapquadbounds.h"
+#include "mathlib/mathlib.h"
+#include "render3d.h"
 #include "material.h"
 #include "materialsystem/imaterialsystem.h"
 #include "materialsystem/imesh.h"

@@ -14,7 +14,7 @@
 #pragma once
 
 
-#include "ObjectPage.h"
+#include "objectpage.h"
 #include "AnchorMgr.h"
 
 class GDclass;

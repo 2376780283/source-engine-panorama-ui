@@ -17,7 +17,7 @@
 #include "snd_wave_mixer_private.h"
 #include "snd_wave_mixer_adpcm.h"
 #include "ifaceposersound.h"
-#include "AudioWaveOutput.h"
+#include "audiowaveoutput.h"
 #include "tier2/riff.h"
 
 typedef struct channel_s

@@ -8,7 +8,7 @@
 #include <commctrl.h>
 #include "mxtk/mx.h"
 #include "resource.h"
-#include "CCLookup.h"
+#include "cclookup.h"
 #include "mdlviewer.h"
 #include "addsoundentry.h"
 #include <vgui/ILocalize.h>

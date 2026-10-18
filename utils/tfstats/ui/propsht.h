@@ -27,9 +27,9 @@
 /////////////////////////////////////////////////////////////////////////////
 // CAllControlsSheet
 
-#include "FolderSelectProps.h"
-#include "LogSelectProps.h"
-#include "SwitchProps.h"
+#include "folderselectprops.h"
+#include "logselectprops.h"
+#include "switchprops.h"
 
 
 

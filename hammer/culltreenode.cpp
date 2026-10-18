@@ -6,7 +6,7 @@
 //=============================================================================//
 
 #include "stdafx.h"
-#include "CullTreeNode.h"
+#include "culltreenode.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include <tier0/memdbgon.h>

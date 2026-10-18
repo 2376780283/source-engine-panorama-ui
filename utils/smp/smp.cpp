@@ -17,7 +17,7 @@
 #include <fstream>
 
 
-#include "IceKey.h"
+#include "IceKey.H"
 
 
 CComModule _Module;

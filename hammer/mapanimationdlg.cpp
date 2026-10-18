@@ -6,15 +6,15 @@
 //=============================================================================//
 
 #include <stdafx.h>
-#include "GlobalFunctions.h"
-#include "History.h"
+#include "globalfunctions.h"
+#include "history.h"
 #include "MainFrm.h"
-#include "MapAnimator.h"
-#include "MapAnimationDlg.h"
-#include "MapClass.h"
-#include "MapDoc.h"
-#include "MapEntity.h"
-#include "MapWorld.h"
+#include "mapanimator.h"
+#include "mapanimationdlg.h"
+#include "mapclass.h"
+#include "mapdoc.h"
+#include "mapentity.h"
+#include "mapworld.h"
 #include "hammer.h"
 #include "Selection.h"
 

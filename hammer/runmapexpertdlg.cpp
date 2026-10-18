@@ -10,8 +10,8 @@
 
 #include "stdafx.h"
 #include "hammer.h"
-#include "RunMapExpertDlg.h"
-#include "RunMapCfgDlg.h"
+#include "runmapexpertdlg.h"
+#include "runmapcfgdlg.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include <tier0/memdbgon.h>

@@ -6,7 +6,7 @@
 // $NoKeywords: $
 //=============================================================================//
 #include "cbase.h"
-#include "vgui_EntityPanel.h"
+#include "vgui_entitypanel.h"
 #include "ienginevgui.h"
 #include "c_BaseTFPlayer.h"
 #include "clientmode_commander.h"

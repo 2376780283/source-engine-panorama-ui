@@ -15,7 +15,7 @@
 #define OPTGENERAL_H
 #pragma once
 
-#include "Resource.h"
+#include "resource.h"
 
 
 class COPTGeneral : public CPropertyPage

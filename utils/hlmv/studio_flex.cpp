@@ -8,9 +8,9 @@
 #include <string.h>
 #include <assert.h>
 
-#include "ViewerSettings.h"
-#include "StudioModel.h"
-#include "bitmap/TGALoader.h"
+#include "viewersettings.h"
+#include "studiomodel.h"
+#include "bitmap/tgaloader.h"
 #include "materialsystem/imaterial.h"
 #include "materialsystem/imaterialvar.h"
 #include "materialsystem/itexture.h"

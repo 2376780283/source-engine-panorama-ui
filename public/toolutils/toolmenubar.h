@@ -13,7 +13,7 @@
 #endif
 
 
-#include "vgui_controls/menubar.h"
+#include "vgui_controls/MenuBar.h"
 
 using namespace vgui;
 

@@ -54,7 +54,7 @@ extern char * getenv JPP((const char * name));
 
 #ifdef __TURBOC__
 /* These definitions work for Borland C (Turbo C) */
-#include <alloc.h>		/* need farmalloc(), farfree() */
+#include <Alloc.h>		/* need farmalloc(), farfree() */
 #define far_malloc(x)	farmalloc(x)
 #define far_free(x)	farfree(x)
 #else

@@ -9,7 +9,7 @@
 #include "d3dapp.h"
 #include "d3dx8math.h"
 #include "mathlib/mathlib.h"
-#include "ScratchPad3D.h"
+#include "scratchpad3d.h"
 #include "tier1/strtools.h"
 
 

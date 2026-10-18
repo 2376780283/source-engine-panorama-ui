@@ -10,7 +10,7 @@
 #include <stdio.h>
 
 #include "tier1/utlbuffer.h"
-#include "IGameServerData.h"
+#include "igameserverdata.h"
 extern IGameServerData *g_pGameServerData;
 
 //-----------------------------------------------------------------------------

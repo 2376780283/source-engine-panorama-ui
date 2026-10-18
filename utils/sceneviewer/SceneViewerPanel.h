@@ -23,7 +23,7 @@
 #include "datamodel/idatamodel.h"
 
 // Local includes
-#include "ClipViewPanel.h"
+#include "clipviewpanel.h"
 
 
 //-----------------------------------------------------------------------------

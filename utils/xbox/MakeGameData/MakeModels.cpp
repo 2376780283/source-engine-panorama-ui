@@ -8,7 +8,7 @@
 #include "studiobyteswap.h"
 #include "studio.h"
 #include "vphysics_interface.h"
-#include "materialsystem/IMaterial.h"
+#include "materialsystem/imaterial.h"
 #include "materialsystem/hardwareverts.h"
 #include "optimize.h"
 

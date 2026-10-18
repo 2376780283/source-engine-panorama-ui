@@ -3,8 +3,8 @@
 
 #include <assert.h>
 #include <set>
-#include "NvTriStripObjects.h"
-#include "VertexCache.h"
+#include "nvtristripobjects.h"
+#include "vertexcache.h"
 #include "tier0/platform.h"
 
 #define CACHE_INEFFICIENCY 6

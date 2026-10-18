@@ -8,15 +8,15 @@
 #include <mxtk/mx.h>
 #include <stdio.h>
 #include "resource.h"
-#include "EventProperties.h"
+#include "eventproperties.h"
 #include "mdlviewer.h"
 #include "choreoevent.h"
 #include "filesystem.h"
 #include "SoundEmitterSystem/isoundemittersystembase.h"
-#include "AddSoundEntry.h"
-#include "SoundLookup.h"
+#include "addsoundentry.h"
+#include "soundlookup.h"
 #include "ifaceposersound.h"
-#include "MatSysWin.h"
+#include "matsyswin.h"
 
 static CEventParams g_Params;
 

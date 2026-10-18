@@ -18,7 +18,7 @@
 #include "tier1/utlbuffer.h"
 #include "tier1/KeyValues.h"
 #include "filesystem.h"
-#include "FileSystem_Tools.h"
+#include "filesystem_tools.h"
 #include "cmdlib.h"
 
 #include <windows.h>

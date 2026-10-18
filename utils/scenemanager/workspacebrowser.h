@@ -10,7 +10,7 @@
 #pragma once
 #endif
 
-#include "mxtk/mxTreeView.h"
+#include "mxtk/mxtreeview.h"
 #include "commctrl.h"
 
 class CWorkspace;

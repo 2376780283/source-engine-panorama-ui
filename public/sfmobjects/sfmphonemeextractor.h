@@ -11,9 +11,9 @@
 #endif
 
 #include "phonemeextractor/PhonemeExtractor.h"
-#include "tier1/UtlString.h"
+#include "tier1/utlstring.h"
 #include "sentence.h"
-#include "dme_controls/logpreview.h"
+#include "dme_controls/LogPreview.h"
 
 
 //-----------------------------------------------------------------------------

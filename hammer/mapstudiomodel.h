@@ -12,7 +12,7 @@
 
 
 #include "MapHelper.h"
-#include "StudioModel.h"
+#include "studiomodel.h"
 
 
 class CRender2D;

@@ -19,7 +19,7 @@
 using std::string;
 #include "util.h"
 #include "HTML.h"
-#include "TFStatsOSInterface.h"
+#include "tfstatsosinterface.h"
 
 //------------------------------------------------------------------------------------------------------
 // Purpose:  Instances of this class contain information that is specific to one run

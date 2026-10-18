@@ -13,7 +13,7 @@
 //=============================================================================//
 
 #include "util.h" 
-#include "TFStatsApplication.h"
+#include "tfstatsapplication.h"
 #include <stdarg.h>
 #include <string.h>
 #include <vector>

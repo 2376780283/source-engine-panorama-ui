@@ -11,9 +11,9 @@
 // $NoKeywords: $
 //=============================================================================//
 #include "util.h"
-#include "PlayerReport.h"
+#include "playerreport.h"
 
-#include "PlrPersist.h"
+#include "plrpersist.h"
 
 map<unsigned long,bool> CPlayerReport::alreadyPersisted;
 map<unsigned long,bool> CPlayerReport::alreadyWroteCombStats;

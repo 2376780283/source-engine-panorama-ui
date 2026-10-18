@@ -6,9 +6,9 @@
 
 #include "stdafx.h"
 #include "hammer.h"
-#include "OP_Flags.h"
-#include "OP_Entity.h"
-#include "ObjectProperties.h"
+#include "op_flags.h"
+#include "op_entity.h"
+#include "objectproperties.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include <tier0/memdbgon.h>

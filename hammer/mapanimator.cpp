@@ -6,13 +6,13 @@
 //=============================================================================//
 
 #include "stdafx.h"
-#include "GlobalFunctions.h"
-#include "fgdlib/HelperInfo.h"
-#include "MapAnimator.h"
-#include "MapDoc.h"
-#include "MapEntity.h"
-#include "MapWorld.h"
-#include "KeyFrame/KeyFrame.h"
+#include "globalfunctions.h"
+#include "fgdlib/helperinfo.h"
+#include "mapanimator.h"
+#include "mapdoc.h"
+#include "mapentity.h"
+#include "mapworld.h"
+#include "keyframe/keyframe.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include <tier0/memdbgon.h>

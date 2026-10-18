@@ -6,23 +6,23 @@
 //
 //=============================================================================//
 
-#include "dme_controls/filelistmanager.h"
+#include "dme_controls/FileListManager.h"
 #include "vgui_controls/FileOpenDialog.h"
-#include "vgui_controls/menu.h"
-#include "vgui_controls/messagebox.h"
+#include "vgui_controls/Menu.h"
+#include "vgui_controls/MessageBox.h"
 #include "datamodel/idatamodel.h"
 #include "datamodel/dmelement.h"
 #include "datamodel/dmattribute.h"
 #include "datamodel/dmattributevar.h"
 #include "vgui/ISurface.h"
 #include <vgui/IInput.h>
-#include "vgui/mousecode.h"
+#include "vgui/MouseCode.h"
 #include "tier1/strtools.h"
 #include "tier1/KeyValues.h"
 #include "tier2/tier2.h"
 #include "p4lib/ip4.h"
 #include "filesystem.h"
-#include "dme_controls/INotifyUI.h"
+#include "dme_controls/inotifyui.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"

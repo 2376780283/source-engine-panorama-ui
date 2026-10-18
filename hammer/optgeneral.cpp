@@ -6,8 +6,8 @@
 
 #include "stdafx.h"
 #include "hammer.h"
-#include "OPTGeneral.h"
-#include "Options.h"
+#include "optgeneral.h"
+#include "options.h"
 
 
 #pragma warning(disable:4244)

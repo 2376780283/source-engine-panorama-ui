@@ -11,7 +11,7 @@
 #pragma once
 #endif
 
-#include "MapView2DBase.h"
+#include "mapview2dbase.h"
 #include "tier1/utlrbtree.h"
 #include "tier1/utlstack.h"
 

@@ -12,10 +12,10 @@
 #pragma warning(disable:4701 4702 4530)
 #include <fstream>
 #pragma warning(pop)
-#include "BlockArray.h"
+#include "blockarray.h"
 #include "fgdlib/fgdlib.h"
-#include "fgdlib/WCKeyValues.h"
-#include "EntityConnection.h"
+#include "fgdlib/wckeyvalues.h"
+#include "entityconnection.h"
 
 
 #define MAX_CLASS_NAME_LEN		64

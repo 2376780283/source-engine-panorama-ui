@@ -6,7 +6,7 @@
 //=============================================================================//
 
 #include "stdafx.h"
-#include "MapDoc.h"
+#include "mapdoc.h"
 #include "NewVisGroupDlg.h"
 #include "hammer.h"
 

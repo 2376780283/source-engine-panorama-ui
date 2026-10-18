@@ -11,7 +11,7 @@
 
 
 #include "MapHelper.h"
-#include "MapDoc.h"
+#include "mapdoc.h"
 
 
 class CRender3D;

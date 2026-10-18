@@ -64,6 +64,19 @@ def build(bld):
 		# <mod>/materials/panorama/images/avatars/<steamid64>.png instead (see the file header).  It
 		# replaces the "CSGOAvatarImage" stub in seport_panel_stubs.cpp - do not compile both.
 		'../panorama/seport/gameclient/cstrike15/panorama/csgo_avatarimage.cpp',
+		# ... the inventory page's list (CS:GO: game/client/cstrike15/panorama/csgo_inventory_item_list.*).
+		# CS:GO fills it from the econ inventory view tiers; this tree has no econ layer, so the items
+		# come from the port's own catalog in se_faux_econ.{h,cpp} (same file list, same reason: the
+		# REGISTER_PANEL2D_FACTORY has to be linked into the DLL, not just into a static library).
+		'../panorama/seport/gameclient/cstrike15/panorama/se_faux_econ.cpp',
+		'../panorama/seport/gameclient/cstrike15/panorama/csgo_inventory_item_list.cpp',
+		# ... and the loadout panel the inventory page's "loadout" button opens (CS:GO:
+		# game/client/cstrike15/panorama/csgo_loadout.*).  It hosts the same item list; the loadout
+		# state and the radial selector it also uses in CS:GO are not part of the port yet.
+		'../panorama/seport/gameclient/cstrike15/panorama/csgo_loadout.cpp',
+		# ... and the item icon panel (CS:GO: csgo_item_image_panel.*, type "ItemImage").  It replaces
+		# the CSEPortStub_ItemImage stub that used to answer this type name - do not compile both.
+		'../panorama/seport/gameclient/cstrike15/panorama/csgo_item_image_panel.cpp',
 		# SE port: the batch-A "host layer" of CS:GO's game/client/panorama (see
 		# docs/panorama_stage2_plan.md).  They are listed for the same reason as the panel classes
 		# above: a REGISTER_PANEL2D/_FACTORY in a static library object is never pulled into the link.

@@ -4,14 +4,14 @@
 //
 //=============================================================================
 
-#include "toolutils/toolfilemenubutton.h"
-#include "toolutils/toolmenubutton.h"
+#include "toolutils/ToolFileMenuButton.h"
+#include "toolutils/ToolMenuButton.h"
 #include "tier1/KeyValues.h"
 #include "tier1/utlstring.h"
-#include "vgui_controls/menu.h"
-#include "vgui_controls/frame.h"
-#include "vgui_controls/button.h"
-#include "vgui_controls/listpanel.h"
+#include "vgui_controls/Menu.h"
+#include "vgui_controls/Frame.h"
+#include "vgui_controls/Button.h"
+#include "vgui_controls/ListPanel.h"
 #include "toolutils/enginetools_int.h"
 #include "p4lib/ip4.h"
 #include "vgui_controls/perforcefilelistframe.h"

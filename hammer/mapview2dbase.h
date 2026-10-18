@@ -12,9 +12,9 @@
 #endif
 
 
-#include "Axes2.h"
-#include "MapView.h"
-#include "MapClass.h"		// For CMapObjectList
+#include "axes2.h"
+#include "mapview.h"
+#include "mapclass.h"		// For CMapObjectList
 #include "utlvector.h"
 #include "VGuiWnd.h"
 #include "color.h"

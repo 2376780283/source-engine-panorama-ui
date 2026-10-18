@@ -6,9 +6,9 @@
 //=============================================================================//
 
 #include "stdafx.h"
-#include "BoundBox.h"
+#include "boundbox.h"
 #include "hammer_mathlib.h"
-#include "MapDefs.h"
+#include "mapdefs.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"

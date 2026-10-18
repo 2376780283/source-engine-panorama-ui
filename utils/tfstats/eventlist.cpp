@@ -11,8 +11,8 @@
 // $NoKeywords: $
 //=============================================================================//
 #include <stdlib.h>
-#include "TFStatsApplication.h"
-#include "EventList.h"
+#include "tfstatsapplication.h"
+#include "eventlist.h"
 #include "memdbg.h"
 
 #pragma warning (disable : 4786)

@@ -6,7 +6,7 @@
 //=============================================================================//
 
 #include "stdafx.h"
-#include "Render2D.h"
+#include "render2d.h"
 #include "RenderUtils.h"
 #include "mapview2d.h"
 #include "toolinterface.h"

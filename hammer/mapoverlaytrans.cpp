@@ -4,11 +4,11 @@
 //=============================================================================
 
 #include <stdafx.h>
-#include "MapEntity.h"
-#include "MapOverlayTrans.h"
+#include "mapentity.h"
+#include "mapoverlaytrans.h"
 #include "DispShore.h"
-#include "TextureSystem.h"
-#include "ChunkFile.h"
+#include "texturesystem.h"
+#include "chunkfile.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include <tier0/memdbgon.h>

@@ -14,7 +14,7 @@
 
 
 #include <afxtempl.h>
-#include "IEditorTexture.h"
+#include "ieditortexture.h"
 
 
 enum TEXTUREFORMAT;

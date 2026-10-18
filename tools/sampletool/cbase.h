@@ -40,7 +40,7 @@
 #include "mathlib/vmatrix.h"
 #include "filesystem.h"
 
-#include "tier1/ConVar.h"
+#include "tier1/convar.h"
 #include "icvar.h"
 
 #endif // CBASE_H

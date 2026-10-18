@@ -6,7 +6,7 @@
 //=============================================================================//
 #include <mxtk/mx.h>
 #include "resource.h"
-#include "ExpressionProperties.h"
+#include "expressionproperties.h"
 #include "mdlviewer.h"
 
 static CExpressionParams g_Params;

@@ -6,7 +6,7 @@
 //=============================================================================//
 #include "cbase.h"
 #include "resource.h"
-#include "InputProperties.h"
+#include "inputproperties.h"
 #include "workspacemanager.h"
 
 static CInputParams g_Params;

@@ -22,12 +22,12 @@
 #include <fstream>
 #pragma warning(pop)
 #include <utlvector.h>
-#include "MapAtom.h"
-#include "Render3D.h"
-#include "mathlib/VMatrix.h"
-#include "DispMapImageFilter.h"
+#include "mapatom.h"
+#include "render3d.h"
+#include "mathlib/vmatrix.h"
+#include "dispmapimagefilter.h"
 #include "builddisp.h"
-#include "DispManager.h"
+#include "dispmanager.h"
 
 class CChunkFile;
 class CMapClass;

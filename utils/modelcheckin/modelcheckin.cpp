@@ -9,8 +9,8 @@
 //
 
 #include "stdafx.h"
-#include "ModelCheckIn.h"
-#include "ModelCheckInDlg.h"
+#include "modelcheckin.h"
+#include "modelcheckindlg.h"
 
 #ifdef _DEBUG
 #define new DEBUG_NEW

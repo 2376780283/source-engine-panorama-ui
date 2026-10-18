@@ -15,7 +15,7 @@
 #include <stdlib.h>
 #include <stdarg.h>
 #include <string>
-#include "TFStatsApplication.h"
+#include "tfstatsapplication.h"
 #include "util.h"
 #include "html.h"
 

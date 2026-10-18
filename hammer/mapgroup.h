@@ -10,8 +10,8 @@
 #pragma once
 #endif
 
-#include "MapDefs.h"
-#include "MapClass.h"
+#include "mapdefs.h"
+#include "mapclass.h"
 
 
 class CMapGroup : public CMapClass

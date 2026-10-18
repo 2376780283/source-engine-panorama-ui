@@ -16,7 +16,7 @@
 #ifdef _WIN32
 
 #include <windows.h>
-#include "TextConsole.h"
+#include "textconsole.h"
 
 #define MAX_CONSOLE_TEXTLEN 256
 #define MAX_BUFFER_LINES	30

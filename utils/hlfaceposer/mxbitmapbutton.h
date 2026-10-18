@@ -13,7 +13,7 @@
 
 
 #include <mxtk/mx.h>
-#include "mxBitmapTools.h"
+#include "mxbitmaptools.h"
 
 class mxBitmapButton : public mxWindow
 {

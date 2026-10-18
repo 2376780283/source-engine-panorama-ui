@@ -10,7 +10,7 @@
 
 #include "stdafx.h"
 #include "propsht.h"
-#include "UI.h"
+#include "ui.h"
 #include "UIDlg.h"
 #include "PersistentString.h"
 

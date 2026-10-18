@@ -10,8 +10,8 @@
 #pragma once
 
 
-#include "Tool3D.h"
-#include "ToolInterface.h"
+#include "tool3d.h"
+#include "toolinterface.h"
 #include "utlvector.h"
 #pragma warning(push, 1)
 #pragma warning(disable:4701 4702 4530)

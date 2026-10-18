@@ -8,14 +8,14 @@
 #include <stdafx.h>
 #include "hammer.h"
 #include "MainFrm.h"
-#include "FaceEditSheet.h"
-#include "GlobalFunctions.h"
-#include "DispDlg.h"
-#include "MapFace.h"
-#include "MapDisp.h"
-#include "ToolDisplace.h"
+#include "faceeditsheet.h"
+#include "globalfunctions.h"
+#include "dispdlg.h"
+#include "mapface.h"
+#include "mapdisp.h"
+#include "tooldisplace.h"
 #include "ToolManager.h"
-#include "SculptOptions.h"
+#include "sculptoptions.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include <tier0/memdbgon.h>

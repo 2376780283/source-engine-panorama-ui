@@ -8,7 +8,7 @@
 #include "serverinfo.h"
 #include "Iresponse.h"
 
-#include "ServerInfoMsgHandler.h"
+#include "serverinfomsghandler.h"
 #include "Socket.h"
 #include "proto_oob.h"
 #include "DialogGameInfo.h"

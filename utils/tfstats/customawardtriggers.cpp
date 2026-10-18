@@ -23,8 +23,8 @@
 //
 // $NoKeywords: $
 //=============================================================================
-#include "TFStatsApplication.h"
-#include "CustomAwardTriggers.h"
+#include "tfstatsapplication.h"
+#include "customawardtriggers.h"
 #include "memdbg.h"
 #include "util.h"
 

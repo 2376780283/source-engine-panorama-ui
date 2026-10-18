@@ -7,7 +7,7 @@
 #include <windows.h>
 #include "tier0/dbg.h"
 #include "filesystem.h"
-#include "FileSystem_Tools.h"
+#include "filesystem_tools.h"
 #include "cmdlib.h"
 #include "tooldemofile.h"
 

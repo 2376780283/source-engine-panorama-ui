@@ -9,7 +9,7 @@
 #include "basemenu.h"
 #include "menumanager.h"
 #include <ctype.h>
-#include "vgui/iinput.h"
+#include "vgui/IInput.h"
 
 
 //-----------------------------------------------------------------------------

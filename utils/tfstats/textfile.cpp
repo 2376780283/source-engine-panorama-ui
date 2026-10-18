@@ -14,9 +14,9 @@
 #include <ctype.h>
 #include <stdlib.h>
 #include <string.h>
-#include "TFStatsApplication.h"
+#include "tfstatsapplication.h"
 #include "util.h"
-#include "TextFile.h"
+#include "textfile.h"
 
 //------------------------------------------------------------------------------------------------------
 // Function:	CTextFile::init

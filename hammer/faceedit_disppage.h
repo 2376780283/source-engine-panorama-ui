@@ -10,7 +10,7 @@
 #pragma once
 
 #include "resource.h"
-#include "DispDlg.h"
+#include "dispdlg.h"
 
 class CMapSolid;
 class CMapFace;

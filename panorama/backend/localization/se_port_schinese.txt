@@ -1,0 +1,38 @@
+"lang"
+{
+	"Language"	"Schinese"
+	"Tokens"
+	{
+		// SE port: 简体中文覆盖。英文文件永远先加载作为兜底（见 se_port_english.txt 的说明），
+		// 所以这里只列与英文不同的条目。
+
+		"SEPort_Store_Button"			"商店"
+		"SEPort_Store_Item_Fallback"		"商店物品"
+
+		// 商店条目（def idx 见 se_session_sim.js 的 STORE_BANNER）
+		"SEPort_Store_Item_4883"		"巴黎 2023 观众通行证"
+		"SEPort_Store_Item_4888"		"巴黎 2023 纪念包"
+		"SEPort_Store_Item_6732"		"巴黎 2023 印花"
+
+		// 历代大行动（由早到晚）
+		"SEPort_Store_Item_9101"		"回旋镖行动 (2013)"
+		"SEPort_Store_Item_9102"		"勇闯荒野行动 (2013)"
+		"SEPort_Store_Item_9103"		"凤凰行动 (2014)"
+		"SEPort_Store_Item_9104"		"突围行动 (2014)"
+		"SEPort_Store_Item_9105"		"先锋行动 (2014)"
+		"SEPort_Store_Item_9106"		"血战狂潮行动 (2015)"
+		"SEPort_Store_Item_9107"		"野火行动 (2016)"
+		"SEPort_Store_Item_9108"		"九头蛇行动 (2017)"
+		"SEPort_Store_Item_9109"		"裂网大行动 (2019)"
+		"SEPort_Store_Item_9110"		"狂牙大行动 (2020)"
+		"SEPort_Store_Item_9111"		"激流大行动 (2021)"
+
+		// 新闻面板演示条目
+		"SEPort_News_Title1"			"SE Panorama 移植版"
+		"SEPort_News_Desc1"			"新闻面板已接入本地演示数据。点击条目会在浏览器中打开链接。"
+		"SEPort_News_Title2"			"商店与市场"
+		"SEPort_News_Desc2"			"主面板下方现在可以浏览商店横幅与市场条目。"
+		"SEPort_News_Title3"			"好友与派对"
+		"SEPort_News_Desc3"			"右侧边栏的好友列表与派对面板来自本地会话模拟数据。"
+	}
+}

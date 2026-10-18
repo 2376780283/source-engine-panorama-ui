@@ -17,8 +17,8 @@
 #pragma once
 #endif
 #pragma warning(disable :4786)
-#include "TextFile.h"
-#include "LogEvent.h"
+#include "textfile.h"
+#include "logevent.h"
 #include <vector>
 #include <list>
 #include <map>

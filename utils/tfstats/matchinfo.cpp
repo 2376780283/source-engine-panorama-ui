@@ -10,7 +10,7 @@
 //
 // $NoKeywords: $
 //=============================================================================//
-#include "MatchInfo.h"
+#include "matchinfo.h"
 
 CMatchInfo* g_pMatchInfo=NULL; //global information about the match.
 

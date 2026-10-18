@@ -14,7 +14,7 @@
 #endif
 
 #include "dme_controls/AttributeBasePickerPanel.h"
-#include "matsys_controls/Picker.h"
+#include "matsys_controls/picker.h"
 
 
 //-----------------------------------------------------------------------------

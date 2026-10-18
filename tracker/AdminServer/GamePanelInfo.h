@@ -27,18 +27,18 @@
 #include <vgui_controls/PropertySheet.h>
 
 #include "BanContextMenu.h"
-#include "chatpanel.h"
-#include "rawlogpanel.h"
-#include "serverconfigpanel.h"
-#include "playerpanel.h"
-#include "banpanel.h"
-#include "graphpanel.h"
+#include "ChatPanel.h"
+#include "RawLogPanel.h"
+#include "ServerConfigPanel.h"
+#include "PlayerPanel.h"
+#include "BanPanel.h"
+#include "GraphPanel.h"
 #include "serverinfopanel.h"
 
 #define PASSWORD_LEN 64
 #define MOD_LEN 64
 
-#include "imanageserver.h" // IManageServer interface
+#include "IManageServer.h" // IManageServer interface
 
 
 class CBudgetPanelContainer;

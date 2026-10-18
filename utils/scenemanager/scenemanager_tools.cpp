@@ -6,7 +6,7 @@
 //
 //===========================================================================//
 #include "cbase.h"
-#include "StatusWindow.h"
+#include "statuswindow.h"
 #include "cmdlib.h"
 #include <sys/stat.h>
 #include "workspace.h"
@@ -17,7 +17,7 @@
 #include "utlbuffer.h"
 #include "SoundEmitterSystem/isoundemittersystembase.h"
 #include <KeyValues.h>
-#include "MultipleRequest.h"
+#include "multiplerequest.h"
 
 bool SceneManager_HasWindowStyle( mxWindow *w, int bits )
 {

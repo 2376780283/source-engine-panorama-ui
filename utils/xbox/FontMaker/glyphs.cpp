@@ -8,8 +8,8 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 //-----------------------------------------------------------------------------
 #include "stdafx.h"
-#include "Glyphs.h"
-#include "FontMaker.h"
+#include "glyphs.h"
+#include "fontmaker.h"
 
 const COLORREF COLOR_WHITE   = RGB(255,255,255);
 const COLORREF COLOR_BLACK   = RGB(  0,  0,  0);

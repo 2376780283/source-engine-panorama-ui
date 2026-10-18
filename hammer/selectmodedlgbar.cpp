@@ -7,8 +7,8 @@
 
 #include "stdafx.h"
 #include "SelectModeDlgBar.h"
-#include "ControlBarIDs.h"
-#include "MapDoc.h"
+#include "controlbarids.h"
+#include "mapdoc.h"
 #include "Selection.h"
 
 // memdbgon must be the last include file in a .cpp file!!!

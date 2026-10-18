@@ -487,6 +487,9 @@ public:
 	virtual const ILocalizationString *ChangeTransformStyleAndRelease( const ILocalizationString *pLocalizationString, EStringTransformStyle eTranformStyle );
 	// add a loc file to the system, in the form of <prefix>_<language>.txt , i.e dota_french.txt
 	virtual bool BLoadLocalizationFile( const char *pchFilePrefix );
+	// SE port: the same, but out of one explicit base directory - see the .cpp: BLoadLocalizationFile
+	// searches {localization} and then its sibling directory "backend".
+	bool BLoadLocalizationFileInDir( const char *pchBaseDir, const char *pchFilePrefix, CUtlVector<CUtlString> &vecChangedTokens );
 	virtual ELanguage CurrentLanguage()
 	{ 
 		return PchLanguageToELanguage(m_sLanguage.String()); 

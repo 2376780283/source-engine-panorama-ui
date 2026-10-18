@@ -6,12 +6,12 @@
 //=============================================================================//
 
 #include "stdafx.h"
-#include "GlobalFunctions.h"
-#include "MapDoc.h"
-#include "MapEntity.h"
-#include "MapWorld.h"
-#include "ObjectProperties.h"
-#include "OP_Input.h"
+#include "globalfunctions.h"
+#include "mapdoc.h"
+#include "mapentity.h"
+#include "mapworld.h"
+#include "objectproperties.h"
+#include "op_input.h"
 #include "MainFrm.h"
 #include "Selection.h"
 

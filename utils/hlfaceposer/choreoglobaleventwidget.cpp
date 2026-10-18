@@ -9,7 +9,7 @@
 #include "choreoviewcolors.h"
 #include "choreoglobaleventwidget.h"
 #include "choreowidgetdrawhelper.h"
-#include "ChoreoView.h"
+#include "choreoview.h"
 #include "choreoevent.h"
 #include "choreoeventwidget.h"
 

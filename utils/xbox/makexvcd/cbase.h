@@ -14,6 +14,6 @@
 
 // This is just a dummy file to make this tool compile
 #include "ai_activity.h"
-#include "UtlVector.h"
+#include "utlvector.h"
 
 #endif // CBASE_H

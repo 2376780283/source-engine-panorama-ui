@@ -12,8 +12,8 @@
 
 
 #include "MapHelper.h"
-#include "MapFace.h"
-#include "fgdlib/WCKeyValues.h"
+#include "mapface.h"
+#include "fgdlib/wckeyvalues.h"
 
 
 class CHelperInfo;

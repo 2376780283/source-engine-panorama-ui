@@ -6,12 +6,12 @@
 //=============================================================================//
 
 #include "stdafx.h"
-#include "GlobalFunctions.h"
-#include "History.h"
-#include "MapDoc.h"
-#include "MapDecal.h"
-#include "MapSolid.h"
-#include "MapView3D.h"
+#include "globalfunctions.h"
+#include "history.h"
+#include "mapdoc.h"
+#include "mapdecal.h"
+#include "mapsolid.h"
+#include "mapview3d.h"
 #include "resource.h"
 #include "ToolManager.h"
 #include "ToolDecal.h"

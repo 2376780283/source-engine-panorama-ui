@@ -18,8 +18,8 @@
 #include "choreowidgetdrawhelper.h"
 #include "ifileloader.h"
 #include "tier2/riff.h"
-#include "UtlBuffer.h"
-#include "ChoreoEvent.h"
+#include "utlbuffer.h"
+#include "choreoevent.h"
 
 CWaveBrowser	*g_pWaveBrowser = NULL;
 

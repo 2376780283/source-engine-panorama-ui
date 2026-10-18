@@ -6,16 +6,16 @@
 //=============================================================================//
 
 #include "stdafx.h"
-#include "History.h"
+#include "history.h"
 #include "MainFrm.h"			// For ObjectProperties
-#include "MapDoc.h"
-#include "MapSweptPlayerHull.h"
-#include "MapPointHandle.h"
-#include "MapView2D.h"
-#include "Render2D.h"
-#include "StatusBarIDs.h"		// For SetStatusText
+#include "mapdoc.h"
+#include "mapsweptplayerhull.h"
+#include "mappointhandle.h"
+#include "mapview2d.h"
+#include "render2d.h"
+#include "statusbarids.h"		// For SetStatusText
 #include "ToolManager.h"
-#include "ToolSweptHull.h"
+#include "toolswepthull.h"
 #include "ToolPointHandle.h"
 #include "Selection.h"
 

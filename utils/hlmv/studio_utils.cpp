@@ -13,19 +13,19 @@
 #include <stdlib.h>
 #include <string.h>
 #include <malloc.h>
-#include "StudioModel.h"
+#include "studiomodel.h"
 #include "vphysics/constraints.h"
 #include "physmesh.h"
 #include "materialsystem/imaterialsystem.h"
 #include "materialsystem/imaterial.h"
-#include "ViewerSettings.h"
+#include "viewersettings.h"
 #include "bone_setup.h"
-#include "UtlMemory.h"
+#include "utlmemory.h"
 #include "mxtk/mx.h"
 #include "filesystem.h"
-#include "IStudioRender.h"
-#include "materialsystem/IMaterialSystemHardwareConfig.h"
-#include "MDLViewer.h"
+#include "istudiorender.h"
+#include "materialsystem/imaterialsystemhardwareconfig.h"
+#include "mdlviewer.h"
 #include "optimize.h"
 
 extern char g_appTitle[];

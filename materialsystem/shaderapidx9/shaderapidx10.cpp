@@ -12,7 +12,7 @@
 #include "materialsystem/idebugtextureinfo.h"
 #include "materialsystem/materialsystem_config.h"
 #include "meshdx10.h"
-#include "shadershadowdx10.h"
+#include "ShaderShadowDx10.h"
 #include "shaderdevicedx10.h"
 #include "shaderapidx10_global.h"
 #include "imaterialinternal.h"

@@ -34,7 +34,7 @@
 #define COLOR_TRAYBACKGROUND		RGB( 240, 240, 220 )
 
 #include "faceposertoolwindow.h"
-#include "StudioModel.h"
+#include "studiomodel.h"
 
 class CAnimBrowserTab;
 

@@ -12,7 +12,7 @@
 #pragma once
 #endif
 
-#include "matsys_controls/PotteryWheelPanel.h"
+#include "matsys_controls/potterywheelpanel.h"
 #include "datamodel/dmattributetypes.h"
 #include "particles/particles.h"
 

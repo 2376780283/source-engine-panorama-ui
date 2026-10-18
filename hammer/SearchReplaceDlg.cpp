@@ -6,10 +6,10 @@
 //=============================================================================//
 
 #include "stdafx.h"
-#include "History.h"
-#include "GlobalFunctions.h"
-#include "MapDoc.h"
-#include "MapWorld.h"
+#include "history.h"
+#include "globalfunctions.h"
+#include "mapdoc.h"
+#include "mapworld.h"
 #include "SearchReplaceDlg.h"
 #include "hammer.h"
 #include "Selection.h"

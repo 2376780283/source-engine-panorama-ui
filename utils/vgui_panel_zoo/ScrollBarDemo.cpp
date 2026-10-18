@@ -6,7 +6,7 @@
 //=============================================================================//
 #include "DemoPage.h"
 
-#include <VGUI/IVGui.h>
+#include <vgui/IVGui.h>
 
 #include <vgui/IScheme.h>
 #include <vgui_controls/ScrollBar.h>

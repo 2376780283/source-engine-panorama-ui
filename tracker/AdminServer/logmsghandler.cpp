@@ -5,7 +5,7 @@
 // $NoKeywords: $
 //=============================================================================
 
-#include "LogMsgHandler.h"
+#include "logmsghandler.h"
 
 #include "info.h"
 #include "proto_oob.h"

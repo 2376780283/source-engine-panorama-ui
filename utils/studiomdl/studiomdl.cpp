@@ -47,7 +47,7 @@
 #include "utldict.h"
 #include "tier1/utlsortvector.h"
 #include "bitvec.h"
-#include "appframework/appframework.h"
+#include "appframework/AppFramework.h"
 #include "datamodel/idatamodel.h"
 #include "materialsystem/materialsystem_config.h"
 #include "vstdlib/cvar.h"

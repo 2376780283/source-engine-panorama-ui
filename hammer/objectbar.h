@@ -11,8 +11,8 @@
 #pragma once
 #endif
 
-#include "AutoSelCombo.h"
-#include "HammerBar.h"
+#include "autoselcombo.h"
+#include "hammerbar.h"
 #include "FilteredComboBox.h"
 
 

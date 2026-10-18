@@ -6,10 +6,10 @@
 
 #include "stdafx.h"
 #include "hammer.h"
-#include "GameConfig.h"
-#include "OptionProperties.h"
-#include "OPTTextures.h"
-#include "Options.h"
+#include "gameconfig.h"
+#include "optionproperties.h"
+#include "opttextures.h"
+#include "options.h"
 #include "tier1/strtools.h"
 #include <shlobj.h>
 

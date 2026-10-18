@@ -26,17 +26,17 @@
 //=============================================================================//
 
 #include "stdafx.h"
-#include "GlobalFunctions.h"
-#include "MapDoc.h"
-#include "MapEntity.h"
-#include "MapWorld.h"
-#include "ObjectProperties.h"
-#include "OP_Output.h"
+#include "globalfunctions.h"
+#include "mapdoc.h"
+#include "mapentity.h"
+#include "mapworld.h"
+#include "objectproperties.h"
+#include "op_output.h"
 #include "ToolManager.h"
 #include "MainFrm.h"
 #include "utlrbtree.h"
 #include "options.h"
-#include ".\op_output.h"
+#include "./op_output.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include <tier0/memdbgon.h>

@@ -5,7 +5,7 @@
 // $NoKeywords: $
 //=============================================================================
 
-#include "ServerInfoMsgHandler.h"
+#include "serverinfomsghandler.h"
 
 #include "serverinfo.h"
 #include "info.h"

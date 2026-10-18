@@ -380,7 +380,7 @@ syntax error
 #ifndef JM_NO_ITERATOR_H
 #include <iterator>
 #ifdef JM_USE_ALGO
-#include <algo.h>
+#include <ALGO.H>
 #else
 #include <algorithm>
 #endif

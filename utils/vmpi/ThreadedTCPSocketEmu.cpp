@@ -9,7 +9,7 @@
 #include "tcpsocket.h"
 #include "IThreadedTCPSocket.h"
 #include "ThreadedTCPSocketEmu.h"
-#include "ThreadHelpers.h"
+#include "threadhelpers.h"
 
 
 

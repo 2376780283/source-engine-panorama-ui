@@ -10,9 +10,9 @@
 //
 // $NoKeywords: $
 //=============================================================================//
-#include "AllPlayersStats.h"
-#include "PlayerReport.h"
-#include "TextFile.h"
+#include "allplayersstats.h"
+#include "playerreport.h"
+#include "textfile.h"
 
 //------------------------------------------------------------------------------------------------------
 // Function:	CAllPlayersStats::init

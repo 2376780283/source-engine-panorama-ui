@@ -15,7 +15,7 @@
 #include "tier1/utlvector.h"
 #include "vgui_controls/Frame.h"
 #include "datamodel/dmehandle.h"
-#include "vgui_controls/fileopenstatemachine.h"
+#include "vgui_controls/FileOpenStateMachine.h"
 
 
 //-----------------------------------------------------------------------------

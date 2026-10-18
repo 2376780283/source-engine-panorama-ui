@@ -7,13 +7,13 @@
 #include "hlfaceposer.h"
 #include <mxtk/mx.h>
 #include "expressions.h"
-#include "StudioModel.h"
+#include "studiomodel.h"
 #include "filesystem.h"
 #include "viewersettings.h"
 #include "matsyswin.h"
 #include "checksum_crc.h"
 #include "expclass.h"
-#include "ControlPanel.h"
+#include "controlpanel.h"
 #include "faceposer_models.h"
 #include "mdlviewer.h"
 

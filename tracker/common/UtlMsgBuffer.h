@@ -10,7 +10,7 @@
 #pragma once
 #endif
 
-#include "UtlMemory.h"
+#include "utlmemory.h"
 
 #pragma warning(disable: 4244) // warning C4244: '=' : conversion from 'int' to 'short', possible loss of data
 

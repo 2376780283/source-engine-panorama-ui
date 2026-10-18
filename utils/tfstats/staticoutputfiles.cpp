@@ -11,7 +11,7 @@
 //
 // $NoKeywords: $
 //=============================================================================//
-#include "TFStatsReport.h"
+#include "tfstatsreport.h"
 
 #ifdef WIN32
 #define LBR \

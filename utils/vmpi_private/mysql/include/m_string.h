@@ -26,7 +26,7 @@
 #define __USE_GNU				/* We want to use stpcpy */
 #endif
 #if defined(HAVE_STRINGS_H)
-#include <strings.h>
+#include <Strings.h>
 #endif
 #if defined(HAVE_STRING_H)
 #include <string.h>
@@ -51,7 +51,7 @@
 
 /*  This is needed for the definitions of bzero... on solaris */
 #if defined(HAVE_STRINGS_H) && !defined(HAVE_mit_thread)
-#include <strings.h>
+#include <Strings.h>
 #endif
 
 /*  This is needed for the definitions of memcpy... on solaris */

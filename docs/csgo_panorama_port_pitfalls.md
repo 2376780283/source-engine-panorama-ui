@@ -112,7 +112,14 @@
 
 ## I. 2026-09-17 追加三（模糊：**根因未找到，挂起归档**）
 
-用户决定：**关掉模糊，把"背景模糊（blurrects）为什么不生效"当成"暂时查不出来的 bug"存档，以后再修。**
+> ### ⚠️ 2026-09-19 更新：**已解挂，本节结论作废（仅作历史保留）**
+> 模糊**不再复现** error texture —— T1 的 sRGB 读取修复 + YUV 平面改 `A8` 之后，开启 blur pass 得到的是
+> CS:GO 那种**模糊 + 压暗**的背景。已恢复开启，并改成 cfg 开关 **`se_blur`（默认 `1`）**。
+> 完整记录（实现 / 用法 / 证据 / 遗留）见 `csgo_panorama_port_breakthroughs.md` **T2**。
+> **别再按下面 P63–P65 的假设去查**；其中 P63 的①（关掉 pass 背景视频就没了）在 09-19 也不复现了。
+> 下面加删除线的“关掉 / PARKED”描述指的是当时的状态，现已不成立（ConVar `se_blur` 取代了写死的 `false`）。
+
+用户决定：~~**关掉模糊，把"背景模糊（blurrects）为什么不生效"当成"暂时查不出来的 bug"存档，以后再修。**~~
 关闭方式：`panorama/source2/renderer/source2surface.cpp` 的 `SE_PortSupportsBlurPasses()` 固定返回
 `false`（函数名上标注 PARKED）。它只关掉 `PopCompositingLayer()` 里的 blur pass 分支，其余一切不变；
 要重新开工把返回值改回 `true` 即可，`@panorama_disable_blur` 这个 convar 仍然在。

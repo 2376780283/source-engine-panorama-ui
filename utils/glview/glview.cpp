@@ -6,11 +6,11 @@
 //
 //=============================================================================//
 #include "glos.h"
-#include <gl/gl.h>
+#include <GL/gl.h>
 #if _MSC_VER < 1600
 #include <gl/glaux.h>
 #endif
-#include <gl/glu.h>
+#include <GL/glu.h>
 #include <stdarg.h>
 #include <string.h>
 #include <stdio.h>

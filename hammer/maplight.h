@@ -13,8 +13,8 @@
 
 
 #include "MapHelper.h"
-#include "fgdlib/HelperInfo.h"
-#include "MapEntity.h"
+#include "fgdlib/helperinfo.h"
+#include "mapentity.h"
 
 
 class CMapLight : public CMapHelper

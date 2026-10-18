@@ -11,8 +11,8 @@
 // $NoKeywords: $
 //=============================================================================//
 #pragma warning (disable:4786)
-#include "PlrPersist.h"
-#include "TextFile.h"
+#include "plrpersist.h"
+#include "textfile.h"
 
 #include <map>
 #include <string>

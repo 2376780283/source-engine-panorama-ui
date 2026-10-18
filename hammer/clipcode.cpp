@@ -7,8 +7,8 @@
 
 
 #include "stdafx.h"
-#include "IEditorTexture.h"
-#include "MapFace.h"
+#include "ieditortexture.h"
+#include "mapface.h"
 #include "clipcode.h"
 
 // memdbgon must be the last include file in a .cpp file!!!

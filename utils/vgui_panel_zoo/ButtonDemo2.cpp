@@ -7,9 +7,9 @@
 
 #include "DemoPage.h"
 
-#include <VGUI/IVGui.h>
+#include <vgui/IVGui.h>
 #include <vgui_controls/Controls.h>
-#include <Keyvalues.h>
+#include <KeyValues.h>
 #include <vgui_controls/Button.h>
 
 

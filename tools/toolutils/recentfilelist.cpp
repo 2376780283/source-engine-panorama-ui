@@ -5,7 +5,7 @@
 //=============================================================================
 
 #include "toolutils/recentfilelist.h"
-#include "vgui_controls/menu.h"
+#include "vgui_controls/Menu.h"
 #include "iregistry.h"
 #include "tier1/KeyValues.h"
 

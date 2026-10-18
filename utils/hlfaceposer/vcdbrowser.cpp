@@ -13,9 +13,9 @@
 #include "tabwindow.h"
 #include "inputproperties.h"
 #include "choreowidgetdrawhelper.h"
-#include "UtlBuffer.h"
-#include "ChoreoEvent.h"
-#include "ChoreoView.h"
+#include "utlbuffer.h"
+#include "choreoevent.h"
+#include "choreoview.h"
 
 CVCDBrowser	*g_pVCDBrowser = NULL;
 

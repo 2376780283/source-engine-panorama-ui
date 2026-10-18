@@ -14,7 +14,7 @@
 #include "server.h"
 #include "netadr.h"
 #include "serverinfo.h"
-#include "iresponse.h"
+#include "Iresponse.h"
 
 
 #include "utlrbtree.h"

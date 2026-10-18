@@ -866,10 +866,13 @@
 	g.GameTypesAPI.GetSkirmishIdFromInternalName = function (name) { return -1; };
 	g.GameTypesAPI.SetCustomBotDifficulty = function (diff) { };
 
-	// The operation / season ("seasion") data only exists when a CS:GO operation is running.  -1 is
-	// the "no operation" answer, which keeps matchmaking_status.js out of the mission code path.
-	g.GameTypesAPI.GetActiveSeasionIndexValue = function () { return -1; };
-	g.GameTypesAPI.GetActiveSeasionCodeName = function () { return ""; };
+	// SE port（2026-09-19）: 大行动活动页默认关闭 —— 用户实测后反馈"太卡了"（引擎 FRAME 探针可见
+	// fps 掉到 ~14、avg 76ms），所以整块退回去：赛季号 -1 = "没有大行动"，活动页不再挂载、赛季相关
+	// 代码路径（操作上线弹窗 / 任务卡 / 奖励瓦片）全部不进。
+	// 想再打开就把下面这行改成 11（激流大行动），活动页挂载见文件末尾 "大行动（Operation）" 一节。
+	var SE_OP_SEASON = -1;
+	g.GameTypesAPI.GetActiveSeasionIndexValue = function () { return SE_OP_SEASON; };
+	g.GameTypesAPI.GetActiveSeasionCodeName = function () { return SE_OP_SEASON > 0 ? "riptide" : ""; };
 
 	// =============================================================================================
 	// CompetitiveMatchAPI - 竞技/排位相关的冷却、直连码、锦标赛
@@ -959,22 +962,48 @@
 	// The market entry carries market:true, which is what makes the tile render the 市场 button
 	// (its click calls SteamOverlayAPI.OpenURL).
 	var STORE_FauxPrefix = "se_store_";
+
+	// SE port: every string this layer puts on screen goes through the port's own localization file
+	// (mods/panorama_test/panorama/localization/se_port_<language>.txt, loaded by
+	// panoramauiclient/se_uicomponents.cpp via BLoadLocalizationFile( "se_port" )).  A token resolves
+	// to the game's current language; an unknown one falls back to the raw string, so this cannot
+	// throw.  The values below are tokens, not text - GetItemName() resolves them before handing them
+	// out, which keeps working whatever the content does with the result.
+	function seLocalize(token) {
+		try {
+			if (typeof $.LocalizeSafe === "function") { return $.LocalizeSafe(token); }
+			if (typeof $.Localize === "function") { return $.Localize(token); }
+		} catch (e) { }
+		return token;
+	}
+
 	var STORE_NAMES = {
-		"4883": "巴黎 2023 观众通行证",
-		"4888": "巴黎 2023 纪念包",
-		"6732": "巴黎 2023 印花",
+		"4883": "#SEPort_Store_Item_4883",
+		"4888": "#SEPort_Store_Item_4888",
+		"6732": "#SEPort_Store_Item_6732",
 		// 历代大行动(见下面的 STORE_BANNER);名字里的年份方便辨认。
-		"9101": "回旋镖行动 (2013)",
-		"9102": "勇闯荒野行动 (2013)",
-		"9103": "凤凰行动 (2014)",
-		"9104": "突围行动 (2014)",
-		"9105": "先锋行动 (2014)",
-		"9106": "血战狂潮行动 (2015)",
-		"9107": "野火行动 (2016)",
-		"9108": "九头蛇行动 (2017)",
-		"9109": "裂网大行动 (2019)",
-		"9110": "狂牙大行动 (2020)",
-		"9111": "激流大行动 (2021)"
+		"9101": "#SEPort_Store_Item_9101",
+		"9102": "#SEPort_Store_Item_9102",
+		"9103": "#SEPort_Store_Item_9103",
+		"9104": "#SEPort_Store_Item_9104",
+		"9105": "#SEPort_Store_Item_9105",
+		"9106": "#SEPort_Store_Item_9106",
+		"9107": "#SEPort_Store_Item_9107",
+		"9108": "#SEPort_Store_Item_9108",
+		"9109": "#SEPort_Store_Item_9109",
+		"9110": "#SEPort_Store_Item_9110",
+		"9111": "#SEPort_Store_Item_9111",
+		// 大行动任务物品（名字给活动页的任务卡用，见文件末尾的活动页一节）
+		"9201": "#SEPort_Op_Q1_Name",
+		"9202": "#SEPort_Op_Q2_Name",
+		"9203": "#SEPort_Op_Q3_Name",
+		// 奖励物品（定义号 = 9300 + 奖励号，见 GetItemDefinitionIndexFromDefinitionName）
+		"9301": "#SEPort_Op_Reward_1",
+		"9302": "#SEPort_Op_Reward_2",
+		"9303": "#SEPort_Op_Reward_3",
+		"9304": "#SEPort_Op_Reward_4",
+		"9305": "#SEPort_Op_Reward_5",
+		"9306": "#SEPort_Op_Reward_6"
 	};
 	var STORE_BANNER = [
 		{ def: 4883, market: false, format: "", coupon: "" },
@@ -1020,9 +1049,9 @@
 	g.InventoryAPI.GetItemName = function (id) {
 		if (typeof id === "string" && id.indexOf(STORE_FauxPrefix) === 0) {
 			var def = id.substring(STORE_FauxPrefix.length).split("_")[0];
-			if (STORE_NAMES[def]) { return STORE_NAMES[def]; }
+			if (STORE_NAMES[def]) { return seLocalize(STORE_NAMES[def]); }
 		}
-		return "商店物品";
+		return seLocalize("#SEPort_Store_Item_Fallback");
 	};
 	g.InventoryAPI.GetItemDefinitionName = function () { return "se_store_item"; };
 	g.InventoryAPI.GetItemTypeFromEnum = function () { return ""; };
@@ -1043,6 +1072,12 @@
 	// never be shown.  Add a button to the news panel's title bar that toggles the same class
 	// MainMenu.HideMainMenuNewsPanel() sets ('.news-panel--hide-news-panel': hide the news list,
 	// show #JsStorePanel).  Runs on every layout; outside the main menu the target is never found.
+	// SE port (2026-09-19): restored per user request.  The Operation panel is OFF by default
+	// (SE_OP_SEASON = -1 - it made the menu lag), so the news panel goes back to the stock layout:
+	// the news list stays, and this "Store" button toggles '.news-panel--hide-news-panel' to reveal
+	// the fake store entries in #JsStorePanel (STORE_BANNER / STORE_NAMES above).
+	// If SE_OP_SEASON is ever set back to 11 the mounted operation panel claims this same spot
+	// (see mountOperationPanel() at the end of this file) - decide which of the two wins then.
 	(function installStoreEntryButton() {
 		if (!g.$) { return; }
 		// SE port (2026-09-18): the injected scripts run in *every* layout context, and outside the
@@ -1059,7 +1094,7 @@
 				var navbar = newsPanel.Children()[0] || newsPanel;
 				var btn = $.CreatePanel('Button', navbar, 'SeStoreToggleButton');
 				btn.AddClass('news-panel-navbar-btn');
-				btn.text = '商店 / STORE';
+				btn.text = seLocalize("#SEPort_Store_Button");
 				btn.SetPanelEvent('onactivate', function () {
 					var container = $.FindChildInContext('#JsNewsContainer');
 					if (!container) { return; }
@@ -1410,24 +1445,24 @@
 			items: [
 				{
 					date: "2026-09-18",
-					title: "SE Panorama 移植版",
-					description: "新闻面板已接入本地演示数据。点击条目会在浏览器中打开链接。",
+					title: seLocalize("#SEPort_News_Title1"),
+					description: seLocalize("#SEPort_News_Desc1"),
 					imageUrl: "",
 					link: "https://blog.counter-strike.net/",
 					categories: []
 				},
 				{
 					date: "2026-09-18",
-					title: "商店与市场",
-					description: "主面板下方现在可以浏览商店横幅与市场条目。",
+					title: seLocalize("#SEPort_News_Title2"),
+					description: seLocalize("#SEPort_News_Desc2"),
 					imageUrl: "",
 					link: "https://steamcommunity.com/market/",
 					categories: []
 				},
 				{
 					date: "2026-09-17",
-					title: "好友与派对",
-					description: "右侧边栏的好友列表与派对面板来自本地会话模拟数据。",
+					title: seLocalize("#SEPort_News_Title3"),
+					description: seLocalize("#SEPort_News_Desc3"),
 					imageUrl: "",
 					link: "https://www.counter-strike.net/",
 					categories: []
@@ -1449,4 +1484,510 @@
 			} catch (e) { log("新闻: 注入异常 " + e); }
 		});
 	})();
+
+	// ---------------------------------------------------------------------------------------------
+	// 大行动（Operation）活动页 —— CS:GO 原版的 featured 面板
+	// ---------------------------------------------------------------------------------------------
+	// CS:GO 的 mainmenu.js 里有一句 _AddFeaturedPanel( 'operation/operation_mainmenu.xml',
+	// 'JsOperationPanel' )，把这一页塞进 #JsNewsContainer。我们这份内容里它上面的
+	// bFeaturedPanelIsActive 是 false（Valve 出厂就是关的），所以这一页从没出现过；这里把它挂上。
+	//
+	// 页面本身（layout/operation/operation_mainmenu.xml + 它的 scripts/styles + operations/op11/
+	// 素材 + videos/riptide_logo_loop.webm）全是 CS:GO 自带内容，缺的只有"后端数据"：MissionsAPI
+	// 的 SeasonalOperation* 系列 + InventoryAPI 的 SeasonalOperations 缓存 / Quest* 系列。下面按
+	// operation_util.js / operation_mainmenu.js / operation_mission_card.js 真正读到的字段造一套
+	// 自洽的假数据：赛季 11 = 激流大行动，3 张周任务卡（前 2 周解锁）、18 星奖励轨道、6 个奖励。
+	var OP_CARDS = [
+		{ id: 1, name: "#SEPort_Op_Card1", points: 2, quests: [6101, 6102], timer: false },
+		{ id: 2, name: "#SEPort_Op_Card2", points: 3, quests: [6103],       timer: false },
+		{ id: 3, name: "#SEPort_Op_Card3", points: 3, quests: [],           timer: true  }
+	];
+	var OP_QUESTS = {
+		6101: { item: 9201, goal: 16, remaining: 0, segs: [16],      gtype: 0, mode: "competitive", map: "mg_lobby_mapveto", single: "1" },
+		6102: { item: 9202, goal: 5,  remaining: 0, segs: [5],       gtype: 0, mode: "casual",      map: "mg_casualsigma",  single: "1" },
+		6103: { item: 9203, goal: 6,  remaining: 3, segs: [2, 4, 6], gtype: 1, mode: "competitive", map: "mg_lobby_mapveto", single: "0" }
+	};
+	var OP_TRACK_REWARDS = { 2: 1, 5: 2, 8: 3, 11: 4, 14: 5, 17: 6 };   // 星数档 -> 奖励编号
+	var OP_TRACK_TIERS = 18;        // GetSeasonalOperationTrackRewardsCount
+	var OP_XP_THRESHOLDS = "3,6,10";
+	var OP_MISSION_BACKLOG = 2;     // 已解锁 2 周（第 3 张卡走"锁定 + 倒计时"分支）
+	var OP_STARS_EARNED = 6;        // = SeasonalOperations 的 tier_unlocked
+	var OP_MISSIONS_COMPLETED = 3;
+
+	function opQuest(qid) { return OP_QUESTS[Number(qid)] || null; }
+	function opQuestByItem(itemId) {
+		var def = parseInt(String(itemId || "").substring(STORE_FauxPrefix.length), 10);
+		for (var k in OP_QUESTS) { if (OP_QUESTS[k].item === def) { return OP_QUESTS[k]; } }
+		return null;
+	}
+	function opValid(season) { return Number(season) === SE_OP_SEASON; }
+
+	// --- MissionsAPI: 赛季 / 任务卡 / 任务 / 奖励轨道 ---
+	g.MissionsAPI.GetSeasonalOperationMissionCardsCount = function (season) { return opValid(season) ? OP_CARDS.length : 0; };
+	g.MissionsAPI.GetSeasonalOperationMissionCardDetails = function (season, idx) {
+		var c = OP_CARDS[Number(idx) || 0];
+		if (!opValid(season) || !c) { return null; }
+		// name 交给内容侧的 $.Localize() 解析（保持跟语言切换）
+		return { id: c.id, name: c.name, quests: c.quests.slice(0), operational_points: c.points, showTimer: c.timer };
+	};
+	g.MissionsAPI.GetSeasonalOperationMissionCardActiveIdx = function (season) { return opValid(season) ? 0 : -1; };
+	g.MissionsAPI.GetSeasonalOperationTrackRewardsCount = function (season) {
+		if (!g.__seOpCountLogged) { g.__seOpCountLogged = true; log("[SEOP] TrackRewardsCount asked season=" + season + " -> " + (opValid(season) ? OP_TRACK_TIERS : 0)); }
+		return opValid(season) ? OP_TRACK_TIERS : 0;
+	};
+	g.MissionsAPI.GetSeasonalOperationTrackRewardSchema = function (season, idx, field) {
+		if (!g.__seOpSchemaLogged) { g.__seOpSchemaLogged = 1; log("[SEOP] TrackRewardSchema asked season=" + season + " idx=" + idx + " field=" + field); }
+		else if (g.__seOpSchemaLogged < 20) { g.__seOpSchemaLogged++; log("[SEOP]   schema idx=" + idx + " field=" + field); }
+		if (!opValid(season)) { return ""; }
+		var i = Number(idx) || 0;
+		var n = OP_TRACK_REWARDS[i];
+		if (field === "item_name" || field === "item_name_free") { return n ? ("#SEPort_Op_Reward_" + n) : ""; }
+		if (field === "none") { return n ? "" : "none"; }          // 空档 ⇒ 内容侧当 gap 跳过
+		if (field === "points" || field === "flags") { return String(i + 1); }
+		if (field === "ui_order") { return String(Math.floor(i / 5)); }
+		return "";
+	};
+	g.MissionsAPI.GetSeasonalOperationLoopingRewardsCount = function () { return 0; };
+	g.MissionsAPI.GetSeasonalOperationRedeemableGoodsCount = function () { return 0; };
+	g.MissionsAPI.GetSeasonalOperationRedeemableGoodsSchema = function () { return ""; };
+	g.MissionsAPI.GetSeasonalOperationXpRewardsThresholds = function (season) { return opValid(season) ? OP_XP_THRESHOLDS : ""; };
+	g.MissionsAPI.GetQuestPoints = function (qid, field) {
+		var q = opQuest(qid);
+		if (!q) { return 0; }
+		if (field === "goal") { return q.goal; }
+		if (field === "remaining") { return q.remaining; }
+		if (field === "uncommitted") { return 0; }
+		if (field === "count") { return q.segs.length; }
+		var m = /^goal([0-9]+)$/.exec(String(field === undefined || field === null ? "" : field));
+		if (m) { var n = q.segs[Number(m[1])]; return (n === undefined) ? q.goal : n; }
+		return 0;
+	};
+	g.MissionsAPI.GetQuestDefinitionField = function (qid, field) {
+		var q = opQuest(qid);
+		if (!q) { return ""; }
+		var i = q.item - 9200;
+		if (field === "loc_description") { return "#SEPort_Op_Q" + i + "_Desc"; }
+		if (field === "loc_name") { return "#SEPort_Op_Q" + i + "_Name"; }
+		if (field === "operational_points") { return "1"; }
+		if (field === "singlematch") { return q.single; }
+		return "";
+	};
+	g.MissionsAPI.GetQuestGraphCount = function () { return 0; };
+	g.MissionsAPI.GetQuestGraphType = function (qid) { var q = opQuest(qid); return q ? q.gtype : 0; };
+	g.MissionsAPI.GetQuestGraphEntry = function () { return 0; };
+	g.MissionsAPI.GetQuestGameElements = function () { return []; };   // 内容侧会 .map()
+	g.MissionsAPI.ApplyQuestDialogVarsToPanelJS = function () { };
+
+	// --- InventoryAPI: 任务物品 / SeasonalOperations 进度缓存 ---
+	g.InventoryAPI.GetMissionBacklog = function () { return OP_MISSION_BACKLOG; };
+	g.InventoryAPI.GetSecondsUntilNextMission = function () { return 0; };
+	g.InventoryAPI.GetQuestItemIDFromQuestID = function (qid) { var q = opQuest(qid); return q ? (STORE_FauxPrefix + q.item + "_0") : ""; };
+	g.InventoryAPI.GetQuestGameMode = function (itemId) { var q = opQuestByItem(itemId); return q ? q.mode : ""; };
+	g.InventoryAPI.GetQuestMapGroup = function (itemId) { var q = opQuestByItem(itemId); return q ? q.map : ""; };
+	g.InventoryAPI.GetQuestMap = function () { return ""; };
+	g.InventoryAPI.GetCacheTypeElementIndexByKey = function (type, key) {
+		return (type === 'SeasonalOperations' && Number(key) === SE_OP_SEASON) ? 0 : -1;
+	};
+	g.InventoryAPI.GetCacheTypeElementFieldByIndex = function (type, idx, field) {
+		if (type !== 'SeasonalOperations' || Number(idx) !== 0) { return 0; }
+		if (field === 'season_value') { return SE_OP_SEASON; }
+		if (field === 'missions_completed') { return OP_MISSIONS_COMPLETED; }
+		if (field === 'tier_unlocked') { return OP_STARS_EARNED; }
+		if (field === 'premium_tiers') { return 1; }        // >0 ⇒ 拥有通行证 ⇒ 显示任务面板
+		if (field === 'redeemable_balance') { return 0; }
+		if (field === 'season_pass_time') { return 0; }
+		return 0;
+	};
+	g.InventoryAPI.GetActiveSeasonPassItemId = function () { return ""; };
+	g.InventoryAPI.GetActiveSeasonCoinItemId = function () { return ""; };
+	// 奖励/任务名字 -> 物品定义号（内容侧拿它再拼 faux item id；见 operation_util.js::_GetRewardsData）
+	g.InventoryAPI.GetItemDefinitionIndexFromDefinitionName = function (name) {
+		var m = /_([0-9]+)$/.exec(String(name === undefined || name === null ? "" : name));
+		return m ? (9300 + Number(m[1])) : 0;
+	};
+	g.MyPersonaAPI.GetMyMedalRankByType = function () { return 1; };   // 大行动勋章等级（必须非 -1）
+	g.GameStateAPI.GetActiveQuestID = function () { return -1; };
+	g.DeepStatsAPI.GetLastCachedMatchJS = function () { return null; };  // 不进"上一场比赛"统计分支
+
+	// --- 挂载：把活动页放进 #JsNewsContainer（新闻下面），并收掉假商店面板 ---
+	(function mountOperationPanel() {
+		if (!g.$) { return; }
+		if (SE_OP_SEASON <= 0) { return; }   // SE port: 用户反馈活动页"太卡" ⇒ 默认不挂（见 SE_OP_SEASON）
+		var tries = 0;
+		function attempt() {
+			tries++;
+			try {
+				var root = $.GetContextPanel();
+				if (!root || root.id !== 'MainMenu') { return; }        // 只有主菜单上下文有 #JsNewsContainer
+				var container = $.FindChildInContext('#JsNewsContainer');
+				var news = $.FindChildInContext('#JsNewsPanel');
+				if (!container || !news) {                               // 等 mainmenu.js 把面板建出来
+					if (tries < 80) { $.Schedule(0.25, attempt); }
+					return;
+				}
+				if (!$.FindChildInContext('#JsOperationPanel')) {
+					var el = $.CreatePanel('Panel', container, 'JsOperationPanel');
+					el.BLoadLayout('file://{resources}/layout/operation/operation_mainmenu.xml', false, false);
+					container.MoveChildAfter(el, news);                 // 新闻下面那块
+					log("[SEOP] operation panel mounted (season=" + SE_OP_SEASON + ")");
+				}
+				// CS:GO 在"大行动进行中"会把新闻收起、把 #JsStorePanel 展开成 265px（.news-panel--hide-news-panel
+				// 那两条规则）。这里要的是"新闻 + 下面的活动页"，所以把那个 class 去掉、并把假商店面板折起来。
+				if (container.BHasClass('news-panel--hide-news-panel')) {
+					container.RemoveClass('news-panel--hide-news-panel');
+					log("[SEOP] removed news-panel--hide-news-panel (news stays visible)");
+				}
+				var store = $.FindChildInContext('#JsStorePanel');
+				if (store) {
+					// 每秒重压：内容侧/样式随时可能再把它拉开，所以不能只压一次。
+					if (store.style.height !== '0px') { store.style.height = '0px'; }
+					if (store.style.visibility !== 'collapse') { store.style.visibility = 'collapse'; }
+					if (!store.__seCollapsed) {
+						store.__seCollapsed = true;
+						log("[SEOP] fake store panel collapsed");
+					}
+				}
+			} catch (e) { log("[SEOP] mount failed: " + e); }
+			$.Schedule(1.0, attempt);                                    // 幂等保持（内容侧可能再改回来）
+		}
+		attempt();
+	})();
+
+	// ---------------------------------------------------------------------------------------------
+	// 大行动页的"点进去跳转"：点横幅 → 打开完整大行动页（operation_main.xml 弹窗）
+	// ---------------------------------------------------------------------------------------------
+	// CS:GO 里这块是照 UiToolkitAPI.ShowCustomLayoutPopupParameters 把 operation/operation_main.xml
+	// 当弹窗打开的（OperationUtil.OpenPopupCustomLayoutOperationHub），但内容侧没把它绑到任何按钮上
+	// （布局里 "查看奖励" 按钮与横幅背景都没有 onactivate），所以点了没反应。
+	// 这里在活动页自己的 JS 上下文里补上：横幅背景 + "查看奖励" 按钮 → 打开大行动 hub 弹窗。
+	// （本文件被注入到每个布局；OperationUtil 只存在于活动页那个上下文，所以这段只在
+	//  context panel 是 JsOperationPanel 时生效。）
+	(function wireOperationClicks() {
+		if (!g.$) { return; }
+		if (SE_OP_SEASON <= 0) { return; }   // 活动页没挂时不需要接线
+		try { if ($.GetContextPanel().id !== 'JsOperationPanel') { return; } } catch (e) { return; }
+
+		function openHub() {
+			try {
+				if (typeof OperationUtil !== 'undefined' && OperationUtil.OpenPopupCustomLayoutOperationHub) {
+					OperationUtil.OpenPopupCustomLayoutOperationHub(-1);
+					log("[SEOP] open operation hub popup");
+				} else {
+					log("[SEOP] OperationUtil not ready, hub not opened");
+				}
+			} catch (e) { log("[SEOP] hub popup failed: " + e); }
+		}
+
+		function bind(sel) {
+			var p = $.FindChildInContext(sel);
+			if (!p || p.__seOpClick) { return false; }
+			p.__seOpClick = true;
+			p.SetPanelEvent('onactivate', openHub);
+			return true;
+		}
+
+		var tries = 0;
+		function attempt() {
+			tries++;
+			var n = 0;
+			// 可见区域：任务卡容器 / 任务卡本体（upsell 横幅在"已拥有通行证"时是隐藏的，一并绑上备用）
+			if (bind('#id-op-mainmenu-missions')) { n++; }
+			if (bind('#id-op-mainmenu-mission-card')) { n++; }
+			if (bind('#id-op-mainmenu-upsell-bg')) { n++; }
+			if (bind('#id-op-reward-open-operation-hub')) { n++; }
+			if (n === 0 && tries < 40) { $.Schedule(0.25, attempt); return; }
+			log("[SEOP] operation clicks wired (new=" + n + ")");
+			$.Schedule(3.0, dumpRects);
+		}
+
+		// 几何探针：把活动页及几个关键子面板的绝对位置/尺寸写到日志（方便自动化点击与验收）
+		function absPos(el) {
+			var x = 0, y = 0, p = el;
+			while (p) {
+				try { x += Number(p.actualxoffset) || 0; y += Number(p.actualyoffset) || 0; } catch (e) { }
+				try { p = p.GetParent(); } catch (e) { p = null; }
+			}
+			return { x: x, y: y };
+		}
+		function dumpRects() {
+			var ids = ['JsOperationPanel', 'id-op-mainmenu-upsell', 'id-op-mainmenu-status',
+				'id-op-mainmenu-missions', 'id-op-mainmenu-mission-card', 'id-missions-selected-card-btn',
+				'id-op-mainmenu-mission-unlock'];
+			for (var i = 0; i < ids.length; i++) {
+				var el = $.FindChildInContext('#' + ids[i]);
+				if (!el) { continue; }
+				var a = absPos(el);
+				var w = 0, h = 0, vis = '?';
+				try { w = Math.round(Number(el.contentwidth) || 0); h = Math.round(Number(el.contentheight) || 0); } catch (e) { }
+				try { vis = el.visible ? 1 : 0; } catch (e) { }
+				log("[SEOP] rect " + ids[i] + " x=" + a.x + " y=" + a.y + " w=" + w + " h=" + h + " vis=" + vis);
+			}
+		}
+		attempt();
+	})();
+
+	// ---------------------------------------------------------------------------------------------
+	// 压住"假商店面板"（#JsStorePanel）
+	// ---------------------------------------------------------------------------------------------
+	// 主菜单左列下面那块（巴黎 2023 促销 + 历代大行动瓦片）是 CS:GO 自己的商店面板，数据是本移植
+	// 用 StoreAPI 假数据填的（巴黎 2023 观众通行证/纪念包/印花 + Operation Payback…Riptide）。
+	// 用户 2026-09-19 明确表示不要这种"商店市场"块（而且它还在主菜单背景的 blurrects 名单里，
+	// 显示着会多出一批模糊矩形），所以这里常驻把它压成 0 高/不显示。
+	// 想恢复它：删掉 this 段，或者把下面 RETURN_EARLY 改成 true 以外。
+	(function keepStorePanelHidden() {
+		// SE port (2026-09-19): store/market panel restored at the user's request.
+		// This block used to collapse #JsStorePanel to height:0 / visibility:collapse, which is
+		// why the store/market panel under the news had disappeared.  Flip the flag to true
+		// to collapse it again.
+		var SE_PORT_HIDE_STORE_PANEL = false;
+		if (!SE_PORT_HIDE_STORE_PANEL) { return; }
+		if (!g.$) { return; }
+		var tries = 0;
+		var logged = false;
+		function attempt() {
+			tries++;
+			try {
+				var root = $.GetContextPanel();
+				if (!root || root.id !== 'MainMenu') { return; }
+				var store = $.FindChildInContext('#JsStorePanel');
+				if (!store) { if (tries < 80) { $.Schedule(0.25, attempt); } return; }
+				if (store.style.height !== '0px') { store.style.height = '0px'; }
+				if (store.style.visibility !== 'collapse') { store.style.visibility = 'collapse'; }
+				if (!logged) { logged = true; log("[SEOP] fake store panel kept collapsed"); }
+			} catch (e) { }
+			$.Schedule(1.0, attempt);
+		}
+		attempt();
+	})();
+	// ==========================================================================
+	// SE port (2026-09-19): the inventory page's data layer.
+	//
+	// The C++ side owns the catalog - panorama/seport/gameclient/cstrike15/panorama/se_faux_econ.cpp
+	// (23 items, the four categories, the rarity and the sort order) plus csgo_inventory_item_list.cpp,
+	// which builds one tile per item and hands the id over as the tile's "itemid" attribute.  These
+	// answers mirror that catalog so the content's own scripts (mainmenu_inventory.js, itemtile.js,
+	// common/iteminfo.js) can label and colour the tiles.  Ids are the "se_store_<def>_<paint>" strings
+	// that InventoryAPI.GetFauxItemIDFromDefAndPaintIndex() builds and GetItemName() names.
+	// ==========================================================================
+	(function () {
+		var INV_CATEGORIES = "inv_category_any,inv_category_tools,inv_category_container,inv_category_collections";
+		var INV_CAT_META = {
+			"inv_category_any": "Inv_Category_any",
+			"inv_category_tools": "Inv_Category_tools",
+			"inv_category_container": "Inv_Category_container",
+			"inv_category_collections": "Inv_Category_collections"
+		};
+		// def index -> rarity (0 consumer .. 5 covert); mirrors k_Catalog in se_faux_econ.cpp
+		var INV_RARITY = {
+			"4883": 4, "4888": 3, "6732": 3,
+			"9101": 4, "9102": 4, "9103": 4, "9104": 4, "9105": 4, "9106": 4,
+			"9107": 4, "9108": 4, "9109": 4, "9110": 4, "9111": 4,
+			"9201": 3, "9202": 3, "9203": 3,
+			"9301": 5, "9302": 5, "9303": 5, "9304": 5, "9305": 5, "9306": 5
+		};
+		// the CS:GO rarity colours (the tile washes its rarity bar with this)
+		var INV_RARITY_COLOR = ["#b0c3d9", "#5e98d9", "#4b69ff", "#8847ff", "#d32ce6", "#eb4b4b", "#e4ae39"];
+		// icons, mirroring the "m_pchImage" column of se_faux_econ.cpp
+		var INV_ICON = {
+			"4883": "file://{images_econ}/econ/operations/op10/logo.png",
+			"4888": "file://{images_econ}/econ/store/tournament_items_18.png",
+			"6732": "file://{images_econ}/econ/store/get_tournament_stickers.png"
+		};
+
+		function invDef(id) {
+			var s = String(id === undefined || id === null ? "" : id);
+			if (s.indexOf(STORE_FauxPrefix) !== 0) { return ""; }
+			return s.substring(STORE_FauxPrefix.length).split("_")[0];
+		}
+		function invIsKnown(id) { return INV_RARITY.hasOwnProperty(invDef(id)); }
+		function invRarity(id) {
+			var d = invDef(id);
+			return INV_RARITY.hasOwnProperty(d) ? INV_RARITY[d] : 0;
+		}
+
+		// --- the category tree ("any" first, same order as the C++ side) -----------------------
+		g.InventoryAPI.GetCategories = function () { return INV_CATEGORIES; };
+		g.InventoryAPI.GetSubCategories = function (category) {
+			// every category exposes the single "any" tier (se_faux_econ.cpp::GetSubCategoryCount)
+			return "any";
+		};
+		g.InventoryAPI.GetInventoryStructureJSON = function (category, subCategory, group) {
+			var token = INV_CAT_META.hasOwnProperty(category) ? INV_CAT_META[category] : "Inv_Category_any";
+			return JSON.stringify({ nametoken: token, subcategories: "any" });
+		};
+
+		// --- item identity / naming ------------------------------------------------------------
+		g.InventoryAPI.IsFauxItemID = function (id) { return invIsKnown(id); };
+		g.InventoryAPI.IsValidItemID = function (id) { return invIsKnown(id); };
+		g.InventoryAPI.IsItemInfoValid = function (id) { return invIsKnown(id); };
+		g.InventoryAPI.GetItemRarityColor = function (id) {
+			var r = invRarity(id);
+			if (r < 0) { r = 0; }
+			if (r >= INV_RARITY_COLOR.length) { r = INV_RARITY_COLOR.length - 1; }
+			return INV_RARITY_COLOR[r];
+		};
+		g.InventoryAPI.GetItemInventoryImage = function (id) {
+			var d = invDef(id);
+			return INV_ICON.hasOwnProperty(d) ? INV_ICON[d] : "";
+		};
+		g.InventoryAPI.GetItemDefinitionName = function (id) { return invIsKnown(id) ? ("se_inv_item_" + invDef(id)) : ""; };
+		g.InventoryAPI.GetItemTypeFromEnum = function () { return ""; };
+		g.InventoryAPI.GetRawDefinitionKey = function () { return "0"; };
+
+		// --- per-item state the tiles ask about -----------------------------------------------
+		g.InventoryAPI.IsEquipped = function () { return false; };
+		g.InventoryAPI.GetSlot = function () { return "noteam"; };
+		g.InventoryAPI.GetSlotSubPosition = function () { return ""; };
+		g.InventoryAPI.GetItemTeam = function () { return "noteam"; };
+		g.InventoryAPI.HasCustomName = function () { return false; };
+		g.InventoryAPI.DoesItemMatchDefinitionByName = function () { return false; };
+		g.InventoryAPI.GetItemSessionPropertyValue = function () { return ""; };
+		g.InventoryAPI.GetItemAttributeValue = function () { return ""; };
+		g.InventoryAPI.GetItemStickerSlotCount = function () { return 0; };
+		g.InventoryAPI.GetItemStickerCount = function () { return 0; };
+		g.InventoryAPI.GetItemStickerImageByIndex = function () { return ""; };
+		g.InventoryAPI.GetItemStickerNameByIndex = function () { return ""; };
+		g.InventoryAPI.GetNumItemsNeededToTradeUp = function () { return 0; };
+		g.InventoryAPI.GetItemGifterXuid = function () { return ""; };
+		g.InventoryAPI.GetSet = function () { return ""; };
+		g.InventoryAPI.GetToolType = function () { return ""; };
+		g.InventoryAPI.BIsRewardPremium = function () { return false; };
+		g.InventoryAPI.GetRewardTier = function () { return 0; };
+		g.InventoryAPI.GetItemPickupMethod = function () { return ""; };
+		g.InventoryAPI.PrecacheCustomMaterials = function () { };
+		g.InventoryAPI.GetItemCapabilitiesCount = function () { return 0; };
+		g.InventoryAPI.GetItemCapabilityByIndex = function () { return ""; };
+		g.InventoryAPI.IsTool = function () { return false; };
+		g.InventoryAPI.IsCouponCrate = function () { return false; };
+
+		// --- the flat "query result" API the search panel uses ---------------------------------
+		// mainmenu_inventory_search.js calls SetInventorySortAndFilters() and then walks
+		// GetInventoryItemIDByIndex(i) / GetInventoryCount(), so this is where the port's search
+		// result set is built: the same catalog the C++ list shows, filtered by the search text
+		// (against the localized names, which only this side can resolve) and ordered by the sort
+		// method the panel's dropdown picked.
+		var INV_SORT_FALLBACK = "inv_sort_age";
+		var invResult = [];
+
+		function invAllDefs() { return Object.keys(INV_RARITY); }
+		function invItemID(def) { return STORE_FauxPrefix + def + "_0"; }
+		function invNameFor(def) {
+			var id = invItemID(def);
+			var name = "";
+			try { name = ($.Localize ? $.Localize("#" + (STORE_NAMES[def] ? STORE_NAMES[def].replace("#", "") : "SEPort_Store_Item_Fallback")) : ""); } catch (e) { name = ""; }
+			return String(name === undefined || name === null ? "" : name);
+		}
+		function invRebuild() {
+			var defs = invAllDefs();
+			var search = String(INV_SORT.search || "").toLowerCase();
+			if (search.length > 0) {
+				defs = defs.filter(function (d) {
+					return invNameFor(d).toLowerCase().indexOf(search) >= 0;
+				});
+			}
+			var sortType = String(INV_SORT.sortType || INV_SORT_FALLBACK);
+			if (sortType === "inv_sort_alpha") {
+				defs.sort(function (a, b) { return invNameFor(a) < invNameFor(b) ? -1 : (invNameFor(a) > invNameFor(b) ? 1 : 0); });
+			} else if (sortType === "inv_sort_rarity" || sortType === "inv_sort_quality") {
+				defs.sort(function (a, b) { return (INV_RARITY[b] || 0) - (INV_RARITY[a] || 0); });
+			}
+			invResult = defs.map(invItemID);
+		}
+		var INV_SORT = { sortType: INV_SORT_FALLBACK, search: "" };
+		g.InventoryAPI.SetInventorySortAndFilters = function (sortType, bForce, searchText) {
+			INV_SORT.sortType = sortType || INV_SORT_FALLBACK;
+			INV_SORT.search = String(searchText === undefined || searchText === null ? "" : searchText);
+			invRebuild();
+		};
+		g.InventoryAPI.GetInventoryCount = function () { return invResult.length; };
+		g.InventoryAPI.GetInventoryItemIDByIndex = function (i) {
+			var idx = Number(i) || 0;
+			return (idx >= 0 && idx < invResult.length) ? invResult[idx] : "";
+		};
+		invRebuild();
+
+		// --- the loadout API the item panel asks for (no loadouts in this build) ----------------
+		function loadoutNoop() { }
+		// mainmenu_inventory.js::_UpdateLoadoutButtonState() does
+		// "elInvLoadoutBtn.enabled = LoadoutAPI.IsLoadoutAllowed()", so this must be a real bool and it
+		// has to be true once the loadout panel (CCSGO_Loadout) exists - false disables the button and
+		// shows #tooltip_loadout_disabled on hover.
+		g.LoadoutAPI.IsLoadoutAllowed = function () { return true; };
+		g.LoadoutAPI.IsItemInShuffleForTeam = function () { return false; };
+		g.LoadoutAPI.IsShuffleEnabled = function () { return false; };
+		g.LoadoutAPI.IsShuffleAllowed = function () { return false; };
+		g.LoadoutAPI.CountItemsInInventoryForShuffleSlot = function () { return 0; };
+		g.LoadoutAPI.GetItemID = function () { return ""; };
+		g.LoadoutAPI.GetDefaultItem = function () { return ""; };
+		g.LoadoutAPI.GetItemGamePrice = function () { return 0; };
+		g.LoadoutAPI.AddItemToShuffle = loadoutNoop;
+		g.LoadoutAPI.RemoveItemFromShuffle = loadoutNoop;
+		g.LoadoutAPI.ClearShuffle = loadoutNoop;
+		g.LoadoutAPI.SetShuffleEnabled = loadoutNoop;
+		g.LoadoutAPI.ShuffleEquipmentInSlot = loadoutNoop;
+		g.LoadoutAPI.EquipItemInSlot = loadoutNoop;
+
+		if (!g.__seInvLogged) {
+			g.__seInvLogged = true;
+			log("库存: 数据层已安装 (categories=" + INV_CATEGORIES + ", items=" + Object.keys(INV_RARITY).length + ")");
+		}
+	})();
+
+	// SE port (2026-09-19): the handful of extra answers the loadout panel's script asks for
+	// (loadout.js: GetItemBaseName / shuffle helpers).  The port has no loadout state, so the
+	// "which item is equipped / in a shuffle" answers are empty and the helpers are no-ops.
+	(function () {
+		function invBaseName(id) {
+			var s = String(id === undefined || id === null ? "" : id);
+			if (s.indexOf(STORE_FauxPrefix) !== 0) { return ""; }
+			var def = s.substring(STORE_FauxPrefix.length).split("_")[0];
+			// loadout.js does $.Localize( InventoryAPI.GetItemBaseName( id ) ) - it wants a token
+			return "#" + (STORE_NAMES[def] ? STORE_NAMES[def].replace("#", "") : "SEPort_Store_Item_Fallback");
+		}
+		g.InventoryAPI.GetItemBaseName = invBaseName;
+		g.LoadoutAPI.ShuffleAllForTeam = function () { };
+		g.LoadoutAPI.GetItemCountInShuffle = function () { return 0; };
+		g.LoadoutAPI.SetShuffleEnabled = function () { };
+
+		if (!g.__seLoadoutLogged) {
+			g.__seLoadoutLogged = true;
+			log("配装: loadout 数据层已安装 (无槽位状态, 物品列表复用库存目录)");
+		}
+	})();
+
+	// SE port (2026-09-19): name the two catalog groups whose def indices are not in the store table
+	// (9201-9203 = the operation's quests, 9301-9306 = its rewards).  They use the same SE_port
+	// tokens the operation panel already shows, so the tiles read as part of the same operation.
+	(function () {
+		var EXTRA_NAMES = {
+			"9201": "#SEPort_Op_Q1_Name",
+			"9202": "#SEPort_Op_Q2_Name",
+			"9203": "#SEPort_Op_Q3_Name",
+			"9301": "#SEPort_Op_Reward_1",
+			"9302": "#SEPort_Op_Reward_2",
+			"9303": "#SEPort_Op_Reward_3",
+			"9304": "#SEPort_Op_Reward_4",
+			"9305": "#SEPort_Op_Reward_5",
+			"9306": "#SEPort_Op_Reward_6"
+		};
+		var prevGetName = g.InventoryAPI.GetItemName;
+		g.InventoryAPI.GetItemName = function (id) {
+			var s = String(id === undefined || id === null ? "" : id);
+			if (s.indexOf(STORE_FauxPrefix) === 0) {
+				var def = s.substring(STORE_FauxPrefix.length).split("_")[0];
+				if (EXTRA_NAMES.hasOwnProperty(def)) { return seLocalize(EXTRA_NAMES[def]); }
+			}
+			return prevGetName ? prevGetName(id) : "";
+		};
+		var prevBase = g.InventoryAPI.GetItemBaseName;
+		g.InventoryAPI.GetItemBaseName = function (id) {
+			var s = String(id === undefined || id === null ? "" : id);
+			if (s.indexOf(STORE_FauxPrefix) === 0) {
+				var def = s.substring(STORE_FauxPrefix.length).split("_")[0];
+				if (EXTRA_NAMES.hasOwnProperty(def)) { return EXTRA_NAMES[def]; }
+			}
+			return prevBase ? prevBase(id) : "";
+		};
+	})();
+
 })();

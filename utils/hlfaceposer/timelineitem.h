@@ -13,7 +13,7 @@
 
 #include <mxtk/mx.h>
 #include "utlvector.h"
-#include "ExpressionSample.h"
+#include "expressionsample.h"
 
 class CExpression;
 class ExpressionTool;

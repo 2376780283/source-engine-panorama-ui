@@ -341,8 +341,10 @@
 	// ("V8ParamToPanoramaType expected bool type to convert, but got something else ([])"), which
 	// aborts the whole script.  Observed in mainmenu_inventory.js:727
 	// (elInvLoadoutBtn.enabled = LoadoutAPI.IsLoadoutAllowed()).
-	// "false" is the conservative answer: the loadout button is disabled, nothing else changes.
-	seDefine("LoadoutAPI.IsLoadoutAllowed", function () { return false; });
+	// The answer has to be a real bool.  It is "true" now that the loadout panel is ported
+	// (CCSGO_Loadout in panoramauiclient/csgo_loadout.*): the content enables the "Loadout" button and
+	// shows #tooltip_loadout_disabled ("Loadout is not available at this time") while this is false.
+	seDefine("LoadoutAPI.IsLoadoutAllowed", function () { return true; });
 
 	// Same failure one level deeper: mainmenu.js::_UpdateUnlockCompAlert() builds
 	//

@@ -13,11 +13,11 @@
 
 #include "stdafx.h"
 #include "hammer.h"
-#include "ReplaceTexDlg.h"
+#include "replacetexdlg.h"
 #include "MainFrm.h"
-#include "GlobalFunctions.h"
-#include "TextureBrowser.h"
-#include "TextureSystem.h"
+#include "globalfunctions.h"
+#include "texturebrowser.h"
+#include "texturesystem.h"
 #include "mapdoc.h"
 
 

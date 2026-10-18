@@ -10,10 +10,10 @@
 #pragma once
 #endif
 
-#include "MapClass.h"
+#include "mapclass.h"
 #include "Selection.h"
-#include "MapEntity.h"
-#include "GameConfig.h"
+#include "mapentity.h"
+#include "gameconfig.h"
 #include "filesystem.h"
 #include "tier1/utlrbtree.h"
 #include "tier1/utlstack.h"

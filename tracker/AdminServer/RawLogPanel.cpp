@@ -25,7 +25,7 @@
 #include <vgui_controls/ComboBox.h>
 #include <vgui_controls/PHandle.h>
 #include <vgui_controls/PropertySheet.h>
-#include "vgui_controls/ConsoleDialog.h"
+#include "vgui_controls/consoledialog.h"
 
 using namespace vgui;
 

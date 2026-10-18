@@ -10,7 +10,7 @@
 #pragma once
 
 
-#include "IEditorTexture.h"
+#include "ieditortexture.h"
 #include "materialsystem/imaterialvar.h"
 #include "materialsystem/imaterial.h"
 

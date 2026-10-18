@@ -22,8 +22,8 @@
 #pragma warning(disable:4701 4702 4530)
 #include <fstream>
 #pragma warning(pop)
-#include "BoundBox.h"
-#include "MapPoint.h"
+#include "boundbox.h"
+#include "mappoint.h"
 #include "utlvector.h"
 #include "visgroup.h"
 #include "fgdlib/wckeyvalues.h"

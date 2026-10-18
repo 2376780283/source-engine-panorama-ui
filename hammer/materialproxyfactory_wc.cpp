@@ -6,8 +6,8 @@
 
 #include "stdafx.h"
 #include "tier1/strtools.h"
-#include "materialsystem/IMaterialProxy.h"
-#include "materialsystem/IMaterialProxyFactory.h"
+#include "materialsystem/imaterialproxy.h"
+#include "materialsystem/imaterialproxyfactory.h"
 #include "materialsystem/imaterialvar.h"
 #include "materialsystem/imaterial.h"
 

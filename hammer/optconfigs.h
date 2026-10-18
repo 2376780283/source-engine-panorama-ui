@@ -9,7 +9,7 @@
 #pragma once
 
 
-#include "AutoSelCombo.h"
+#include "autoselcombo.h"
 
 
 class COPTConfigs : public CPropertyPage

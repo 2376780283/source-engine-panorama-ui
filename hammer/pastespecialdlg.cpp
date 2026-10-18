@@ -6,7 +6,7 @@
 
 #include "stdafx.h"
 #include "hammer.h"
-#include "PasteSpecialDlg.h"
+#include "pastespecialdlg.h"
 
 #pragma warning(disable:4244)
 

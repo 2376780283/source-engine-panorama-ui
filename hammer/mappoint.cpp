@@ -6,9 +6,9 @@
 //=============================================================================//
 
 #include "stdafx.h"
-#include "Box3D.h"
-#include "MapDefs.h" // for COORD_NOTINIT
-#include "MapPoint.h"
+#include "box3d.h"
+#include "mapdefs.h" // for COORD_NOTINIT
+#include "mappoint.h"
 #include "hammer_mathlib.h"
 
 // memdbgon must be the last include file in a .cpp file!!!

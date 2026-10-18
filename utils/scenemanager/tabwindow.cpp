@@ -6,7 +6,7 @@
 //=============================================================================//
 #include "cbase.h"
 #include "tabwindow.h"
-#include "DrawHelper.h"
+#include "drawhelper.h"
 
 //-----------------------------------------------------------------------------
 // Purpose: Constructor

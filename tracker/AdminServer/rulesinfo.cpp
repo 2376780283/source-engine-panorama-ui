@@ -8,7 +8,7 @@
 #include "rulesinfo.h"
 #include "Iresponse.h"
 
-#include "RulesInfoMsgHandler.h"
+#include "rulesinfomsghandler.h"
 #include "Socket.h"
 #include "proto_oob.h"
 #include "DialogGameInfo.h"

@@ -12,7 +12,7 @@
 #endif
 
 
-#include "IEditorTexture.h"
+#include "ieditortexture.h"
 
 
 enum

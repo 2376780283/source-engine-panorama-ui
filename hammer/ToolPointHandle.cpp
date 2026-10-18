@@ -5,14 +5,14 @@
 //=============================================================================//
 
 #include "stdafx.h"
-#include "History.h"
+#include "history.h"
 #include "MainFrm.h"			// FIXME: For ObjectProperties
-#include "MapDoc.h"
-#include "MapView2D.h"
-#include "MapPointHandle.h"
+#include "mapdoc.h"
+#include "mapview2d.h"
+#include "mappointhandle.h"
 #include "PopupMenus.h"
-#include "Render2D.h"
-#include "StatusBarIDs.h"		// For SetStatusText
+#include "render2d.h"
+#include "statusbarids.h"		// For SetStatusText
 #include "ToolManager.h"
 #include "ToolPointHandle.h"
 #include "Selection.h"

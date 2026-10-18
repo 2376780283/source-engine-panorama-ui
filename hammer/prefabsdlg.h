@@ -11,7 +11,7 @@
 /////////////////////////////////////////////////////////////////////////////
 // CPrefabsDlg dialog
 
-#include "Prefabs.h"
+#include "prefabs.h"
 
 class CPrefabsDlg : public CDialog
 {

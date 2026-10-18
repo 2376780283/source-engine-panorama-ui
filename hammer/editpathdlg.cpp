@@ -6,9 +6,9 @@
 
 #include "stdafx.h"
 #include "hammer.h"
-#include "EditPathDlg.h"
-#include "GameConfig.h"
-#include "fgdlib/GameData.h"
+#include "editpathdlg.h"
+#include "gameconfig.h"
+#include "fgdlib/gamedata.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include <tier0/memdbgon.h>

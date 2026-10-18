@@ -11,7 +11,7 @@
 //                 provided without guarantee or warrantee expressed or
 //                 implied.
 //
-#include "mxtk/mxMatSysWindow.h"
+#include "mxtk/mxmatsyswindow.h"
 #include <windows.h>
 
 class mxMatSysWindow_i

@@ -5,16 +5,16 @@
 //=============================================================================//
 
 #include "stdafx.h"
-#include "EntityReportDlg.h"
-#include "fgdlib/GameData.h"
-#include "GlobalFunctions.h"
-#include "History.h"
+#include "entityreportdlg.h"
+#include "fgdlib/gamedata.h"
+#include "globalfunctions.h"
+#include "history.h"
 #include "MainFrm.h"
-#include "MapEntity.h"
-#include "MapInstance.h"
-#include "MapView2D.h"
-#include "MapWorld.h"
-#include "ObjectProperties.h"
+#include "mapentity.h"
+#include "mapinstance.h"
+#include "mapview2d.h"
+#include "mapworld.h"
+#include "objectproperties.h"
 #include "hammer.h"
 
 // memdbgon must be the last include file in a .cpp file!!!

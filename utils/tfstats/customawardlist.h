@@ -15,7 +15,7 @@
 #ifdef WIN32
 #pragma once
 #endif
-#include "CustomAward.h"
+#include "customaward.h"
 #include <list>
 
 using namespace std;

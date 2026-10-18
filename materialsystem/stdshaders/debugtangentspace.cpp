@@ -18,7 +18,7 @@
 #include "unlitgeneric_notexture_ps20b.inc"
 
 #else
-#include "debugtangentspace.inc"
+#include "DebugTangentSpace.inc"
 #endif
 
 // memdbgon must be the last include file in a .cpp file!!!

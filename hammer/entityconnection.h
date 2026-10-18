@@ -21,7 +21,7 @@
 #endif
 
 #include "utlvector.h"
-#include "fgdlib/InputOutput.h"
+#include "fgdlib/inputoutput.h"
 
 
 #define EVENT_FIRE_ALWAYS	-1

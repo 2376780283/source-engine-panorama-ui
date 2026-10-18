@@ -13,7 +13,7 @@
 
 #include "resource.h"
 #include "utlvector.h"
-#include "MapClass.h"
+#include "mapclass.h"
 
 
 class CMapEntity;

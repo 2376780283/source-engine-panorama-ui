@@ -9,6 +9,6 @@
 #if !defined(__TargetConditionals_h__)
 #define __TargetConditionals_h__
 
-#include "ConditionalMacros.h"
+#include "conditionalmacros.h"
 
 #endif

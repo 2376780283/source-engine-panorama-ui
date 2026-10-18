@@ -7,7 +7,7 @@
 
 #include "dme_controls/dmecombinationsystemeditorpanel.h"
 #include "dme_controls/dmepanel.h"
-#include "dme_controls/elementpropertiestree.h"
+#include "dme_controls/ElementPropertiesTree.h"
 #include "dme_controls/dmecontrols_utils.h"
 #include "movieobjects/dmecombinationoperator.h"
 #include "vgui_controls/ListPanel.h"

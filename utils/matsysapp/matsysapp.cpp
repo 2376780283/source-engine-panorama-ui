@@ -33,7 +33,7 @@
 #include "materialsystem/imaterialproxyfactory.h"
 #include "filesystem.h"
 #include "materialsystem/imaterialproxy.h"
-#include "materialsystem/MaterialSystem_Config.h"
+#include "materialsystem/materialsystem_config.h"
 #include "tier0/icommandline.h"
 #include "filesystem_tools.h"
 #include "materialsystem/imesh.h"

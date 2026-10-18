@@ -13,8 +13,8 @@
 
 #pragma once
 
-#include "BoundBox.h"
-#include "MapClass.h"
+#include "boundbox.h"
+#include "mapclass.h"
 
 class CCullTreeNode;
 

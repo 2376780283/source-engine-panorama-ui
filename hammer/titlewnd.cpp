@@ -7,9 +7,9 @@
 
 #include "stdafx.h"
 #include <commctrl.h>
-#include "TitleWnd.h"
+#include "titlewnd.h"
 #include "MainFrm.h"
-#include "Resource.h"
+#include "resource.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include <tier0/memdbgon.h>

@@ -11,14 +11,14 @@
 #if defined( _WIN32 ) && !defined( _X360 )
 #include <windows.h>
 #endif
-#include "appframework/vguimatsysapp.h"
+#include "appframework/VguiMatSysApp.h"
 #include "filesystem.h"
 #include "materialsystem/imaterialsystem.h"
-#include "vgui/ivgui.h"
+#include "vgui/IVGui.h"
 #include "vgui/ISurface.h"
-#include "vgui_controls/controls.h"
-#include "vgui/ischeme.h"
-#include "vgui/ilocalize.h"
+#include "vgui_controls/Controls.h"
+#include "vgui/IScheme.h"
+#include "vgui/ILocalize.h"
 #include "tier0/dbg.h"
 #include "tier0/icommandline.h"
 #include "materialsystem/materialsystem_config.h"

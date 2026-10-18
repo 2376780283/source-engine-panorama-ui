@@ -10,7 +10,7 @@
 
 #include "KeyValues.h"
 #include "utlvector.h"
-#include "MapDoc.h"
+#include "mapdoc.h"
 
 class BoundBox;
 class CSelection;

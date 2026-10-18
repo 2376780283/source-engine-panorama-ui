@@ -8,9 +8,9 @@
 #include <mxtk/mx.h>
 #include <stdio.h>
 #include "resource.h"
-#include "EventProperties.h"
+#include "eventproperties.h"
 #include "mdlviewer.h"
-#include "StudioModel.h"
+#include "studiomodel.h"
 #include "faceposer_models.h"
 
 static CEventParams g_Params;

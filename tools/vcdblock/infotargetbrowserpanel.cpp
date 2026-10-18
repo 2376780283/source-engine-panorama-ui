@@ -4,21 +4,21 @@
 //
 //===========================================================================//
 
-#include "InfoTargetBrowserPanel.h"
+#include "infotargetbrowserpanel.h"
 #include "tier1/KeyValues.h"
 #include "tier1/utlbuffer.h"
 #include "iregistry.h"
-#include "vgui/ivgui.h"
-#include "vgui_controls/listpanel.h"
-#include "vgui_controls/textentry.h"
-#include "vgui_controls/checkbutton.h"
-#include "vgui_controls/combobox.h"
-#include "vgui_controls/radiobutton.h"
-#include "vgui_controls/messagebox.h"
+#include "vgui/IVGui.h"
+#include "vgui_controls/ListPanel.h"
+#include "vgui_controls/TextEntry.h"
+#include "vgui_controls/CheckButton.h"
+#include "vgui_controls/ComboBox.h"
+#include "vgui_controls/RadioButton.h"
+#include "vgui_controls/MessageBox.h"
 #include "vcdblockdoc.h"
 #include "vcdblocktool.h"
 #include "datamodel/dmelement.h"
-#include "vgui/keycode.h"
+#include "vgui/KeyCode.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include <tier0/memdbgon.h>

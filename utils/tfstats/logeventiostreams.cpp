@@ -23,7 +23,7 @@
 //
 // $NoKeywords: $
 //=============================================================================
-#include "LogEvent.h"
+#include "logevent.h"
 #include <string.h>
 
 //none of this is used. I opted for the FILE* implementation instead, this one was giving some weird results, and not working right.

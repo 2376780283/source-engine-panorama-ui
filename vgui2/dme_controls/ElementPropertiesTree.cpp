@@ -6,14 +6,14 @@
 //
 //=============================================================================//
 
-#include "dme_controls/elementpropertiestree.h"
+#include "dme_controls/ElementPropertiesTree.h"
 #include "tier1/KeyValues.h"
 #include "datamodel/dmelement.h"
 
 #include "vgui/IInput.h"
 #include "vgui/ISurface.h"
 #include "vgui/ISystem.h"
-#include "vgui/IVgui.h"
+#include "vgui/IVGui.h"
 #include "vgui/Cursor.h"
 #include "vgui_controls/TextEntry.h"
 #include "vgui_controls/ComboBox.h"
@@ -26,9 +26,9 @@
 #include "vgui_controls/ScrollBar.h"
 #include "movieobjects/dmeeditortypedictionary.h"
 #include "dme_controls/AttributeTextPanel.h"
-#include "dme_controls/DmePanel.h"
+#include "dme_controls/dmepanel.h"
 #include "dme_controls/dmecontrols_utils.h"
-#include "tier1/ConVar.h"
+#include "tier1/convar.h"
 #include "tier2/fileutils.h"
 
 // memdbgon must be the last include file in a .cpp file!!!

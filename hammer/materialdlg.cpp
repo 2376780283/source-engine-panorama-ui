@@ -6,7 +6,7 @@
 
 #include <stdafx.h>
 #include "materialdlg.h"
-#include "FaceEditSheet.h"
+#include "faceeditsheet.h"
 #include "mapdoc.h"
 
 // memdbgon must be the last include file in a .cpp file!!!

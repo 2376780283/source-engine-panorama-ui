@@ -7,7 +7,7 @@
 
 #include "stdafx.h"
 #include "hammer.h"
-#include "MDIClientWnd.h"
+#include "mdiclientwnd.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include <tier0/memdbgon.h>

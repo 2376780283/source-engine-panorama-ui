@@ -5,7 +5,7 @@
 // $NoKeywords: $
 //
 //=============================================================================//
-#include "redir.h"
+#include "Redir.h"
 
 #ifndef REDIRECT_H_INCLUDED__
 #define REDIRECT_H_INCLUDED__

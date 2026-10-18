@@ -22,11 +22,11 @@
 // email:          mete@swissquake.ch
 // web:            http://www.swissquake.ch/chumbalum-soft/
 //
-#include "ControlPanel.h"
-#include "ViewerSettings.h"
-#include "StudioModel.h"
-#include "IStudioRender.h"
-#include "MatSysWin.h"
+#include "controlpanel.h"
+#include "viewersettings.h"
+#include "studiomodel.h"
+#include "istudiorender.h"
+#include "matsyswin.h"
 #include "vphysics/constraints.h"
 #include "physmesh.h"
 #include "sys.h"
@@ -34,11 +34,11 @@
 #include <stdlib.h>
 #include <string.h>
 #include <mxtk/mx.h>
-#include <mxtk/mxBmp.h>
+#include <mxtk/mxbmp.h>
 #include "vphysics_interface.h"
 #include "utlvector.h"
 #include "utlsymbol.h"
-#include "UtlBuffer.h"
+#include "utlbuffer.h"
 #include "attachments_window.h"
 #include "istudiorender.h"
 #include "studio_render.h"

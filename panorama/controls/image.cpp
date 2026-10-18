@@ -776,6 +776,48 @@ void CImagePanel::OnContentSizeTraverse( float *pflContentWidth, float *pflConte
 			flImageHeight *= GetActualUIScaleY();
 		}
 
+		// SE port probe (SVG scaling investigation): the content size this image panel reports,
+		// with every input that feeds it.  Deduped per panel+values, capped, same file as the IMG probe.
+		{
+			static int s_nSEContentProbe = 0;
+			static struct { const void *pPanel; float w, h, iw, ih; } s_sig[256];
+			static int s_nSigCount = 0;
+			float const flSigW = *pflContentWidth, flSigH = *pflContentHeight;
+			bool bSeen = false;
+			for ( int i = 0; i < s_nSigCount; ++i )
+			{
+				if ( s_sig[i].pPanel == (const void *)this && s_sig[i].w == flSigW && s_sig[i].h == flSigH
+					 && s_sig[i].iw == flImageWidth && s_sig[i].ih == flImageHeight )
+				{
+					bSeen = true;
+					break;
+				}
+			}
+			if ( !bSeen && s_nSEContentProbe < 400 )
+			{
+				++s_nSEContentProbe;
+				if ( s_nSigCount < 256 )
+				{
+					s_sig[s_nSigCount].pPanel = (const void *)this;
+					s_sig[s_nSigCount].w = flSigW; s_sig[s_nSigCount].h = flSigH;
+					s_sig[s_nSigCount].iw = flImageWidth; s_sig[s_nSigCount].ih = flImageHeight;
+					++s_nSigCount;
+				}
+				FILE *fp = fopen( "D:\\cstrike\\se_ui_probe.txt", "a" );
+				if ( fp )
+				{
+					fprintf( fp, "IMGCONTENT #%d panel=%s id=%s tex=%dx%d sf=%.4f uiScale=%.4f/%.4f winScale=%.4f -> content=%.2fx%.2f imgWH=%.2fx%.2f max=%.1fx%.1f final=%d\n",
+						s_nSEContentProbe, m_pImage ? "" : "(null)", GetID() ? GetID() : "?",
+						m_pImage ? m_pImage->GetWidth() : 0, m_pImage ? m_pImage->GetHeight() : 0,
+						m_reloadParams.m_fScaleFactor, GetActualUIScaleX(), GetActualUIScaleY(),
+						GetParentWindow() ? GetParentWindow()->GetWindowScaleFactor() : -1.0f,
+						flSigW, flSigH, flImageWidth, flImageHeight, flMaxWidth, flMaxHeight, bFinalDimensions ? 1 : 0 );
+					fflush( fp );
+					fclose( fp );
+				}
+			}
+		}
+
 		float flLeft, flTop, flRight, flBottom;
 		AccessStyle()->GetContentInset( flImageWidth, flImageHeight, bFinalDimensions, flLeft, flTop, flRight, flBottom );
 
@@ -1220,6 +1262,54 @@ void CImagePanel::Paint()
 			panelUVs.m_bottomRight.x = RemapValClamped( panelUVs.m_bottomRight.x, 0.0f, 1.0f, uSliceMin, uSliceMax );
 			panelUVs.m_topLeft.y = RemapValClamped( panelUVs.m_topLeft.y, 0.0f, 1.0f, vSliceMin, vSliceMax );
 			panelUVs.m_bottomRight.y = RemapValClamped( panelUVs.m_bottomRight.y, 0.0f, 1.0f, vSliceMin, vSliceMax );
+		}
+
+		// SE port probe (SVG scaling investigation): everything Paint() feeds DrawTexturedRect for this
+		// panel.  Deduped per panel+values, capped, same file as the IMG probe.
+		{
+			static int s_nSEPaintProbe = 0;
+			static struct { const void *pPanel; float x0, y0, x1, y1, u0, v0, u1, v1; } s_sig[256];
+			static int s_nSigCount = 0;
+			bool bSeen = false;
+			for ( int i = 0; i < s_nSigCount; ++i )
+			{
+				if ( s_sig[i].pPanel == (const void *)this && s_sig[i].x0 == x0 && s_sig[i].y0 == y0
+					 && s_sig[i].x1 == x1 && s_sig[i].y1 == y1 && s_sig[i].u0 == panelUVs.m_topLeft.x
+					 && s_sig[i].v0 == panelUVs.m_topLeft.y && s_sig[i].u1 == panelUVs.m_bottomRight.x
+					 && s_sig[i].v1 == panelUVs.m_bottomRight.y )
+				{
+					bSeen = true;
+					break;
+				}
+			}
+			if ( !bSeen && s_nSEPaintProbe < 400 )
+			{
+				++s_nSEPaintProbe;
+				if ( s_nSigCount < 256 )
+				{
+					s_sig[s_nSigCount].pPanel = (const void *)this;
+					s_sig[s_nSigCount].x0 = x0; s_sig[s_nSigCount].y0 = y0;
+					s_sig[s_nSigCount].x1 = x1; s_sig[s_nSigCount].y1 = y1;
+					s_sig[s_nSigCount].u0 = panelUVs.m_topLeft.x; s_sig[s_nSigCount].v0 = panelUVs.m_topLeft.y;
+					s_sig[s_nSigCount].u1 = panelUVs.m_bottomRight.x; s_sig[s_nSigCount].v1 = panelUVs.m_bottomRight.y;
+					++s_nSigCount;
+				}
+				FILE *fp = fopen( "D:\\cstrike\\se_ui_probe.txt", "a" );
+				if ( fp )
+				{
+					fprintf( fp, "IMGPAINT #%d id=%s tex=%dx%d layout=%.1fx%.1f avail=%.1fx%.1f inset=%.1f,%.1f scaleFac=%.4f uiScale=%.4f/%.4f winScale=%.4f scaling=%d draw=(%.1f,%.1f)-(%.1f,%.1f) uv=(%.3f,%.3f)-(%.3f,%.3f) align=%d/%d\n",
+						s_nSEPaintProbe, GetID() ? GetID() : "?",
+						m_pImage->GetWidth(), m_pImage->GetHeight(),
+						GetActualLayoutWidth(), GetActualLayoutHeight(), flWidthAvail, flHeightAvail,
+						flLeft, flTop, m_reloadParams.m_fScaleFactor, GetActualUIScaleX(), GetActualUIScaleY(),
+						GetParentWindow() ? GetParentWindow()->GetWindowScaleFactor() : -1.0f,
+						(int)m_eScaling, x0, y0, x1, y1,
+						panelUVs.m_topLeft.x, panelUVs.m_topLeft.y, panelUVs.m_bottomRight.x, panelUVs.m_bottomRight.y,
+						(int)m_eHorAlignment, (int)m_eVerAlignment );
+					fflush( fp );
+					fclose( fp );
+				}
+			}
 		}
 
 		AccessRenderEngine()->DrawTexturedRect( m_pImage->GetTexture(), AccessStyle()->GetTexturesSampleMode(), flLeft + x0, flTop + y0,

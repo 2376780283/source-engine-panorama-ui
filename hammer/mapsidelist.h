@@ -13,7 +13,7 @@
 #endif
 
 
-#include "MapFace.h"
+#include "mapface.h"
 #include "MapHelper.h"
 
 

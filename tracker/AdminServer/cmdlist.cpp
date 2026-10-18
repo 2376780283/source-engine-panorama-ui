@@ -9,7 +9,7 @@
 #include <ctype.h> // isspace() define
 #include <string.h>
 
-#include "CMDList.h"
+#include "cmdlist.h"
 #include "Iresponse.h"
 
 #include "Socket.h"
@@ -17,7 +17,7 @@
 #include "DialogGameInfo.h"
 #include "inetapi.h"
 #include "TokenLine.h"
-#include "dialogkickplayer.h"
+#include "DialogKickPlayer.h"
 
 extern void v_strncpy(char *dest, const char *src, int bufsize);
 

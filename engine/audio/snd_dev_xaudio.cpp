@@ -7,8 +7,8 @@
 
 #include "audio_pch.h"
 #include "snd_dev_xaudio.h"
-#include "UtlLinkedList.h"
-#include "session.h"
+#include "utllinkedlist.h"
+#include "Session.h"
 #include "server.h"
 #include "client.h"
 #include "matchmaking.h"

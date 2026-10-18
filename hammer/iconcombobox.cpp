@@ -6,7 +6,7 @@
 //=============================================================================//
 
 #include <stdafx.h>
-#include "IconComboBox.h"
+#include "iconcombobox.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include <tier0/memdbgon.h>

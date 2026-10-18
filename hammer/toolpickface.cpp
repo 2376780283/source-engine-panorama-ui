@@ -10,11 +10,11 @@
 //=============================================================================//
 
 #include "stdafx.h"
-#include "MapFace.h"
+#include "mapface.h"
 #include "resource.h"
-#include "ToolPickFace.h"
-#include "MapSolid.h"
-#include "MapView3D.h"
+#include "toolpickface.h"
+#include "mapsolid.h"
+#include "mapview3d.h"
 #include "mapdoc.h"
 
 // memdbgon must be the last include file in a .cpp file!!!

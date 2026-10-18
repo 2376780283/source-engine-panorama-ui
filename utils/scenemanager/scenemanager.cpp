@@ -12,7 +12,7 @@
 #include "appframework/tier3app.h"
 #include "workspacemanager.h"
 #include "filesystem.h"
-#include "FileSystem_Tools.h"
+#include "filesystem_tools.h"
 #include "cmdlib.h"
 #include "vstdlib/random.h"
 #include "SoundEmitterSystem/isoundemittersystembase.h"

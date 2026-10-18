@@ -10,9 +10,9 @@
 #pragma once
 #endif
 
-#include "fgdlib/WCKeyValues.h"
+#include "fgdlib/wckeyvalues.h"
 #include "MapHelper.h"
-#include "ToolInterface.h"
+#include "toolinterface.h"
 
 
 class CToolSphere;

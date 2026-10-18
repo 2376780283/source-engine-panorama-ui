@@ -13,7 +13,7 @@
 #include "shaderdevicedx8.h"
 #include "shaderapi/ishaderutil.h"
 #include "shaderapidx10.h"
-#include "shadershadowdx10.h"
+#include "ShaderShadowDx10.h"
 #include "meshdx10.h"
 #include "shaderapidx10_global.h"
 #include "tier1/KeyValues.h"

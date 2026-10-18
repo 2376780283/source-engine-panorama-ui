@@ -6,21 +6,21 @@
 
 #include "stdafx.h"
 #include "hammer.h"
-#include "MapView2D.h"
-#include "MapView3D.h"
-#include "MapDoc.h"
-#include "Render2D.h"
+#include "mapview2d.h"
+#include "mapview3d.h"
+#include "mapdoc.h"
+#include "render2d.h"
 #include "ToolManager.h"
-#include "History.h"
-#include "TitleWnd.h"
+#include "history.h"
+#include "titlewnd.h"
 #include "mainfrm.h"
-#include "MapSolid.h"
+#include "mapsolid.h"
 #include "ToolMorph.h"		// FIXME: remove
-#include "MapWorld.h"
+#include "mapworld.h"
 #include "camera.h"
-#include "Manifest.h"
-#include "MapInstance.h"
-#include "Options.h"
+#include "manifest.h"
+#include "mapinstance.h"
+#include "options.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include <tier0/memdbgon.h>

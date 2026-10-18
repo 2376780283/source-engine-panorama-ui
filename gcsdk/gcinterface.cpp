@@ -10,7 +10,7 @@
 
 #include "tier0/minidump.h"
 #include "tier1/interface.h"
-#include "appframework/iappsystemgroup.h"
+#include "appframework/IAppSystemGroup.h"
 #include "filesystem.h"
 #include "vstdlib/cvar.h"
 #include "signal.h"

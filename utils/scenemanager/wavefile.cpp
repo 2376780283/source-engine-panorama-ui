@@ -15,7 +15,7 @@
 #include "vcdfile.h"
 #include "workspacebrowser.h"
 #include "multiplerequest.h"
-#include "UtlBuffer.h"
+#include "utlbuffer.h"
 #include "scenemanager_tools.h"
 
 //-----------------------------------------------------------------------------

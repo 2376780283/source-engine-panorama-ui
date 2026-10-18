@@ -165,7 +165,7 @@ typedef interface IFrequencyMap IFrequencyMap;
 /* header files for imported files */
 #include "unknwn.h"
 #include "strmif.h"
-#include "BdaTypes.h"
+#include "bdatypes.h"
 
 #ifdef __cplusplus
 extern "C"{

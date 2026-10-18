@@ -12,7 +12,7 @@
 #endif
 
 
-#include "MapClass.h"
+#include "mapclass.h"
 
 
 class CObjectPage : public CPropertyPage

@@ -10,8 +10,8 @@
 //
 // $NoKeywords: $
 //=============================================================================//
-#include "PlayerSpecifics.h"
-#include "PlayerReport.h"
+#include "playerspecifics.h"
+#include "playerreport.h"
 
 //------------------------------------------------------------------------------------------------------
 // Function:	CPlayerSpecifics::init

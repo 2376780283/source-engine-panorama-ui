@@ -15,8 +15,8 @@
 #define RUNMAPEXPERTDLG_H
 #pragma once
 
-#include "RunCommands.h"
-#include "MyCheckListBox.h"
+#include "runcommands.h"
+#include "mychecklistbox.h"
 
 
 class CCommandSequence;

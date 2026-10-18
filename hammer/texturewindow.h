@@ -10,7 +10,7 @@
 #pragma once
 #endif
 
-#include "IEditorTexture.h"
+#include "ieditortexture.h"
 #include "utlvector.h"
 
 

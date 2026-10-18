@@ -9,7 +9,7 @@
 #include <vgui/ISurface.h>
 #include <vgui/IVGui.h>
 #include <vgui/IInput.h>
-#include <vgui/isystem.h>
+#include <vgui/ISystem.h>
 
 #include <vgui_controls/MessageBox.h>
 #include <vgui_controls/Controls.h>

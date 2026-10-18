@@ -11,7 +11,7 @@
 //                 provided without guarantee or warrantee expressed or
 //                 implied.
 //
-#include "mxtk/mxSlider.h"
+#include "mxtk/mxslider.h"
 #include <windows.h>
 #include <commctrl.h>
 

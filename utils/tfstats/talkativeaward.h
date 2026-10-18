@@ -15,7 +15,7 @@
 #ifdef WIN32
 #pragma once
 #endif
-#include "Award.h"
+#include "award.h"
 #include <map>
 using namespace std;
 

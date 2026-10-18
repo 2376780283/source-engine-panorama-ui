@@ -9,7 +9,7 @@
 
 #include "ToolUI.h"
 #include "toolutils/toolmenubar.h"
-#include "toolutils/basetoolsystem.h"
+#include "toolutils/BaseToolSystem.h"
 #include "vgui/Cursor.h"
 #include "vgui/ISurface.h"
 #include "tier1/KeyValues.h"

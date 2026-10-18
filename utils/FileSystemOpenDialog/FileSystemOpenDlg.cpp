@@ -13,7 +13,7 @@
 #include "jpeglib/jpeglib.h"
 #include "utldict.h"
 #include "resource.h"
-#include "ifilesystemopendialog.h"
+#include "IFileSystemOpenDialog.h"
 
 #ifdef _DEBUG
 #define new DEBUG_NEW

@@ -9,7 +9,7 @@
 #ifndef CARDSTATS_H
 #define CARDSTATS_H
 
-#include "tier1/UtlBuffer.h"
+#include "tier1/utlbuffer.h"
 #include "tier1/utlvector.h"
 #include "tier1/strtools.h"
 

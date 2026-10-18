@@ -12,7 +12,7 @@
 #include <io.h>
 #include <sys\stat.h>
 #include <fcntl.h>
-#include "DummyTexture.h"
+#include "dummytexture.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include <tier0/memdbgon.h>

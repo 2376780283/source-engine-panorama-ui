@@ -7,9 +7,9 @@
 #include <windows.h>
 #include "AnimationBrowser.h"
 #include "hlfaceposer.h"
-#include "ChoreoView.h"
-#include "StudioModel.h"
-#include "ViewerSettings.h"
+#include "choreoview.h"
+#include "studiomodel.h"
+#include "viewersettings.h"
 #include "choreowidgetdrawhelper.h"
 #include "faceposer_models.h"
 #include "tabwindow.h"
@@ -17,7 +17,7 @@
 #include "KeyValues.h"
 #include "filesystem.h"
 #include "tier1/KeyValues.h"
-#include "tier1/UtlBuffer.h"
+#include "tier1/utlbuffer.h"
 
 #define MAX_THUMBNAILSIZE 256
 #define MIN_THUMBNAILSIZE 64

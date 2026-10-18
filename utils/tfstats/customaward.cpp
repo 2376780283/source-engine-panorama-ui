@@ -24,9 +24,9 @@
 // $NoKeywords: $
 //=============================================================================
 #include <string.h>
-#include "TFStatsApplication.h"
-#include "CustomAward.h"
-#include "TextFile.h"
+#include "tfstatsapplication.h"
+#include "customaward.h"
+#include "textfile.h"
 #include "memdbg.h"
 
 

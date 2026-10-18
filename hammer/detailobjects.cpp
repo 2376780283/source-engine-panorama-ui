@@ -16,11 +16,11 @@
 #include "utlsymbol.h"
 #include "utlvector.h"
 #include "utilmatlib.h"
-#include "mathlib/VMatrix.h"
+#include "mathlib/vmatrix.h"
 #include "vstdlib/random.h"
 #include "builddisp.h"
 #include "tier1/utlbuffer.h"
-#include "IEditorTexture.h"
+#include "ieditortexture.h"
 #include "materialsystem/imaterialvar.h"
 #include "materialsystem/imaterial.h"
 #include "mapface.h"
@@ -267,7 +267,7 @@ const char *DetailObjects::FindDetailVBSPName( void )
 	return "detail.vbsp";
 }
 
-#include "tier0\memdbgoff.h"
+#include "tier0/memdbgoff.h"
 
 //-----------------------------------------------------------------------------
 // Loads up the detail object dictionary

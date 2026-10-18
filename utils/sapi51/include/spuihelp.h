@@ -16,15 +16,15 @@
 #endif
 
 #ifndef SPError_h
-#include <SPError.h>
+#include <sperror.h>
 #endif
 
 #ifndef SPDebug_h
-#include <SPDebug.h>
+#include <spdebug.h>
 #endif
 
 #ifndef SPHelper_h
-#include <SPHelper.h>
+#include <sphelper.h>
 #endif
 
 #ifndef __ATLBASE_H__

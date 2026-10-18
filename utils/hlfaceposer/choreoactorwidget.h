@@ -13,7 +13,7 @@
 #include "studio.h"
 #include "choreowidget.h"
 #include "utlvector.h"
-#include "mxBitmapButton.h"
+#include "mxbitmapbutton.h"
 #include "expressions.h"
 
 class CChoreoActor;

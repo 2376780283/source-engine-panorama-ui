@@ -6,19 +6,19 @@
 //=============================================================================//
 
 #include <stdafx.h>
-#include "MapWorld.h"
-#include "GlobalFunctions.h"
+#include "mapworld.h"
+#include "globalfunctions.h"
 #include "MainFrm.h"
 #include "ToolOverlay.h"
-#include "MapDoc.h"
-#include "History.h"
-#include "CollisionUtils.h"
+#include "mapdoc.h"
+#include "history.h"
+#include "collisionutils.h"
 #include "cmodel.h"
-#include "MapView3D.h"
-#include "MapView2D.h"
-#include "MapSolid.h"
-#include "Camera.h"
-#include "ObjectProperties.h"  // FIXME: For ObjectProperties::RefreshData
+#include "mapview3d.h"
+#include "mapview2d.h"
+#include "mapsolid.h"
+#include "camera.h"
+#include "objectproperties.h"  // FIXME: For ObjectProperties::RefreshData
 #include "Selection.h"
 
 // memdbgon must be the last include file in a .cpp file!!!

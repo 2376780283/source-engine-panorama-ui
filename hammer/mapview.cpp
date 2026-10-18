@@ -12,9 +12,9 @@
 //=============================================================================//
 
 #include "stdafx.h"
-#include "MapDoc.h"
-#include "MapView.h"
-#include "History.h"
+#include "mapdoc.h"
+#include "mapview.h"
+#include "history.h"
 #include "mapsolid.h"
 #include "camera.h"
 

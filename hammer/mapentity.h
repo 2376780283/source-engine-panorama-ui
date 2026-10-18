@@ -8,9 +8,9 @@
 #define MAPENTITY_H
 #pragma once
 
-#include "MapClass.h"
-#include "MapFace.h"			// FIXME: For PLANE definition.
-#include "EditGameClass.h"
+#include "mapclass.h"
+#include "mapface.h"			// FIXME: For PLANE definition.
+#include "editgameclass.h"
 
 
 class CMapAnimator;

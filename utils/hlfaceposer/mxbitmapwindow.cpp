@@ -6,8 +6,8 @@
 //
 //=============================================================================//
 
-#include <mxtk/mxWindow.h>
-#include "mxBitmapWindow.h"
+#include <mxtk/mxwindow.h>
+#include "mxbitmapwindow.h"
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #include "tier0/dbg.h"

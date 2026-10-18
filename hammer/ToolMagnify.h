@@ -11,7 +11,7 @@
 #pragma once
 #endif
 
-#include "ToolInterface.h"
+#include "toolinterface.h"
 
 
 class CToolMagnify : public CBaseTool

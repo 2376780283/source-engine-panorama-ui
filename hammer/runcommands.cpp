@@ -6,14 +6,14 @@
 
 #include "stdafx.h"
 #include <afxtempl.h>
-#include "GameConfig.h"
-#include "RunCommands.h"
-#include "Options.h"
+#include "gameconfig.h"
+#include "runcommands.h"
+#include "options.h"
 #include <process.h>
-#include "ProcessWnd.h"
+#include "processwnd.h"
 #include <io.h>
 #include <direct.h>
-#include "GlobalFunctions.h"
+#include "globalfunctions.h"
 #include "hammer.h"
 
 // memdbgon must be the last include file in a .cpp file!!!

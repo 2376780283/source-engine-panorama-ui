@@ -8,9 +8,9 @@
 #include "faceposertoolwindow.h"
 #include "utlvector.h"
 #include "tier1/strtools.h"
-#include "MDLViewer.h"
+#include "mdlviewer.h"
 #include "choreowidgetdrawhelper.h"
-#include "StudioModel.h"
+#include "studiomodel.h"
 #include "faceposer_models.h"
 
 extern MDLViewer *g_MDLViewer;

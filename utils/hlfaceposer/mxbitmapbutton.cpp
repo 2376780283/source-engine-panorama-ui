@@ -4,7 +4,7 @@
 //
 // $NoKeywords: $
 //=============================================================================//
-#include "mxBitmapButton.h"
+#include "mxbitmapbutton.h"
 #include "hlfaceposer.h"
 
 

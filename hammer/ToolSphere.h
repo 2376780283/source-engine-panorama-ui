@@ -12,7 +12,7 @@
 #endif
 
 
-#include "ToolInterface.h"
+#include "toolinterface.h"
 
 
 class CMapSphere;

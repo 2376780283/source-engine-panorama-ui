@@ -8,11 +8,11 @@
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #include "materialsystem/imaterialsystem.h"
-#include "materialsystem/IMaterialSystemHardwareConfig.h"
+#include "materialsystem/imaterialsystemhardwareconfig.h"
 #include "materialsystem/imaterialproxyfactory.h"
 #include "filesystem.h"
 #include "bitmap/imageformat.h"
-#include "materialsystem/MaterialSystem_Config.h"
+#include "materialsystem/materialsystem_config.h"
 #include "tier0/icommandline.h"
 #include "tier1/strtools.h"
 #include "mathlib/mathlib.h"

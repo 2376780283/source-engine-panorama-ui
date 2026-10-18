@@ -6,10 +6,10 @@
 
 #include "networksystem.h"
 #include "filesystem.h"
-#include "UDP_Socket.h"
+#include "udp_socket.h"
 #include "sm_protocol.h"
-#include "NetChannel.h"
-#include "UDP_Process.h"
+#include "netchannel.h"
+#include "udp_process.h"
 #include <winsock.h>
 #include "networkclient.h"
 #include "networkserver.h"

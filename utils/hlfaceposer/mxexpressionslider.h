@@ -11,8 +11,8 @@
 #pragma once
 #endif
 
-#include <mxtk/mxWindow.h>
-#include <mxtk/mxCheckBox.h>
+#include <mxtk/mxwindow.h>
+#include <mxtk/mxcheckbox.h>
 
 #define IDC_INFLUENCE 1000
 

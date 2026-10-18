@@ -8,7 +8,7 @@
 #include <mxtk/mx.h>
 #include <stdio.h>
 #include "resource.h"
-#include "VSSProperties.h"
+#include "vssproperties.h"
 #include "workspacemanager.h"
 
 static CVSSParams g_Params;

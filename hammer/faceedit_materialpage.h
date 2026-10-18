@@ -11,10 +11,10 @@
 #endif
 
 #include "resource.h"
-#include "TextureBox.h"
-#include "IEditorTexture.h"
-#include "wndTex.h"
-#include "MapFace.h"
+#include "texturebox.h"
+#include "ieditortexture.h"
+#include "wndtex.h"
+#include "mapface.h"
 #include "materialdlg.h"
 
 class CMapSolid;

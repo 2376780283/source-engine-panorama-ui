@@ -10,9 +10,9 @@
 
 #include "stdafx.h"
 #include "hammer.h"
-#include "ScaleVerticesDlg.h"
-#include "MapDoc.h"
-#include "GlobalFunctions.h"
+#include "scaleverticesdlg.h"
+#include "mapdoc.h"
+#include "globalfunctions.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include <tier0/memdbgon.h>

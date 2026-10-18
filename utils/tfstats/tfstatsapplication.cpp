@@ -27,22 +27,22 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdarg.h>
-#include "TFStatsApplication.h"
-#include "TFStatsReport.h"
-#include "LogEvent.h"
-#include "ScoreBoard.h"
-#include "WhoKilledWho.h"
+#include "tfstatsapplication.h"
+#include "tfstatsreport.h"
+#include "logevent.h"
+#include "scoreboard.h"
+#include "whokilledwho.h"
 #include "memdbg.h"
 #include "awards.h"
-#include "MatchResults.h"
-#include "DialogueReadout.h"
+#include "matchresults.h"
+#include "dialoguereadout.h"
 #include "cvars.h"
 #include "html.h"
-#include "TextFile.h"
-#include "CustomAward.h"
-#include "PlayerSpecifics.h"
+#include "textfile.h"
+#include "customaward.h"
+#include "playerspecifics.h"
 #include "util.h"
-#include "AllPlayersStats.h"
+#include "allplayersstats.h"
 #include <errno.h>
 
 
@@ -74,7 +74,7 @@ void CTFStatsApplication::printUsage()
 	
 }
 
-#include "CustomAwardList.h"
+#include "customawardlist.h"
 
 //------------------------------------------------------------------------------------------------------
 // Function:	CTFStatsApplication::DoAwards

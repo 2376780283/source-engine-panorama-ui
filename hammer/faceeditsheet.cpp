@@ -7,11 +7,11 @@
 #include <stdafx.h>
 #include "hammer.h"
 #include "MainFrm.h"
-#include "GlobalFunctions.h"
-#include "FaceEditSheet.h"
-#include "MapSolid.h"
-#include "MapFace.h"
-#include "MapDisp.h"
+#include "globalfunctions.h"
+#include "faceeditsheet.h"
+#include "mapsolid.h"
+#include "mapface.h"
+#include "mapdisp.h"
 #include "ToolManager.h"
 #include "mapdoc.h"
 

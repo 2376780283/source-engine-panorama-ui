@@ -9,8 +9,8 @@
 //
 
 #include "stdafx.h"
-#include "ModelCheckIn.h"
-#include "ModelCheckInDlg.h"
+#include "modelcheckin.h"
+#include "modelcheckindlg.h"
 #include <direct.h>
 #include <sys/stat.h>
 

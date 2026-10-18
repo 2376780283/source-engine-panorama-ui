@@ -148,7 +148,7 @@ program under the GPL.
 # if STDC_HEADERS || HAVE_STRING_H
 #  include <string.h>
 # else
-#  include <strings.h>
+#  include <Strings.h>
 # endif
 
 #else /* not HAVE_CONFIG_H */
@@ -156,7 +156,7 @@ program under the GPL.
 /* Otherwise do it the hard way */
 
 # ifdef BSD
-#  include <strings.h>
+#  include <Strings.h>
 # else
 #  ifdef VMS
     extern int strlen(), strncmp();

@@ -26,7 +26,7 @@
 #include "datacache/imdlcache.h"
 #include "vphysics_interface.h"
 #include "studio.h"
-#include "soundemittersystem/isoundemittersystembase.h"
+#include "SoundEmitterSystem/isoundemittersystembase.h"
 #include "tier2/soundutils.h"
 #include "tier2/fileutils.h"
 #include "tier3/choreoutils.h"

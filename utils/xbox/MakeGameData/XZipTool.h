@@ -12,7 +12,7 @@
 #include "generichash.h"
 #include "zip_utils.h"
 #include "byteswap.h"
-#include "tier1/UtlVector.h"
+#include "tier1/utlvector.h"
 #include "UtlSortVector.h"
 
 struct CRCEntry_t

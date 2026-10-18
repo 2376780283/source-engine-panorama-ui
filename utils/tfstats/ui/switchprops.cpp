@@ -9,8 +9,8 @@
 //
 
 #include "stdafx.h"
-#include "UI.h"
-#include "SwitchProps.h"
+#include "ui.h"
+#include "switchprops.h"
 
 #ifdef _DEBUG
 #define new DEBUG_NEW

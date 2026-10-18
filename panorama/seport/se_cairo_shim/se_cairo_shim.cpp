@@ -42,6 +42,7 @@
 #include <new>
 #include <stdlib.h>
 #include <string.h>
+#include <stdio.h>
 
 //-----------------------------------------------------------------------------
 // Tunables
@@ -1279,6 +1280,29 @@ static void SEDoFill( struct _cairo *cr, bool bPreservePath )
 	SEFlatPath path;
 	SEFlattenPath( cr, path );
 
+	// SE_SHIM_DUMP=<path>: append flattened fill contours (device space) for offline debugging.
+	{
+		static int nDumpEnabled = -1;
+		if ( nDumpEnabled < 0 )
+			nDumpEnabled = getenv( "SE_SHIM_DUMP" ) ? 1 : 0;
+		if ( nDumpEnabled )
+		{
+			FILE *fpDump = fopen( getenv( "SE_SHIM_DUMP" ), "a" );
+			if ( fpDump )
+			{
+				fprintf( fpDump, "FILL contours=%d\n", path.ContourCount() );
+				for ( int nC = 0; nC < path.ContourCount(); ++nC )
+				{
+					fprintf( fpDump, "C %d closed=%d pts=%d\n", nC, (int)path.m_Closed[nC],
+						path.ContourEnd( nC ) - path.ContourStart( nC ) + 1 );
+					for ( int iP = path.ContourStart( nC ); iP <= path.ContourEnd( nC ); ++iP )
+						fprintf( fpDump, "P %.3f %.3f\n", path.m_Points[iP].x, path.m_Points[iP].y );
+				}
+				fclose( fpDump );
+			}
+		}
+	}
+
 	SEArray<SEEdge> edges;
 	SEBuildEdges( path, edges );
 
@@ -1663,6 +1687,19 @@ void cairo_new_path( cairo_t *cr ) { if ( cr ) SEClearPath( cr ); }
 
 void cairo_move_to( cairo_t *cr, double x, double y )
 {
+	// SE_SHIM_DUMP: log raw (user space) args + matrix for offline debugging.
+	if ( cr && getenv( "SE_SHIM_DUMP" ) )
+	{
+		FILE *fpDump = fopen( getenv( "SE_SHIM_DUMP" ), "a" );
+		if ( fpDump )
+		{
+			const cairo_matrix_t &m = cr->m_State.m_Matrix;
+			fprintf( fpDump, "MOVETO user=%.3f,%.3f mat=[%.4f %.4f %.4f %.4f %.4f %.4f]\n",
+				x, y, m.xx, m.yx, m.xy, m.yy, m.x0, m.y0 );
+			fclose( fpDump );
+		}
+	}
+
 	if ( !cr || !SEIsFinite( x ) || !SEIsFinite( y ) )
 		return;
 

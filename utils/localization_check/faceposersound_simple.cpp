@@ -15,7 +15,7 @@
 #include <stdio.h>
 #include <math.h>
 #include "snd_audio_source.h"
-#include "AudioWaveOutput.h"
+#include "audiowaveoutput.h"
 #include "ifaceposersound.h"
 #include "utlvector.h"
 #include "filesystem.h"

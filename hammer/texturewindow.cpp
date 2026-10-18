@@ -10,13 +10,13 @@
 #include <fstream>
 #pragma warning(pop)
 #include "hammer.h"
-#include "TextureWindow.h"
-#include "TextureBrowser.h"
-#include "CustomMessages.h"
-#include "IEditorTexture.h"
-#include "GameConfig.h"
-#include "GlobalFunctions.h"
-#include "TextureSystem.h"
+#include "texturewindow.h"
+#include "texturebrowser.h"
+#include "custommessages.h"
+#include "ieditortexture.h"
+#include "gameconfig.h"
+#include "globalfunctions.h"
+#include "texturesystem.h"
 #include "materialsystem/imaterial.h"
 #include "materialsystem/imaterialsystem.h"
 

@@ -67,8 +67,17 @@ void SE_PortInstallUiComponentBindings()
 		const bool bCsgo = panorama::UILocalize()->BLoadLocalizationFile( "csgo" );
 		const bool bCstrike = panorama::UILocalize()->BLoadLocalizationFile( "cstrike" );
 
-		Msg( "SE port: localization loaded (csgo=%d cstrike=%d, {localization}='%s')\n",
-			(int)bCsgo, (int)bCstrike, pchLocDir ? pchLocDir : "<null>" );
+		// SE port: the port's *own* tokens (the demo news / store text the injected scripts put on
+		// screen, and anything else the port needs) live in files the port ships rather than in the
+		// game's content: <mod>/panorama/localization/se_port_<language>.txt, with se_port_english.txt
+		// as the always-loaded fallback.  They come from mods/panorama_test/panorama/localization/ and
+		// are deployed by build/_deploy_se_js.ps1.
+		// Loading a prefix with no file is harmless - CLocalization just skips it and reports false,
+		// so a build without those files keeps working.
+		const bool bSEPort = panorama::UILocalize()->BLoadLocalizationFile( "se_port" );
+
+		Msg( "SE port: localization loaded (csgo=%d cstrike=%d se_port=%d, {localization}='%s')\n",
+			(int)bCsgo, (int)bCstrike, (int)bSEPort, pchLocDir ? pchLocDir : "<null>" );
 	}
 	else
 	{

@@ -371,8 +371,8 @@ typedef JM_INT32 jm_uintfast32_t;
          #define JM_NO_EXCEPTIONS
       #endif
 
-      #include <algo.h>
-      #include <alloc.h>
+      #include <ALGO.H>
+      #include <Alloc.h>
 
       #define JM_ALGO_INCLUDED
 
@@ -512,7 +512,7 @@ typedef JM_INT32 jm_uintfast32_t;
       #define __JM_STDC
       #define JM_NO_LOCALE_H
 
-      #include <algo.h>
+      #include <ALGO.H>
       #define JM_ALGO_INCLUDED
 
       #define JM_DISTANCE(i, j, n) __JM_STD::distance(i, j, n)

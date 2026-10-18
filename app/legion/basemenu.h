@@ -13,8 +13,8 @@
 #pragma once
 #endif
 
-#include "vgui_controls/frame.h"
-#include "vgui/keycode.h"
+#include "vgui_controls/Frame.h"
+#include "vgui/KeyCode.h"
 
 
 //-----------------------------------------------------------------------------

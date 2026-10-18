@@ -14,7 +14,7 @@
 #pragma once
 
 
-#include "MapClass.h"	// dvs: For CMapObjectList
+#include "mapclass.h"	// dvs: For CMapObjectList
 
 
 class CSelectEntityDlg : public CDialog

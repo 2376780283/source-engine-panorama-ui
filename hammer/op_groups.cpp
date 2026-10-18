@@ -7,13 +7,13 @@
 
 #include "stdafx.h"
 #include "hammer.h"
-#include "MapWorld.h"
-#include "OP_Groups.h"
-#include "EditGroups.h"
-#include "GlobalFunctions.h"
-#include "CustomMessages.h"
-#include "ObjectProperties.h"
-#include "VisGroup.h"
+#include "mapworld.h"
+#include "op_groups.h"
+#include "editgroups.h"
+#include "globalfunctions.h"
+#include "custommessages.h"
+#include "objectproperties.h"
+#include "visgroup.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include <tier0/memdbgon.h>

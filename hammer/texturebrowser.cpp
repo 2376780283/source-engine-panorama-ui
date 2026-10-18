@@ -10,17 +10,17 @@
 #if _MSC_VER < 1300
 #include <afxpriv.h>
 #endif
-#include "CustomMessages.h"
-#include "GlobalFunctions.h"
-#include "History.h"
-#include "FaceEditSheet.h"
-#include "IEditorTexture.h"
+#include "custommessages.h"
+#include "globalfunctions.h"
+#include "history.h"
+#include "faceeditsheet.h"
+#include "ieditortexture.h"
 #include "MainFrm.h"
-#include "MapDoc.h"
-#include "MapWorld.h"
-#include "ReplaceTexDlg.h"
-#include "TextureBrowser.h"
-#include "TextureSystem.h"
+#include "mapdoc.h"
+#include "mapworld.h"
+#include "replacetexdlg.h"
+#include "texturebrowser.h"
+#include "texturesystem.h"
 #include "hammer.h"
 #include "Selection.h"
 

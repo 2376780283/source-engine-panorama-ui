@@ -11,7 +11,7 @@
 
 #include "afxcmn.h"
 #include "afxwin.h"
-#include "HammerBar.h"
+#include "hammerbar.h"
 
 class CManifestMap;
 

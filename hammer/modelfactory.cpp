@@ -12,8 +12,8 @@
 //=============================================================================//
 
 #include "stdafx.h"
-#include "MapStudioModel.h"
-#include "ModelFactory.h"
+#include "mapstudiomodel.h"
+#include "modelfactory.h"
 
 
 //-----------------------------------------------------------------------------

@@ -30,64 +30,6 @@ static bool SE_PortStubIsProperty( CPanoramaSymbol symName, const char *const *p
 }
 
 // ============================================================================
-// ItemImage  (CS:GO: CItemImagePanel)
-// ============================================================================
-REGISTER_PANEL2D_FACTORY( CSEPortStub_ItemImage, ItemImage )
-
-CSEPortStub_ItemImage::CSEPortStub_ItemImage( CPanel2D *pParent, const char *pchID )
-: BaseClass( pParent, pchID )
-{
-}
-
-bool CSEPortStub_ItemImage::BSetProperty( CPanoramaSymbol symName, const char *pchValue )
-{
-	// "itemid" would need the inventory, and "large"/"small" pick which icon size to load; the panel
-	// still shows whatever "src" names (see the deployed content: many of them have no src at all).
-	static const char *s_pchSwallowed[] = { "itemid", "large", "small" };
-	if ( SE_PortStubIsProperty( symName, s_pchSwallowed, V_ARRAYSIZE( s_pchSwallowed ) ) )
-		return true;
-
-	return BaseClass::BSetProperty( symName, pchValue );
-}
-
-void CSEPortStub_ItemImage::SetupJavascriptObjectTemplate()
-{
-	BaseClass::SetupJavascriptObjectTemplate();
-
-	RegisterJSAccessor( "itemid", PANORAMA_DELEGATE( &CSEPortStub_ItemImage::JSGetItemID ), PANORAMA_DELEGATE( &CSEPortStub_ItemImage::JSSetItemID ) );
-	RegisterJSAccessor( "large", PANORAMA_DELEGATE( &CSEPortStub_ItemImage::JSGetLarge ), PANORAMA_DELEGATE( &CSEPortStub_ItemImage::JSSetLarge ) );
-	RegisterJSAccessor( "small", PANORAMA_DELEGATE( &CSEPortStub_ItemImage::JSGetSmall ), PANORAMA_DELEGATE( &CSEPortStub_ItemImage::JSSetSmall ) );
-}
-
-int CSEPortStub_ItemImage::JSGetItemID() const
-{
-	return 0;
-}
-
-void CSEPortStub_ItemImage::JSSetItemID( int nItemID )
-{
-	// no inventory to look the item up in
-}
-
-bool CSEPortStub_ItemImage::JSGetLarge() const
-{
-	return false;
-}
-
-void CSEPortStub_ItemImage::JSSetLarge( bool bValue )
-{
-}
-
-bool CSEPortStub_ItemImage::JSGetSmall() const
-{
-	return false;
-}
-
-void CSEPortStub_ItemImage::JSSetSmall( bool bValue )
-{
-}
-
-// ============================================================================
 // ItemPreviewPanel  (CS:GO: CUI_ItemPreviewPanel - 6861 lines + a 2859 line renderer)
 // ============================================================================
 REGISTER_PANEL2D_FACTORY( CSEPortStub_ItemPreviewPanel, ItemPreviewPanel )

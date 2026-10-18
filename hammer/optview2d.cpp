@@ -10,8 +10,8 @@
 
 #include "stdafx.h"
 #include "hammer.h"
-#include "OPTView2D.h"
-#include "Options.h"	
+#include "optview2d.h"
+#include "options.h"	
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include <tier0/memdbgon.h>

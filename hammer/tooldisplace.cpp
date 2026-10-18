@@ -7,19 +7,19 @@
 
 #include <stdafx.h>
 #include "hammer.h"
-#include "ToolDisplace.h"
+#include "tooldisplace.h"
 #include "MainFrm.h"
-#include "FaceEditSheet.h"
-#include "GlobalFunctions.h"
-#include "MapAtom.h"
-#include "MapSolid.h"
-#include "MapView3D.h"
-#include "History.h"
-#include "Camera.h"
-#include "MapDoc.h"
-#include "ChunkFile.h"
+#include "faceeditsheet.h"
+#include "globalfunctions.h"
+#include "mapatom.h"
+#include "mapsolid.h"
+#include "mapview3d.h"
+#include "history.h"
+#include "camera.h"
+#include "mapdoc.h"
+#include "chunkfile.h"
 #include "ToolManager.h"
-#include "SculptOptions.h"
+#include "sculptoptions.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include <tier0/memdbgon.h>

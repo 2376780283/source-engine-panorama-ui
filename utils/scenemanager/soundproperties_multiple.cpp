@@ -7,7 +7,7 @@
 #include <mxtk/mx.h>
 #include <stdio.h>
 #include "resource.h"
-#include "SoundProperties_Multiple.h"
+#include "soundproperties_multiple.h"
 #include "SoundEmitterSystem/isoundemittersystembase.h"
 #include "soundentry.h"
 #include "cmdlib.h"

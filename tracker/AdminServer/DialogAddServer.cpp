@@ -6,9 +6,9 @@
 //=============================================================================
 
 #include "DialogAddServer.h"
-#include "INetAPI.h"
+#include "inetapi.h"
 #include "IGameList.h"
-#include "Server.h"
+#include "server.h"
 
 #include <VGUI_MessageBox.h>
 #include <VGUI_KeyValues.h>

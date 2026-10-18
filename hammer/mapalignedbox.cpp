@@ -6,13 +6,13 @@
 //=============================================================================//
 
 #include "stdafx.h"
-#include "Box3D.h"
-#include "fgdlib/HelperInfo.h"
-#include "MapAlignedBox.h"
-#include "MapEntity.h"
-#include "Options.h"
-#include "Render2D.h"
-#include "Render3D.h"
+#include "box3d.h"
+#include "fgdlib/helperinfo.h"
+#include "mapalignedbox.h"
+#include "mapentity.h"
+#include "options.h"
+#include "render2d.h"
+#include "render3d.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include <tier0/memdbgon.h>

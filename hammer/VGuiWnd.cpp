@@ -8,7 +8,7 @@
 //===========================================================================//
 
 #include "stdafx.h"
-#include "vguiwnd.h"
+#include "VGuiWnd.h"
 #include <vgui_controls/EditablePanel.h>
 #include "vgui/ISurface.h"
 #include "vgui/IVGui.h"

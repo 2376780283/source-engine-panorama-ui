@@ -11,7 +11,7 @@
 #pragma once
 #endif
 
-#include "MapClass.h"	// For CMapObjectList
+#include "mapclass.h"	// For CMapObjectList
 
 
 class CMapSolid;

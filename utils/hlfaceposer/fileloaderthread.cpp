@@ -12,7 +12,7 @@
 #include <io.h>
 #include <fcntl.h>
 #include <sys/types.h>
-#include "IFileLoader.h"
+#include "ifileloader.h"
 
 bool SceneManager_LoadSentenceFromWavFileUsingIO( char const *wavfile, CSentence& sentence, IFileReadBinary& io );
 

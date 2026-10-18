@@ -18,7 +18,7 @@
 #pragma once
 #endif
 
-#include "appframework/vguimatsysapp.h"
+#include "appframework/VguiMatSysApp.h"
 #include "tier1/convar.h"
 
 //-----------------------------------------------------------------------------

@@ -11,7 +11,7 @@
 //                 provided without guarantee or warrantee expressed or
 //                 implied.
 //
-#include "mxtk/mxPcx.h"
+#include "mxtk/mxpcx.h"
 #include <stdio.h>
 #include <stdlib.h>
 

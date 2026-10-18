@@ -6,10 +6,10 @@
 
 #include "stdafx.h"
 #include "hammer.h"
-#include "MapEntity.h"
-#include "MapStudioModel.h"
+#include "mapentity.h"
+#include "mapstudiomodel.h"
 #include "OP_Model.h"
-#include "ObjectProperties.h"
+#include "objectproperties.h"
 #include "mapdoc.h"
 #include "options.h"
 

@@ -17,8 +17,8 @@
 #include "vgui_controls/EditablePanel.h"
 #include "vgui_controls/PHandle.h"
 #include "toolutils/recentfilelist.h"
-#include "vgui/keycode.h"
-#include "vgui_controls/fileopenstatemachine.h"
+#include "vgui/KeyCode.h"
+#include "vgui_controls/FileOpenStateMachine.h"
 
 
 // #defines

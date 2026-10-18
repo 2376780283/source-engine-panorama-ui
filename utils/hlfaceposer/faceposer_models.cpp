@@ -6,23 +6,23 @@
 //
 //=============================================================================//
 #include "hlfaceposer.h"
-#include "StudioModel.h"
+#include "studiomodel.h"
 #include "faceposer_models.h"
 #include "filesystem.h"
 #include "ifaceposerworkspace.h"
 #include <mxtk/mx.h>
 #include "mdlviewer.h"
 #include "mxexpressiontray.h"
-#include "ControlPanel.h"
+#include "controlpanel.h"
 #include "checksum_crc.h"
-#include "ViewerSettings.h"
+#include "viewersettings.h"
 #include "matsyswin.h"
 #include "KeyValues.h"
 #include "utlbuffer.h" 
 #include "expression.h"
 #include "ProgressDialog.h"
-#include "tier1/UtlString.h"
-#include "tier1/FmtStr.h"
+#include "tier1/utlstring.h"
+#include "tier1/fmtstr.h"
 #include "tier1/KeyValues.h"
 
 

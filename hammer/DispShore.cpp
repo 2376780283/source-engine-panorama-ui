@@ -4,19 +4,19 @@
 //=============================================================================
 
 #include <stdafx.h>
-#include "FaceEditSheet.h"
+#include "faceeditsheet.h"
 #include "MainFrm.h"
-#include "GlobalFunctions.h"
-#include "MapDisp.h"
+#include "globalfunctions.h"
+#include "mapdisp.h"
 #include "DispShore.h"
 #include "utlvector.h"
 #include "mapdoc.h"
 #include "mapworld.h"
 #include "mapsolid.h"
 #include "materialsystem/imesh.h"
-#include "Material.h"
+#include "material.h"
 #include "collisionutils.h"
-#include "TextureSystem.h"
+#include "texturesystem.h"
 #include "mapoverlay.h"
 
 // memdbgon must be the last include file in a .cpp file!!!

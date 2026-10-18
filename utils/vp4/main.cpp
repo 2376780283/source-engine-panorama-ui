@@ -17,7 +17,7 @@
 #include "appframework/tier3app.h"
 #include "tier2/tier2.h"
 #include "inputsystem/iinputsystem.h"
-#include "vgui_controls/controls.h"
+#include "vgui_controls/Controls.h"
 
 // root panel
 vgui::Panel *g_pMainPanel = NULL;

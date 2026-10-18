@@ -17,7 +17,7 @@
 #endif
 
 
-#include "MapClass.h"
+#include "mapclass.h"
 
 
 class CMapHelper : public CMapClass

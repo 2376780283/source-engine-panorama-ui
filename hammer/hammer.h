@@ -16,7 +16,7 @@
 #endif
 
 #include "resource.h"       // main symbols
-#include "RunCommands.h"
+#include "runcommands.h"
 #include "IHammer.h"
 #include "tier1/utlmap.h"
 #include "tier3/tier3dm.h"

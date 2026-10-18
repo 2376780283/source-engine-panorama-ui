@@ -7,7 +7,7 @@
 
 #include "AdminServer.h"
 #include "IRunGameEngine.h"
-#include "IGameServerData.h"
+#include "igameserverdata.h"
 #include "GamePanelInfo.h"
 #include "ivprofexport.h"
 

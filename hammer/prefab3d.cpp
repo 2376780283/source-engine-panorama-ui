@@ -8,13 +8,13 @@
 #include "stdafx.h"
 #include <sys\types.h>
 #include <sys\stat.h>
-#include "ChunkFile.h"
-#include "Prefab3D.h"
-#include "Options.h"
-#include "History.h"
-#include "MapGroup.h"
-#include "MapWorld.h"
-#include "GlobalFunctions.h"
+#include "chunkfile.h"
+#include "prefab3d.h"
+#include "options.h"
+#include "history.h"
+#include "mapgroup.h"
+#include "mapworld.h"
+#include "globalfunctions.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include <tier0/memdbgon.h>

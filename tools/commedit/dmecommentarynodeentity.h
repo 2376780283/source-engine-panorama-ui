@@ -10,7 +10,7 @@
 #pragma once
 #endif
 
-#include "toolutils/dmemdlrenderable.h"
+#include "toolutils/DmeMdlRenderable.h"
 #include "datamodel/dmelement.h"
 #include "toolframework/itoolentity.h"
 #include "materialsystem/MaterialSystemUtil.h"

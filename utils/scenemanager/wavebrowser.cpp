@@ -26,7 +26,7 @@
 #include "waveproperties.h"
 #include "drawhelper.h"
 #include "ifileloader.h"
-#include "MultipleRequest.h"
+#include "multiplerequest.h"
 
 #include "soundchars.h"
 

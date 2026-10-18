@@ -16,8 +16,8 @@
 #pragma once
 #endif
 #include "Player.h"
-#include "Report.h"
-#include "PlrPersist.h"
+#include "report.h"
+#include "plrpersist.h"
 
 //------------------------------------------------------------------------------------------------------
 // Purpose:  Reports a specific player's stats. 

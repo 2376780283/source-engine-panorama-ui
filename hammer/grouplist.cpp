@@ -8,12 +8,12 @@
 
 #include "stdafx.h"
 #include "hammer.h"
-#include "GroupList.h"
-#include "MapDoc.h"
-#include "MapSolid.h"
-#include "MapWorld.h"
-#include "GlobalFunctions.h"
-#include "VisGroup.h"
+#include "grouplist.h"
+#include "mapdoc.h"
+#include "mapsolid.h"
+#include "mapworld.h"
+#include "globalfunctions.h"
+#include "visgroup.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include <tier0/memdbgon.h>

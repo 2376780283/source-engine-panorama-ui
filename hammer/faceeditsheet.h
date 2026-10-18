@@ -10,8 +10,8 @@
 #pragma once
 
 #include <afxtempl.h>
-#include "FaceEdit_MaterialPage.h"
-#include "FaceEdit_DispPage.h"
+#include "faceedit_materialpage.h"
+#include "faceedit_disppage.h"
 
 class CMapFace;
 class CMapSolid;

@@ -12,8 +12,8 @@
 
 
 #include <afxtempl.h>
-#include "BlockArray.h"
-#include "IEditorTexture.h"
+#include "blockarray.h"
+#include "ieditortexture.h"
 
 
 class IMaterial;

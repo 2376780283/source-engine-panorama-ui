@@ -9,8 +9,8 @@
 #pragma once
 
 
-#include "ToolInterface.h"
-#include "Tool3D.h"
+#include "toolinterface.h"
+#include "tool3d.h"
 
 
 class CRender2D;

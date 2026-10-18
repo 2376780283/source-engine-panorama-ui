@@ -6,10 +6,10 @@
 //=============================================================================//
 
 #include "stdafx.h"
-#include "MapDoc.h"
-#include "MapView2D.h"
-#include "MapView3D.h"
-#include "Tool3D.h"
+#include "mapdoc.h"
+#include "mapview2d.h"
+#include "mapview3d.h"
+#include "tool3d.h"
 #include "hammer_mathlib.h"
 #include "vgui/Cursor.h"
 

@@ -11,8 +11,8 @@
 #pragma once
 #endif
 
-#include "MapEntity.h"
-#include "ToolInterface.h"
+#include "mapentity.h"
+#include "toolinterface.h"
 
 
 class CMapView3D;

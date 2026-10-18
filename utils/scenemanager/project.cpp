@@ -8,7 +8,7 @@
 #include "cmdlib.h"
 #include <KeyValues.h>
 #include "scene.h"
-#include "UtlBuffer.h"
+#include "utlbuffer.h"
 #include "vcdfile.h"
 #include "workspacemanager.h"
 #include "workspacebrowser.h"

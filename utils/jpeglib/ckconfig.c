@@ -53,7 +53,7 @@
 #undef NEED_BSD_STRINGS
 
 #ifdef NEED_BSD_STRINGS
-#include <strings.h>
+#include <Strings.h>
 #else
 #include <string.h>
 #endif

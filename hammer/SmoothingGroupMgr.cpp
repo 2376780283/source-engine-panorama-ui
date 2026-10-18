@@ -5,9 +5,9 @@
 //=============================================================================//
 
 #include <stdafx.h>
-#include "smoothinggroupmgr.h"
+#include "SmoothingGroupMgr.h"
 #include "mapface.h"
-#include "ChunkFile.h"
+#include "chunkfile.h"
 
 class CSmoothingGroupMgr : public ISmoothingGroupMgr
 {

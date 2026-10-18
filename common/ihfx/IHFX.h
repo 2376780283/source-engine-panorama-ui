@@ -6,7 +6,7 @@
 #define HFX_VERSION_MINOR 5
 #define HFX_VERSION_MINOR_SZ "5"
 #define HFX_VERSION_FLOAT 0.5
-#include "util/HFXInterfaceHelper.h"
+#include "util/hfxinterfacehelper.h"
 
 //( NovintHFX )
 #include "HFXConfig.h"
@@ -31,7 +31,7 @@ class EffectTag;
 
 //ensure these are not int he NovintHFX namespace.
 #include "IHFXParam.h"
-#include "IHFXEffect.h"
+#include "ihfxeffect.h"
 
 typedef int _declspec(dllimport) (*LinkHFX_Fn)( const char * password, const char *cmdline, void **effects, void **system );
 //temporarily disable warning regarding to data classes
@@ -43,7 +43,7 @@ class IStack;
 struct IBaseEffectParams;
 class IBaseEffect;
 //( HapticsMath )
-#include "Types/hfxVec3.h"
+#include "types/hfxvec3.h"
 //( HapticsSystem )
 struct IHapticEffectParamGroup;
 typedef IHapticEffectParamGroup IHFXParamGroup;

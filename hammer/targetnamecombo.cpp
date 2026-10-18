@@ -13,8 +13,8 @@
 //=============================================================================//
 
 #include "stdafx.h"
-#include "MapEntity.h"
-#include "TargetNameCombo.h"
+#include "mapentity.h"
+#include "targetnamecombo.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include <tier0/memdbgon.h>

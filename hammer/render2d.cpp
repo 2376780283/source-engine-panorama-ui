@@ -6,7 +6,7 @@
 //=============================================================================//
 
 #include "stdafx.h"
-#include "Render2D.h"
+#include "render2d.h"
 #include "gameconfig.h"
 #include "vgui_controls/Controls.h"
 #include "HammerVGui.h"

@@ -5,7 +5,7 @@
 // $NoKeywords: $
 //=============================================================================
 
-#include "RulesInfoMsgHandler.h"
+#include "rulesinfomsghandler.h"
 
 #include "rulesinfo.h"
 #include "info.h"

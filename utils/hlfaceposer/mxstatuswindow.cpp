@@ -5,10 +5,10 @@
 // $NoKeywords: $
 //=============================================================================//
 #include <mxtk/mx.h>
-#include "mxStatusWindow.h"
+#include "mxstatuswindow.h"
 #include "hlfaceposer.h"
 #include "choreowidgetdrawhelper.h"
-#include "MDLViewer.h"
+#include "mdlviewer.h"
 #include "faceposertoolwindow.h"
 
 extern double realtime;
@@ -250,7 +250,7 @@ int mxStatusWindow::handleEvent( mxEvent *event )
 
 	return iret;
 }
-#include "StudioModel.h"
+#include "studiomodel.h"
 
 #include "faceposer_models.h"
 

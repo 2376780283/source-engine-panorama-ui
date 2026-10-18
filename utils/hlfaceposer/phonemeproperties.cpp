@@ -7,7 +7,7 @@
 #include "hlfaceposer.h"
 #include <mxtk/mx.h>
 #include "resource.h"
-#include "PhonemeProperties.h"
+#include "phonemeproperties.h"
 #include "expressions.h"
 #include "expclass.h"
 #include "mdlviewer.h"

@@ -16,14 +16,14 @@
 #define WM_INITIALUPDATE    0x0364  // (params unused) - sent to children
 #endif
 #include "hammer.h"
-#include "Options.h"
+#include "options.h"
 #include "MainFrm.h"
-#include "ChildFrm.h"
-#include "MapDoc.h"
-#include "MapView2D.h"
-#include "MapViewLogical.h"
-#include "MapView3D.h"
-#include "GlobalFunctions.h"
+#include "childfrm.h"
+#include "mapdoc.h"
+#include "mapview2d.h"
+#include "mapviewlogical.h"
+#include "mapview3d.h"
+#include "globalfunctions.h"
 #include "materialdlg.h"
 
 // memdbgon must be the last include file in a .cpp file!!!

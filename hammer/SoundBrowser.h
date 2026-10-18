@@ -14,7 +14,7 @@
 //
 
 #include "soundsystem.h"
-#include "AutoSelCombo.h"
+#include "autoselcombo.h"
 
 /////////////////////////////////////////////////////////////////////////////
 // CSoundBrowser dialog

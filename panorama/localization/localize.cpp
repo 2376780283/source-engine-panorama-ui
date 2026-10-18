@@ -499,16 +499,42 @@ static void ConstructLocalizationFilePath( char *pchPath, int maxLenInChars, con
 //-----------------------------------------------------------------------------
 // Purpose: load an extra, optional loc file, used in Source2
 //-----------------------------------------------------------------------------
-bool CLocalization::BLoadLocalizationFile( const char *pchFilePrefix )
+//-----------------------------------------------------------------------------
+// SE port: the mod's panorama/backend folder - the sibling of {localization} - is where the port
+// keeps its own strings, next to the simulation-layer data they describe (see the note on
+// BLoadLocalizationFile below).  This swaps the last path component of pchDir for pchSiblingName,
+// handling either slash.  Returns false when pchDir has no directory component.
+//-----------------------------------------------------------------------------
+static bool SE_PortSiblingDir( const char *pchDir, const char *pchSiblingName, char *pchOut, int nOutLen )
 {
-	m_vecLocalizationFiles.AddToTail( pchFilePrefix );
+	V_strncpy( pchOut, pchDir, nOutLen );
 
+	char *pLastSep = NULL;
+	for ( char *p = pchOut; *p; ++p )
+	{
+		if ( *p == '/' || *p == '\\' )
+			pLastSep = p;
+	}
+
+	if ( !pLastSep )
+		return false;
+
+	V_strncpy( pLastSep + 1, pchSiblingName, nOutLen - (int)( pLastSep + 1 - pchOut ) );
+	return true;
+}
+
+
+//-----------------------------------------------------------------------------
+// Purpose: load <prefix>_<language>.txt out of one base directory (the old body of
+//          BLoadLocalizationFile, with the directory turned into a parameter)
+//-----------------------------------------------------------------------------
+bool CLocalization::BLoadLocalizationFileInDir( const char *pchBaseDir, const char *pchFilePrefix, CUtlVector<CUtlString> &vecChangedTokens )
+{
 	bool bLoadedFile = false;
 	char szLocFile[ 128 ];
-	CUtlVector<CUtlString> vecChangedTokens;
 
 	// try to load the base english file
-	ConstructLocalizationFilePath( szLocFile, sizeof( szLocFile ), "%s/%s_%s.txt", m_sLocalizationFilePath.String(), pchFilePrefix, "english" );
+	ConstructLocalizationFilePath( szLocFile, sizeof( szLocFile ), "%s/%s_%s.txt", pchBaseDir, pchFilePrefix, "english" );
 
 	if ( UIEngine()->UIFileSystem()->FileExists( szLocFile ) )
 	{
@@ -519,7 +545,7 @@ bool CLocalization::BLoadLocalizationFile( const char *pchFilePrefix )
 	if ( !( m_sLanguage == "english" ) )
 	{
 		// and now load the language itself
-		ConstructLocalizationFilePath( szLocFile, sizeof( szLocFile ), "%s/%s_%s.txt", m_sLocalizationFilePath.String(), pchFilePrefix, m_sLanguage.String() );
+		ConstructLocalizationFilePath( szLocFile, sizeof( szLocFile ), "%s/%s_%s.txt", pchBaseDir, pchFilePrefix, m_sLanguage.String() );
 
 		if ( UIEngine()->UIFileSystem()->FileExists( szLocFile ) )
 		{
@@ -532,7 +558,7 @@ bool CLocalization::BLoadLocalizationFile( const char *pchFilePrefix )
 		static bool sbPerfectWorld = CommandLine()->HasParm( "-perfectworld" );
 		if ( sbPerfectWorld )
 		{
-			ConstructLocalizationFilePath( szLocFile, sizeof( szLocFile ), "%s/%s_%s_pw.txt", m_sLocalizationFilePath.String(), pchFilePrefix, m_sLanguage.String() );
+			ConstructLocalizationFilePath( szLocFile, sizeof( szLocFile ), "%s/%s_%s_pw.txt", pchBaseDir, pchFilePrefix, m_sLanguage.String() );
 			if ( UIEngine()->UIFileSystem()->FileExists( szLocFile ) )
 			{
 				bool bLoadedSpecificLanguage = BLoadLocalizationFile( szLocFile, m_sLanguage.String(), kKeyReplace_ReplaceAny, vecChangedTokens );
@@ -556,12 +582,45 @@ bool CLocalization::BLoadLocalizationFile( const char *pchFilePrefix )
 			// don't re-add their language
 			if ( eLanguage != PchLanguageToELanguage( m_sLanguage.String() ) )
 			{
-				ConstructLocalizationFilePath( szLocFile, sizeof( szLocFile ), "%s/%s_%s.txt", m_sLocalizationFilePath.String(), pchFilePrefix, GetLanguageShortName( eLanguage ) );
+				ConstructLocalizationFilePath( szLocFile, sizeof( szLocFile ), "%s/%s_%s.txt", pchBaseDir, pchFilePrefix, GetLanguageShortName( eLanguage ) );
 				if ( UIEngine()->UIFileSystem()->FileExists( szLocFile ) )
 					BLoadLocalizationFile( szLocFile, GetLanguageShortName( eLanguage ), kKeyReplace_ReplaceMatchingLanguage, vecChangedTokens );
 			}
 
 			eLanguage = (ELanguage)(((int)eLanguage) + 1);
+		}
+	}
+
+	return bLoadedFile;
+}
+
+
+//-----------------------------------------------------------------------------
+// Purpose: add a loc file to the system, in the form of <prefix>_<language>.txt, i.e dota_french.txt
+//
+// SE port (2026-09-19): two base directories are searched, in this order:
+//   1. {localization}              - the shipped CS:GO content (csgo_*.txt, cstrike_*.txt, ...).
+//                                    It wins, so content can always override the port.
+//   2. its sibling panorama/backend - where the port keeps its own strings, next to the data they
+//                                    describe (the news / store demo text the simulation layer
+//                                    feeds the UI).  See mods/panorama_test/panorama/backend/.
+// A prefix that neither directory has is simply "not found" (returns false) rather than an error,
+// so a build that does not ship the port's files keeps working.
+//-----------------------------------------------------------------------------
+bool CLocalization::BLoadLocalizationFile( const char *pchFilePrefix )
+{
+	m_vecLocalizationFiles.AddToTail( pchFilePrefix );
+
+	CUtlVector<CUtlString> vecChangedTokens;
+
+	bool bLoadedFile = BLoadLocalizationFileInDir( m_sLocalizationFilePath.String(), pchFilePrefix, vecChangedTokens );
+
+	if ( !bLoadedFile )
+	{
+		char szSEDir[ 128 ];
+		if ( SE_PortSiblingDir( m_sLocalizationFilePath.String(), "backend", szSEDir, sizeof( szSEDir ) ) )
+		{
+			bLoadedFile = BLoadLocalizationFileInDir( szSEDir, pchFilePrefix, vecChangedTokens );
 		}
 	}
 

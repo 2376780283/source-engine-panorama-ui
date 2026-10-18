@@ -13,14 +13,14 @@
 //=============================================================================
 
 #include "stdafx.h"
-#include "BrushOps.h"
-#include "GameConfig.h"
-#include "MapSolid.h"
-#include "MapWorld.h"
-#include "SSolid.h"
-#include "StockSolids.h"
-#include "Options.h"
-#include "WorldSize.h"
+#include "brushops.h"
+#include "gameconfig.h"
+#include "mapsolid.h"
+#include "mapworld.h"
+#include "ssolid.h"
+#include "stocksolids.h"
+#include "options.h"
+#include "worldsize.h"
 #include "mapdisp.h"
 
 // memdbgon must be the last include file in a .cpp file!!!

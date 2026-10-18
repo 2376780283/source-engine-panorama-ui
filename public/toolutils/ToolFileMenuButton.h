@@ -12,7 +12,7 @@
 #pragma once
 #endif
 
-#include "toolutils/toolmenubutton.h"
+#include "toolutils/ToolMenuButton.h"
 
 
 //-----------------------------------------------------------------------------

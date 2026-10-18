@@ -12,9 +12,9 @@
 
 
 #ifndef INCLUDED_MXWINDOW
-#include <mxtk/mxWindow.h>
+#include <mxtk/mxwindow.h>
 #endif
-#include <mxtk/mxLineEdit.h>
+#include <mxtk/mxlineedit.h>
 
 
 // Extends the (mostly unimplemented) mxLineEdit control.

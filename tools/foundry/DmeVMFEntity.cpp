@@ -10,7 +10,7 @@
 #include "materialsystem/imesh.h"
 #include "materialsystem/imaterial.h"
 #include "materialsystem/imaterialsystem.h"
-#include "engine/iclientleafsystem.h"
+#include "engine/IClientLeafSystem.h"
 #include "toolutils/enginetools_int.h"
 #include "foundrytool.h"
 

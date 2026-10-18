@@ -15,7 +15,7 @@
 #endif
 
 #include "meshbase.h"
-#include "shaderapi/ishaderdevice.h"
+#include "shaderapi/IShaderDevice.h"
 
 
 //-----------------------------------------------------------------------------

@@ -12,7 +12,7 @@
 #endif
 
 #include "utlvector.h"
-#include "mxBitmapTools.h"
+#include "mxbitmaptools.h"
 #include "hlfaceposer.h"
 
 #define GLOBAL_STUDIO_FLEX_CONTROL_COUNT ( MAXSTUDIOFLEXCTRL * 4 )

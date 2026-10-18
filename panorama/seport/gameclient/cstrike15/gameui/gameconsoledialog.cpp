@@ -39,6 +39,43 @@ CGameConsoleDialog::CGameConsoleDialog() : BaseClass( NULL, "GameConsole", false
 
 
 //-----------------------------------------------------------------------------
+// SE port (bring-up probe, TEMPORARY - remove with the console investigation):
+//
+// State of the investigation when this was added (2026-09-19): the console is created by
+// panoramauiclient.dll (engine.log says so), gets activated (se_console_probe.txt:
+// "CConsoleDialog::Activate visible=1") and reports bounds=(544,24,712,528) - but the pixel
+// readback in engine/view.cpp never sees a change inside that rect (probe A/B/C at (900,120)),
+// while a handful of console-looking rows do show up in a ~40x180 strip at the client's left
+// edge.  So the dialog believes one rectangle and vgui paints another.
+//
+// This logs what the dialog itself believes at paint time, plus the clip rect vgui hands it and
+// what the surface thinks the screen is.  Capped so a long session does not fill the disk.
+//-----------------------------------------------------------------------------
+void CGameConsoleDialog::Paint()
+{
+	static int s_nSEPaintProbe = 0;
+	if ( s_nSEPaintProbe < 40 )
+	{
+		++s_nSEPaintProbe;
+
+		int ax = 0, ay = 0, w = 0, h = 0;
+		int cx0 = 0, cy0 = 0, cx1 = 0, cy1 = 0;
+		int sw = 0, sh = 0;
+		ipanel()->GetAbsPos( GetVPanel(), ax, ay );
+		GetSize( w, h );
+		GetClipRect( cx0, cy0, cx1, cy1 );
+		surface()->GetScreenSize( sw, sh );
+
+		SE_PortConsoleProbe( "CGameConsoleDialog::Paint #%d abs=(%d,%d) size=(%d,%d) clip=(%d,%d,%d,%d) screen=%dx%d prop=%d vis=%d parent=%d\n",
+			s_nSEPaintProbe, ax, ay, w, h, cx0, cy0, cx1, cy1, sw, sh,
+			(int)IsProportional(), (int)IsVisible(), (int)GetParent() );
+	}
+
+	BaseClass::Paint();
+}
+
+
+//-----------------------------------------------------------------------------
 // Purpose: generic vgui command handler
 //-----------------------------------------------------------------------------
 void CGameConsoleDialog::OnCommand(const char *command)

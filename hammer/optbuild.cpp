@@ -6,9 +6,9 @@
 
 #include "stdafx.h"
 #include "hammer.h"
-#include "GameConfig.h"
-#include "OPTBuild.h"
-#include "Options.h"
+#include "gameconfig.h"
+#include "optbuild.h"
+#include "options.h"
 #include "shlobj.h"
 
 // memdbgon must be the last include file in a .cpp file!!!

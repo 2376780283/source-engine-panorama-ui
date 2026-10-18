@@ -7,7 +7,7 @@
 
 #include "stdafx.h"
 #pragma warning(disable:4701 4702 4530)
-#include "RichEditCtrlEx.h"
+#include "richeditctrlex.h"
 
 
 CRichEditCtrlEx::CRichEditCtrlEx()

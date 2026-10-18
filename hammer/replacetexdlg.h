@@ -13,8 +13,8 @@
 
 
 #include "resource.h"
-#include "IEditorTexture.h"
-#include "wndTex.h"
+#include "ieditortexture.h"
+#include "wndtex.h"
 
 
 class CReplaceTexDlg : public CDialog

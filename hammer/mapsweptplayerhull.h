@@ -10,10 +10,10 @@
 #pragma once
 #endif
 
-#include "MapClass.h"
-#include "MapPointHandle.h"
-#include "ToolInterface.h"
-#include "MapEntity.h"
+#include "mapclass.h"
+#include "mappointhandle.h"
+#include "toolinterface.h"
+#include "mapentity.h"
 
 
 class CHelperInfo;

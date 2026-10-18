@@ -9,7 +9,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "zip_uncompressed.h"
-#include "UtlBuffer.h"
+#include "utlbuffer.h"
 #include "zip_utils.h"
 
 typedef unsigned int	uint;

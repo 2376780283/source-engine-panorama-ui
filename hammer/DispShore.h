@@ -8,9 +8,9 @@
 #pragma once
 
 #include "MapHelper.h"
-#include "MapFace.h"
-#include "MapOverlay.h"
-#include "MapOverlayTrans.h"
+#include "mapface.h"
+#include "mapoverlay.h"
+#include "mapoverlaytrans.h"
 
 class CHelperInfo;
 class CMapEntity;

@@ -6,7 +6,7 @@
 //=============================================================================//
 #include "cbase.h"
 #include <stdio.h>
-#include <mxtk/mxPopupMenu.h>
+#include <mxtk/mxpopupmenu.h>
 #include "hlfaceposer.h"
 #include "choreochannelwidget.h"
 #include "choreoeventwidget.h"
@@ -18,8 +18,8 @@
 #include "choreoviewcolors.h"
 #include "utlrbtree.h"
 #include "utllinkedlist.h"
-#include "iclosecaptionmanager.h"
-#include "PhonemeEditor.h"
+#include "ICloseCaptionManager.h"
+#include "phonemeeditor.h"
 #include "SoundEmitterSystem/isoundemittersystembase.h"
 #include "filesystem.h"
 

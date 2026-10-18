@@ -5,7 +5,7 @@
 // $NoKeywords: $
 //=============================================================================
 
-#include "ClipViewPanel.h"
+#include "clipviewpanel.h"
 #include "dme_controls/dmedageditpanel.h"
 #include "tier1/KeyValues.h"
 

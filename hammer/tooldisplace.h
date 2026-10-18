@@ -14,11 +14,11 @@
 
 //=============================================================================
 
-#include "ToolInterface.h"
-#include "MapDisp.h"
-#include "DispMapImageFilter.h"
-#include "MapFace.h"
-#include "DispPaint.h"
+#include "toolinterface.h"
+#include "mapdisp.h"
+#include "dispmapimagefilter.h"
+#include "mapface.h"
+#include "disppaint.h"
 
 class CMapView3D;
 

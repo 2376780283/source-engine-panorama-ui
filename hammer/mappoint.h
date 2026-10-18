@@ -16,7 +16,7 @@
 #pragma once
 
 
-#include "MapAtom.h"
+#include "mapatom.h"
 
 
 class CMapPoint : public CMapAtom

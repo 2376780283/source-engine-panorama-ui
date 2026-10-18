@@ -11,7 +11,7 @@
 #pragma once
 #endif
 
-#include "vgui_controls/menubutton.h"
+#include "vgui_controls/MenuButton.h"
 #include "tier1/utldict.h"
 #include "tier1/utlsymbol.h"
 

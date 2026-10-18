@@ -6,7 +6,7 @@
 
 #include "audio_pch.h"
 #include <OpenAL/al.h>
-#include <OpenAL/alc.h>
+#include <openal/alc.h>
 #ifdef OSX
 #include <OpenAL/MacOSX_OALExtensions.h>
 #endif

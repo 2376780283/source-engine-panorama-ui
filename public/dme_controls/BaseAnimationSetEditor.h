@@ -14,11 +14,11 @@
 #include "vgui_controls/ImageList.h"
 #include "datamodel/dmehandle.h"
 #include "vgui/KeyCode.h"
-#include "dme_controls//AnimSetAttributeValue.h"
+#include "dme_controls/AnimSetAttributeValue.h"
 #include "dme_controls/RecordingState.h"
 #include "tier1/utlvector.h"
 #include "movieobjects/dmelog.h"
-#include "vgui_controls/fileopenstatemachine.h"
+#include "vgui_controls/FileOpenStateMachine.h"
 
 
 //-----------------------------------------------------------------------------

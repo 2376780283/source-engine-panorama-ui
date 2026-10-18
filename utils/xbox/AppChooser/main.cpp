@@ -7,8 +7,8 @@
 #if !defined( _X360 )
 #include <windows.h>
 #endif
-#include "appframework/iappsystemgroup.h"
-#include "appframework/appframework.h"
+#include "appframework/IAppSystemGroup.h"
+#include "appframework/AppFramework.h"
 #include "tier0/dbg.h"
 #include "tier1/interface.h"
 #include "tier1/KeyValues.h"
@@ -33,9 +33,9 @@
 #include "VGuiMatSurface/IMatSystemSurface.h"
 #include "matsys_controls/matsyscontrols.h"
 #include "vgui/ILocalize.h"
-#include "vgui_controls/panel.h"
+#include "vgui_controls/Panel.h"
 #include "vgui_controls/Label.h"
-#include "vgui_controls/imagepanel.h"
+#include "vgui_controls/ImagePanel.h"
 #include "vgui_controls/AnimationController.h"
 #include "materialsystem/imaterialsystem.h"
 #include "materialsystem/imesh.h"

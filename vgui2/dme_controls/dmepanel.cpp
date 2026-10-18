@@ -7,7 +7,7 @@
 #include "dme_controls/dmepanel.h"
 #include "tier1/KeyValues.h"
 #include "dme_controls/dmecontrols.h"
-#include "vgui_controls/combobox.h"
+#include "vgui_controls/ComboBox.h"
 #include "datamodel/dmelement.h"
 #include "dme_controls/dmecontrols_utils.h"
 

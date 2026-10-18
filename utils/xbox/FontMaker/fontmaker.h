@@ -13,9 +13,9 @@
 #include "resource.h"
 #include "BitmapFontFile.h"
 #include <math.h>
-#include "..\toollib\toollib.h"
-#include "..\toollib\scriplib.h"
-#include "..\toollib\piclib.h"
+#include "../toollib/toollib.h"
+#include "../toollib/scriplib.h"
+#include "../toollib/piclib.h"
 
 //-----------------------------------------------------------------------------
 // Name: class CFontMakerView

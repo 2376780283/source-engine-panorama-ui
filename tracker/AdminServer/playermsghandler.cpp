@@ -5,7 +5,7 @@
 // $NoKeywords: $
 //=============================================================================
 
-#include "PlayerMsgHandler.h"
+#include "playermsghandler.h"
 
 #include "playerlist.h"
 #include "info.h"

@@ -12,11 +12,11 @@
 #endif
 
 
-#include "MapClass.h"		// For CMapObjectList
-#include "Tool3D.h"
-#include "ToolInterface.h"
-#include "Render2D.h"
-#include "MapFace.h"
+#include "mapclass.h"		// For CMapObjectList
+#include "tool3d.h"
+#include "toolinterface.h"
+#include "render2d.h"
+#include "mapface.h"
 
 
 class CMapSolid;

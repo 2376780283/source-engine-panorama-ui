@@ -17,9 +17,9 @@
 
 //=============================================================================
 
-#include "Render3D.h"
-#include "Camera.h"
-#include "Keyboard.h"
+#include "render3d.h"
+#include "camera.h"
+#include "keyboard.h"
 
 //=============================================================================
 

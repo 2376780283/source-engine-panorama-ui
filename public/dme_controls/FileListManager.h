@@ -13,7 +13,7 @@
 #endif
 
 #include "datamodel/idatamodel.h"
-#include "vgui_controls/listpanel.h"
+#include "vgui_controls/ListPanel.h"
 #include "vgui_controls/Frame.h"
 #include "vgui/KeyCode.h"
 

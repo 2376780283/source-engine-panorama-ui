@@ -4,7 +4,7 @@
 //
 //=============================================================================
 #include "dme_controls/BaseAnimSetPresetFaderPanel.h"
-#include "dme_controls/DmePresetGroupEditorPanel.h"
+#include "dme_controls/dmepresetgroupeditorpanel.h"
 #include "vgui_controls/InputDialog.h"
 #include "vgui_controls/Button.h"
 #include "vgui_controls/Slider.h"

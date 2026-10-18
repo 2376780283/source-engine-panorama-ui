@@ -3,7 +3,7 @@
 	DUMPOBJ.CPP
 
 *****************************************************************************/
-#include "..\toollib\toollib.h"
+#include "../toollib/toollib.h"
 
 typedef struct section_s
 {

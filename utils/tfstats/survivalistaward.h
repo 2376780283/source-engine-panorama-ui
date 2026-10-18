@@ -15,7 +15,7 @@
 #ifdef WIN32
 #pragma once
 #endif
-#include "Award.h"
+#include "award.h"
 
 //------------------------------------------------------------------------------------------------------
 // Purpose: CSurvivalistAward is an award given to the player who died the least

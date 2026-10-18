@@ -7,7 +7,7 @@
 //=============================================================================//
 #include "cbase.h"
 #include "itreeitem.h"
-#include "mxtk/mxTreeView.h"
+#include "mxtk/mxtreeview.h"
 #include "project.h"
 #include "scene.h"
 #include "soundentry.h"

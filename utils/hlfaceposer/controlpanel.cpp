@@ -3,24 +3,24 @@
 // Purpose: 
 //
 //=============================================================================//
-#include "ControlPanel.h"
-#include "ViewerSettings.h"
-#include "StudioModel.h"
-#include "IStudioRender.h"
-#include "MatSysWin.h"
+#include "controlpanel.h"
+#include "viewersettings.h"
+#include "studiomodel.h"
+#include "istudiorender.h"
+#include "matsyswin.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <mxtk/mx.h>
-#include <mxtk/mxBmp.h>
-#include "FlexPanel.h"
-#include "mxExpressionTray.h"
-#include "PhonemeEditor.h"
+#include <mxtk/mxbmp.h>
+#include "flexpanel.h"
+#include "mxexpressiontray.h"
+#include "phonemeeditor.h"
 #include "hlfaceposer.h"
 #include "expclass.h"
-#include "mxExpressionTab.h"
-#include "ExpressionTool.h"
-#include "MDLViewer.h"
+#include "mxexpressiontab.h"
+#include "expressiontool.h"
+#include "mdlviewer.h"
 #include "choreowidgetdrawhelper.h"
 #include "faceposer_models.h"
 #include "ifaceposerworkspace.h"

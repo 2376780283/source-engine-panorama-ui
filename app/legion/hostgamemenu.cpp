@@ -8,8 +8,8 @@
 
 #include "menumanager.h"
 #include "basemenu.h"
-#include "vgui_controls/listpanel.h"
-#include "vgui_controls/textentry.h"
+#include "vgui_controls/ListPanel.h"
+#include "vgui_controls/TextEntry.h"
 #include "vgui_controls/Button.h"
 #include "tier1/KeyValues.h"
 #include "networkmanager.h"

@@ -5,7 +5,7 @@
 // $NoKeywords: $
 //=============================================================================
 
-#include "RconMsgHandler.h"
+#include "rconmsghandler.h"
 
 #include "rcon.h"
 #include "info.h"

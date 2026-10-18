@@ -4,9 +4,9 @@
 //
 //=============================================================================
 
-#include "sfmobjects/SFMPhonemeExtractor.h"
+#include "sfmobjects/sfmphonemeextractor.h"
 #include "tier2/riff.h"
-#include "PhonemeConverter.h"
+#include "phonemeconverter.h"
 #include "filesystem.h"
 #include "tier1/utlbuffer.h"
 #include "sentence.h"

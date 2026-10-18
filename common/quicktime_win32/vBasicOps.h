@@ -17,7 +17,7 @@
 #define __VBASICOPS__
 
 #ifndef __CONDITIONALMACROS__
-#include <ConditionalMacros.h>
+#include <conditionalmacros.h>
 #endif
 
 

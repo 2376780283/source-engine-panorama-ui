@@ -1,6 +1,6 @@
 #ifndef IHFXPARAM_H_
 #define IHFXPARAM_H_
-#include ".\\HFXConfig.h"
+#include ".//HFXConfig.h"
  
 class IHapticEffect; 
 typedef IHapticEffect IHFXEffect; 

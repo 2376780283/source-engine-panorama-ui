@@ -12,7 +12,7 @@
 #endif
 
 #include "MapHelper.h"
-#include "ToolInterface.h"
+#include "toolinterface.h"
 
 
 class CHelperInfo;

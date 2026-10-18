@@ -5,9 +5,9 @@
 //--------------------
 #include <windows.h>
 #include <stdio.h>
-#include "objdump.h"
-#include "exedump.h"
-#include "extrnvar.h"
+#include "OBJDUMP.H"
+#include "EXEDUMP.H"
+#include "EXTRNVAR.H"
 
 // Global variables set here, and used in EXEDUMP.C and OBJDUMP.C
 BOOL fShowRelocations = FALSE;

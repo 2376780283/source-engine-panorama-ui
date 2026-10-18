@@ -6,14 +6,14 @@
 //=============================================================================//
 
 #include <stdafx.h>
-#include "MapWorld.h"
-#include "MessageWnd.h"
-#include "IEditorTexture.h"
-#include "GlobalFunctions.h"
-#include "TextureSystem.h"
-#include "TextureConverter.h"
+#include "mapworld.h"
+#include "messagewnd.h"
+#include "ieditortexture.h"
+#include "globalfunctions.h"
+#include "texturesystem.h"
+#include "textureconverter.h"
 #include "filesystem.h"
-#include "Hammer.h"
+#include "hammer.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include <tier0/memdbgon.h>

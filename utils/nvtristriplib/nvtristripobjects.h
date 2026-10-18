@@ -6,7 +6,7 @@
 #include <windows.h>
 #include <vector>
 #include <list>
-#include "VertexCache.h"
+#include "vertexcache.h"
 
 /////////////////////////////////////////////////////////////////////////////////
 //

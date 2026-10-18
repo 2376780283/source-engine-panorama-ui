@@ -27,7 +27,7 @@
 
 #include "utlvector.h"
 #include "netadr.h"
-#include "Server.h"
+#include "server.h"
 //#include "serversession.h"
 //#include "trackerdoc.h"
 

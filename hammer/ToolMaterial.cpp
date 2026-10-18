@@ -8,17 +8,17 @@
 //=============================================================================//
 
 #include "stdafx.h"
-#include "FaceEditSheet.h"
-#include "History.h"
+#include "faceeditsheet.h"
+#include "history.h"
 #include "MainFrm.h"
-#include "MapDoc.h"
-#include "MapSolid.h"
-#include "MapView2D.h"
-#include "MapView3D.h"
-#include "StatusBarIDs.h"
+#include "mapdoc.h"
+#include "mapsolid.h"
+#include "mapview2d.h"
+#include "mapview3d.h"
+#include "statusbarids.h"
 #include "ToolManager.h"
 #include "ToolMaterial.h"
-#include "Options.h"
+#include "options.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include <tier0/memdbgon.h>

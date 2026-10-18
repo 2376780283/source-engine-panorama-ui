@@ -6,10 +6,10 @@
 //=============================================================================//
 
 #include "stdafx.h"
-#include "MapPath.h"
+#include "mappath.h"
 #include "hammer.h"
-#include "EditPathDlg.h"
-#include "MapEntity.h"
+#include "editpathdlg.h"
+#include "mapentity.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include <tier0/memdbgon.h>

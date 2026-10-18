@@ -12,9 +12,9 @@
 //                 implied.
 //
 #include "mxtk/mx.h"
-#include "mxtk/mxWindow.h"
-#include "mxtk/mxEvent.h"
-#include "mxtk/mxLinkedList.h"
+#include "mxtk/mxwindow.h"
+#include "mxtk/mxevent.h"
+#include "mxtk/mxlinkedlist.h"
 #include <windows.h>
 #include <commctrl.h>
 #include <stdio.h>

@@ -5,21 +5,21 @@
 //=============================================================================//
 
 #include "stdafx.h"
-#include "Box3D.h"
-#include "GlobalFunctions.h"
-#include "fgdlib/HelperInfo.h"
+#include "box3d.h"
+#include "globalfunctions.h"
+#include "fgdlib/helperinfo.h"
 #include "materialsystem/imaterialsystem.h"
 #include "MainFrm.h"			// For refreshing the object properties dialog
-#include "MapDoc.h"
-#include "MapPlayerHullHandle.h"
-#include "MapSweptPlayerHull.h"
-#include "MapView2D.h"
-#include "Material.h"
-#include "Options.h"
-#include "ObjectProperties.h"	// For refreshing the object properties dialog
-#include "Render2D.h"
-#include "Render3D.h"
-#include "StatusBarIDs.h"		// For updating status bar text
+#include "mapdoc.h"
+#include "mapplayerhullhandle.h"
+#include "mapsweptplayerhull.h"
+#include "mapview2d.h"
+#include "material.h"
+#include "options.h"
+#include "objectproperties.h"	// For refreshing the object properties dialog
+#include "render2d.h"
+#include "render3d.h"
+#include "statusbarids.h"		// For updating status bar text
 #include "ToolManager.h"
 #include "vgui/Cursor.h"
 

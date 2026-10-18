@@ -10,7 +10,7 @@
 #pragma once
 
 #include "resource.h"
-#include "IconComboBox.h"
+#include "iconcombobox.h"
 #include "afxwin.h"
 
 //=============================================================================

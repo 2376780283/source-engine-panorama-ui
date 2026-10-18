@@ -8,11 +8,11 @@
 
 #include <stdafx.h>
 #include <malloc.h>
-#include "FaceEditSheet.h"
+#include "faceeditsheet.h"
 #include "MainFrm.h"
-#include "GlobalFunctions.h"
-#include "MapDisp.h"
-#include "MapFace.h"
+#include "globalfunctions.h"
+#include "mapdisp.h"
+#include "mapface.h"
 #include "utlvector.h"
 #include "disp_tesselate.h"
 

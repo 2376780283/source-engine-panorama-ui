@@ -14,7 +14,7 @@
 #include "utlvector.h"
 #include "utlsymbol.h"
 #ifdef _WIN32
-#include "msxml2.h"
+#include "MsXml2.h"
 #elif _LINUX
 #include "xercesc/dom/DOMDocument.hpp"
 #define IXMLDOMDocument DOMDocument

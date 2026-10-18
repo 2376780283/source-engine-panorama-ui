@@ -1,7 +1,7 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
 #include <stdlib.h>
 #include <stdio.h>
-#include "UtlBuffer.h"
+#include "utlbuffer.h"
 #include "filesystem.h"
 #include "filesystem_tools.h"
 #include "tier1/strtools.h"

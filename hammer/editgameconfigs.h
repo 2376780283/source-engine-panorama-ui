@@ -15,8 +15,8 @@
 #define EDITGAMECONFIGS_H
 #pragma once
 
-#include "Options.h"
-#include "Resource.h"
+#include "options.h"
+#include "resource.h"
 
 
 class CEditGameConfigs : public CDialog

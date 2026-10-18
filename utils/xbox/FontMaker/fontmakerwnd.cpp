@@ -8,8 +8,8 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 //-----------------------------------------------------------------------------
 #include "stdafx.h"
-#include "FontMaker.h"
-#include "Glyphs.h"
+#include "fontmaker.h"
+#include "glyphs.h"
 
 #ifdef _DEBUG
 #define new DEBUG_NEW

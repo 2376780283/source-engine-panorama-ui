@@ -13,7 +13,7 @@
 
 #pragma once
 
-#include <WorldSize.h>
+#include <worldsize.h>
 
 #define COORD_NOTINIT	((float)(99999.0))
 

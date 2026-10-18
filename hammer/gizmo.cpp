@@ -6,12 +6,12 @@
 //=============================================================================//
 
 #include "stdafx.h"
-#include "BoundBox.h"
-#include "Gizmo.h"
-#include "Render3D.h"
-#include "Resource.h"
+#include "boundbox.h"
+#include "gizmo.h"
+#include "render3d.h"
+#include "resource.h"
 #include "materialsystem/imesh.h"
-#include "TextureSystem.h"
+#include "texturesystem.h"
 #include "camera.h"
 
 // memdbgon must be the last include file in a .cpp file!!!

@@ -17,7 +17,7 @@
 #define CGBASE_H_
 
 #ifndef __CONDITIONALMACROS__
-#include <ConditionalMacros.h>
+#include <conditionalmacros.h>
 #endif
 
 #include <stddef.h>

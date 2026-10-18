@@ -12,7 +12,7 @@
 #include "tier1/utlbuffer.h"
 #include "snd_audio_source.h"
 #include "snd_wave_source.h"
-#include "AudioWaveOutput.h"
+#include "audiowaveoutput.h"
 #include "ifaceposersound.h"
 #include "vstdlib/random.h"
 #include "checksum_crc.h"

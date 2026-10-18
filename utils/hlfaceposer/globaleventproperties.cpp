@@ -7,7 +7,7 @@
 #include <mxtk/mx.h>
 #include <stdio.h>
 #include "resource.h"
-#include "GlobalEventProperties.h"
+#include "globaleventproperties.h"
 #include "mdlviewer.h"
 #include "hlfaceposer.h"
 #include "choreoevent.h"

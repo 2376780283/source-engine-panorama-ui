@@ -57,7 +57,7 @@
 
 #ifdef NEED_BSD_STRINGS
 
-#include <strings.h>
+#include <Strings.h>
 #define MEMZERO(target,size)	bzero((void *)(target), (size_t)(size))
 #define MEMCOPY(dest,src,size)	bcopy((const void *)(src), (void *)(dest), (size_t)(size))
 

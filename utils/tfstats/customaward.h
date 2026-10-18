@@ -16,9 +16,9 @@
 #pragma once
 #endif
 #pragma warning(disable :4786)
-#include "Award.h"
-#include "TextFile.h"
-#include "CustomAwardTriggers.h"
+#include "award.h"
+#include "textfile.h"
+#include "customawardtriggers.h"
 #include <list>
 
 using namespace std;

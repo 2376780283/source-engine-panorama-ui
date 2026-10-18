@@ -1,8 +1,8 @@
  
 #ifndef IHFXEFFECT_H_
 #define IHFXEFFECT_H_
-#include ".\\HFXConfig.h"
-#include ".\\IHFXParam.h"
+#include ".//HFXConfig.h"
+#include ".//IHFXParam.h"
  
 struct IHapticEffectParamGroup; 
 typedef IHapticEffectParamGroup IHFXParamGroup; 

@@ -9,8 +9,8 @@
 //
 
 #include "stdafx.h"
-#include "UI.h"
-#include "LogSelectProps.h"
+#include "ui.h"
+#include "logselectprops.h"
 
 #ifdef _DEBUG
 #define new DEBUG_NEW

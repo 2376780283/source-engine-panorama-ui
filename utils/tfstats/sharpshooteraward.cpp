@@ -10,7 +10,7 @@
 //
 // $NoKeywords: $
 //=============================================================================//
-#include "SharpshooterAward.h"
+#include "sharpshooteraward.h"
 
 double CSharpshooterAward::HS_VALUE = 3.00;
 double CSharpshooterAward::SHOT_VALUE = 1.00;

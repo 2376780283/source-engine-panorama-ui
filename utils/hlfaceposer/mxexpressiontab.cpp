@@ -6,7 +6,7 @@
 //=============================================================================//
 
 #include "hlfaceposer.h"
-#include "mxExpressionTab.h"
+#include "mxexpressiontab.h"
 #include "mdlviewer.h"
 #include "expressions.h"
 

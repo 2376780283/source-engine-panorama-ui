@@ -6,14 +6,14 @@
 //=============================================================================//
 
 #include "stdafx.h"
-#include "fgdlib/HelperInfo.h"
+#include "fgdlib/helperinfo.h"
 #include "materialsystem/imesh.h"
-#include "MapClass.h"
-#include "MapSolid.h"
-#include "MapWorld.h"			// For the world's face ID functions.
-#include "MapSideList.h"
-#include "Material.h"
-#include "Render3D.h"
+#include "mapclass.h"
+#include "mapsolid.h"
+#include "mapworld.h"			// For the world's face ID functions.
+#include "mapsidelist.h"
+#include "material.h"
+#include "render3d.h"
 #include "mapdoc.h"
 
 // memdbgon must be the last include file in a .cpp file!!!

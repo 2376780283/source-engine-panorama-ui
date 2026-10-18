@@ -15,7 +15,7 @@
 #ifdef WIN32
 #pragma once
 #endif
-#include "Award.h"
+#include "award.h"
 
 //------------------------------------------------------------------------------------------------------
 // Purpose: CWeaponAward is the superclass for any award that is based simply

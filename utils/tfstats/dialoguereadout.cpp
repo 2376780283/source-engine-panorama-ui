@@ -10,7 +10,7 @@
 //
 // $NoKeywords: $
 //=============================================================================//
-#include "DialogueReadout.h"
+#include "dialoguereadout.h"
 #include "util.h"
 
 

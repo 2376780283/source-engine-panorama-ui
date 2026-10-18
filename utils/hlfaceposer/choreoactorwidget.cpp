@@ -11,11 +11,11 @@
 #include "choreoactor.h"
 #include "choreoview.h"
 #include "choreowidgetdrawhelper.h"
-#include "mxBitmapButton.h"
+#include "mxbitmapbutton.h"
 #include "choreoviewcolors.h"
 #include "choreochannel.h"
 #include "filesystem.h"
-#include "StudioModel.h"
+#include "studiomodel.h"
 
 #define ACTOR_NAME_HEIGHT 26
 //-----------------------------------------------------------------------------

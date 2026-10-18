@@ -37,7 +37,7 @@
  * be defined here.
  */
 #  ifdef PLATFORM_BSD
-#    include <strings.h>
+#    include <Strings.h>
 #  else
 #    include <string.h>
 #  endif

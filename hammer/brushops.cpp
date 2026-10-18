@@ -9,14 +9,14 @@
 #include <stdio.h>
 #include <math.h>
 #include "hammer.h"
-#include "MapEntity.h"
-#include "MapDefs.h"
-#include "MapFace.h"
+#include "mapentity.h"
+#include "mapdefs.h"
+#include "mapface.h"
 #include "hammer_mathlib.h"
 #include "history.h"
-#include "Error3d.h"
-#include "BrushOps.h"
-#include "GlobalFunctions.h"
+#include "error3d.h"
+#include "brushops.h"
+#include "globalfunctions.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"

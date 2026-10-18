@@ -19,11 +19,11 @@
 //
 
 #include <stdafx.h>
-#include "MapDisp.h"
-#include "DispSew.h"
-#include "ChunkFile.h"
-#include "GlobalFunctions.h"
-#include "ToolDisplace.h"
+#include "mapdisp.h"
+#include "dispsew.h"
+#include "chunkfile.h"
+#include "globalfunctions.h"
+#include "tooldisplace.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include <tier0/memdbgon.h>

@@ -11,8 +11,8 @@
 #pragma once
 #endif
 
-#include "IEditorTexture.h"
-#include "Material.h"
+#include "ieditortexture.h"
+#include "material.h"
 #include "utlvector.h"
 #include "utldict.h"
 #include "FileChangeWatcher.h"

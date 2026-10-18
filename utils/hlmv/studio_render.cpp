@@ -17,8 +17,8 @@
 #include <windows.h> // for OutputDebugString. . has to be a better way!
 
 
-#include "ViewerSettings.h"
-#include "StudioModel.h"
+#include "viewersettings.h"
+#include "studiomodel.h"
 #include "vphysics/constraints.h"
 #include "physmesh.h"
 #include "materialsystem/imaterialsystem.h"
@@ -31,8 +31,8 @@
 #include "studio_render.h"
 #include "materialsystem/imesh.h"
 #include "bone_setup.h"
-#include "materialsystem/MaterialSystem_Config.h"
-#include "MDLViewer.h"
+#include "materialsystem/materialsystem_config.h"
+#include "mdlviewer.h"
 #include "bone_accessor.h"
 #include "jigglebones.h"
 #include "debugdrawmodel.h"

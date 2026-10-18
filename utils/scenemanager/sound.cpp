@@ -11,8 +11,8 @@
 #include <stdio.h>
 #include <math.h>
 #include "snd_audio_source.h"
-#include "AudioWaveOutput.h"
-#include "ISceneManagerSound.h"
+#include "audiowaveoutput.h"
+#include "iscenemanagersound.h"
 #include "utlvector.h"
 #include "filesystem.h"
 #include "sentence.h"

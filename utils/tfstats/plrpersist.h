@@ -33,9 +33,9 @@
 #include <string>
 #include <list>
 #include <utility>
-#include "TimeIndexedList.h"
+#include "timeindexedlist.h"
 #include "Player.h"
-#include "TextFile.h"
+#include "textfile.h"
 using namespace std;
 
 //------------------------------------------------------------------------------------------------------

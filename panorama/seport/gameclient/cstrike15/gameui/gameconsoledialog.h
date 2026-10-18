@@ -34,6 +34,9 @@ private:
 
 	virtual void OnKeyCodeTyped( vgui::KeyCode code );
 	virtual void OnCommand( const char *command );
+
+	// SE port (bring-up probe, TEMPORARY): logs the geometry at paint time - see the note in the .cpp.
+	virtual void Paint();
 };
 
 

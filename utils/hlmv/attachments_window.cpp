@@ -5,10 +5,10 @@
 //=============================================================================//
 
 #include "attachments_window.h"
-#include "ControlPanel.h"
-#include "ViewerSettings.h"
-#include "StudioModel.h"
-#include "MatSysWin.h"
+#include "controlpanel.h"
+#include "viewersettings.h"
+#include "studiomodel.h"
+#include "matsyswin.h"
 
 
 #define IDC_ATTACHMENT_LIST			(IDC_ATTACHMENT_WINDOW_FIRST+0)

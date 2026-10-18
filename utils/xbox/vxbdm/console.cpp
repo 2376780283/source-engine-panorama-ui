@@ -8,7 +8,7 @@
 #include "xbox/xbox_vxconsole.h"
 #include "tier0/threadtools.h"
 #include "tier0/tslist.h"
-#include "tier0/ICommandLine.h"
+#include "tier0/icommandline.h"
 #include "tier0/memdbgon.h"
 
 // all redirecting funneled here, stop redirecting in this module only

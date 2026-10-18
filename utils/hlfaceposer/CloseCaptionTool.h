@@ -13,7 +13,7 @@
 #include <mxtk/mx.h>
 #include "utlvector.h"
 #include "faceposertoolwindow.h"
-#include "iclosecaptionmanager.h"
+#include "ICloseCaptionManager.h"
 
 class CCloseCaptionItem;
 struct WorkUnitParams;

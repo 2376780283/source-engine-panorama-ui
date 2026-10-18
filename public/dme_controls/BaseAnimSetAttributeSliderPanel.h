@@ -13,7 +13,7 @@
 #include "datamodel/dmehandle.h"
 #include "vgui_controls/EditablePanel.h"
 #include "dme_controls/AnimSetAttributeValue.h"
-#include "dme_controls/logpreview.h"
+#include "dme_controls/LogPreview.h"
 #include "movieobjects/dmechannel.h"
 #include "dme_controls/BaseAnimSetPresetFaderPanel.h"
 

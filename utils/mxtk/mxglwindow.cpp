@@ -11,7 +11,7 @@
 //                 provided without guarantee or warrantee expressed or
 //                 implied.
 //
-#include "mxtk/mxGlWindow.h"
+#include "mxtk/mxglwindow.h"
 #include <windows.h>
 //#include <ostream.h"
 

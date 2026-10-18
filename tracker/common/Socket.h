@@ -11,7 +11,7 @@
 #endif
 
 #include "netadr.h"
-#include "MsgBuffer.h"
+#include "msgbuffer.h"
 #include "utlvector.h"
 
 #include <stdio.h>

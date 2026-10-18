@@ -24,7 +24,7 @@ using namespace vgui;
 #include <OfflineMode.h>
 
 #include "filesystem.h"
-#include "mainpanel.h"
+#include "MainPanel.h"
 #include "tier0/icommandline.h"
 #include "netapi.h"
 // for SRC

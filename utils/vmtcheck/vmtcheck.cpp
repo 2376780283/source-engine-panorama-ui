@@ -11,7 +11,7 @@
 #include "tier0/dbg.h"
 #include "utldict.h"
 #include "filesystem.h"
-#include "FileSystem_Tools.h"
+#include "filesystem_tools.h"
 #include "KeyValues.h"
 #include "cmdlib.h"
 

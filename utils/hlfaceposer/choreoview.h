@@ -12,13 +12,13 @@
 
 
 #include <mxtk/mx.h>
-#include <mxtk/mxWindow.h>
-#include "mxBitmapButton.h"
+#include <mxtk/mxwindow.h>
+#include "mxbitmapbutton.h"
 #include "utlvector.h"
-#include "ChoreoWidget.h"
+#include "choreowidget.h"
 #include "ichoreoeventcallback.h"
 #include "faceposertoolwindow.h"
-#include "ChoreoEvent.h"
+#include "choreoevent.h"
 #include "mathlib/mathlib.h"
 #include "SoundEmitterSystem/isoundemittersystembase.h"
 

@@ -6,22 +6,22 @@
 
 #include "stdafx.h"
 #include "generichash.h"
-#include "CullTreeNode.h"
-#include "GlobalFunctions.h"
+#include "culltreenode.h"
+#include "globalfunctions.h"
 #include "MainFrm.h"
-#include "MapDefs.h"
-#include "MapDoc.h"		// dvs: think of a way around the world knowing about the doc
-#include "MapEntity.h"
-#include "MapGroup.h"
-#include "MapSolid.h"
-#include "MapWorld.h"
-#include "SaveInfo.h"
-#include "StatusBarIDs.h"
-#include "VisGroup.h"
+#include "mapdefs.h"
+#include "mapdoc.h"		// dvs: think of a way around the world knowing about the doc
+#include "mapentity.h"
+#include "mapgroup.h"
+#include "mapsolid.h"
+#include "mapworld.h"
+#include "saveinfo.h"
+#include "statusbarids.h"
+#include "visgroup.h"
 #include "hammer.h"
-#include "Worldsize.h"
-#include "MapOverlay.h"
-#include "Manifest.h"
+#include "worldsize.h"
+#include "mapoverlay.h"
+#include "manifest.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include <tier0/memdbgon.h>

@@ -7,19 +7,19 @@
 #include "stdafx.h"
 #include <direct.h>
 #include <io.h>
-#include <WorldSize.h>
-#include "Gameconfig.h"
-#include "GlobalFunctions.h"
-#include "fgdlib/HelperInfo.h"
+#include <worldsize.h>
+#include "gameconfig.h"
+#include "globalfunctions.h"
+#include "fgdlib/helperinfo.h"
 #include "hammer.h"
 #include "KeyValues.h"
-#include "MapDoc.h"
-#include "MapDoc.h"
-#include "MapEntity.h"
-#include "MapInstance.h"
-#include "MapWorld.h"
+#include "mapdoc.h"
+#include "mapdoc.h"
+#include "mapentity.h"
+#include "mapinstance.h"
+#include "mapworld.h"
 #include "filesystem_tools.h"
-#include "TextureSystem.h"
+#include "texturesystem.h"
 #include "tier1/strtools.h"
 
 // memdbgon must be the last include file in a .cpp file!!!

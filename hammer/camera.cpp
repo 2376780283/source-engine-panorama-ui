@@ -9,7 +9,7 @@
 #include <math.h>
 #include <stdlib.h>
 #include <stdio.h>
-#include "Camera.h"
+#include "camera.h"
 #include "hammer_mathlib.h"
 
 // memdbgon must be the last include file in a .cpp file!!!

@@ -4,11 +4,11 @@
 
 #include "stdafx.h"
 #include "hammer.h"
-#include "ManifestDialog.h"
-#include "MapDoc.h"
-#include "Manifest.h"
-#include "MapInstance.h"
-#include "ControlBarIDs.h"
+#include "manifestdialog.h"
+#include "mapdoc.h"
+#include "manifest.h"
+#include "mapinstance.h"
+#include "controlbarids.h"
 #include "p4lib/ip4.h"
 
 // CManifestMove dialog

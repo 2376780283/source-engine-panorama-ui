@@ -31,7 +31,7 @@
 
 // viewport definitions
 #include <baseviewport.h>
-#include "SDKViewport.h"
+#include "sdkviewport.h"
 
 #include "vguicenterprint.h"
 #include "text_message.h"

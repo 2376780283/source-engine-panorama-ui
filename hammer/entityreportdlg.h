@@ -12,7 +12,7 @@
 
 #include <afxtempl.h>
 #include "resource.h"
-#include "MapDoc.h"
+#include "mapdoc.h"
 
 
 class CEntityReportDlg : public CDialog

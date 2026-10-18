@@ -20,7 +20,7 @@
 #include "tier1/utlvector.h"
 #include "tier1/utlbuffer.h"
 #include "tier1/utllinkedlist.h"
-#include "tier1/utlstringmap.h"
+#include "tier1/UtlStringMap.h"
 #include "tier0/icommandline.h"
 #include "tier1/strtools.h"
 #include "threads.h"

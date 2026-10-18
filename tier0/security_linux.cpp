@@ -20,8 +20,8 @@
 	#define VALVE_DESKEY_ID "uW"	// Uniquely identifies HL2 keys
 
 	// Include the key's API:
-	#include "DESKey/algo.h"
-	#include "DESKey/dk2win32.h"
+	#include "DESKey/ALGO.H"
+	#include "DESKey/DK2WIN32.H"
 	
 //	#pragma comment(lib, "DESKey/algo32.lib" )
 //	#pragma comment(lib, "DESKey/dk2win32.lib" )

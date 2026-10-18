@@ -4,12 +4,12 @@
 //
 //=============================================================================
 
-#include "toolutils/toolswitchmenubutton.h"
-#include "vgui_controls/panel.h"
-#include "toolutils/toolmenubutton.h"
+#include "toolutils/ToolSwitchMenuButton.h"
+#include "vgui_controls/Panel.h"
+#include "toolutils/ToolMenuButton.h"
 #include "toolutils/enginetools_int.h"
 #include "tier1/KeyValues.h"
-#include "vgui_controls/menu.h"
+#include "vgui_controls/Menu.h"
 #include "toolframework/ienginetool.h"
 
 // memdbgon must be the last include file in a .cpp file!!!

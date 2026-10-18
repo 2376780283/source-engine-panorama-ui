@@ -9,11 +9,11 @@
 
 #include "stdafx.h"
 #include "hammer.h"
-#include "SelectEntityDlg.h"
-#include "GlobalFunctions.h"
-#include "MapDoc.h"
-#include "MapEntity.h"
-#include "MapSolid.h"
+#include "selectentitydlg.h"
+#include "globalfunctions.h"
+#include "mapdoc.h"
+#include "mapentity.h"
+#include "mapsolid.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include <tier0/memdbgon.h>

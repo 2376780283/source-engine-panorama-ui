@@ -12,7 +12,7 @@
 #include "datamodel/dmelement.h"
 #include "vmttool.h"
 #include "materialsystem/imaterialsystem.h"
-#include "materialsystem/ishader.h"
+#include "materialsystem/IShader.h"
 #include "toolutils/enginetools_int.h"
 #include "filesystem.h"
 

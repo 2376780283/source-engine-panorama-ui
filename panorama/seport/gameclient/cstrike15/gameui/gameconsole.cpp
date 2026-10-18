@@ -13,7 +13,7 @@
 #include "vgui/IScheme.h"
 
 #include "keyvalues.h"
-#include "vgui/vgui.h"
+#include "vgui/VGUI.h"
 #include "vgui/IVGui.h"
 #include "vgui_controls/Panel.h"
 #include "convar.h"

@@ -12,13 +12,13 @@
 #endif
 
 #include "tier0/platform.h"
-#include "toolutils/basetoolsystem.h"
+#include "toolutils/BaseToolSystem.h"
 #include "toolutils/recentfilelist.h"
 #include "toolutils/toolmenubar.h"
-#include "toolutils/toolswitchmenubutton.h"
-#include "toolutils/tooleditmenubutton.h"
-#include "toolutils/toolfilemenubutton.h"
-#include "toolutils/toolmenubutton.h"
+#include "toolutils/ToolSwitchMenuButton.h"
+#include "toolutils/ToolEditMenuButton.h"
+#include "toolutils/ToolFileMenuButton.h"
+#include "toolutils/ToolMenuButton.h"
 #include "datamodel/dmelement.h"
 #include "datamodel/dmehandle.h"
 #include "toolframework/ienginetool.h"

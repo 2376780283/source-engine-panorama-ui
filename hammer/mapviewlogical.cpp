@@ -5,11 +5,11 @@
 //===========================================================================//
 
 #include "stdafx.h"
-#include "MapViewLogical.h"
-#include "Render2D.h"
-#include "MapWorld.h"
-#include "TitleWnd.h"
-#include "MapDoc.h"
+#include "mapviewlogical.h"
+#include "render2d.h"
+#include "mapworld.h"
+#include "titlewnd.h"
+#include "mapdoc.h"
 #include "ToolManager.h"
 #include "history.h"
 

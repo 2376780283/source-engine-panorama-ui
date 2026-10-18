@@ -15,7 +15,7 @@
 
 #include "gamemanager.h"
 #include "tier2/keybindings.h"
-#include "tier1/commandbuffer.h"
+#include "tier1/CommandBuffer.h"
 #include "bitvec.h"
 
 

@@ -6,12 +6,12 @@
 //=============================================================================//
 
 #include "stdafx.h"
-#include "History.h"
+#include "history.h"
 #include "MainFrm.h"			// FIXME: For ObjectProperties
-#include "MapDoc.h"
-#include "MapView2D.h"
-#include "MapSphere.h"
-#include "StatusBarIDs.h"		// For updating status bar text
+#include "mapdoc.h"
+#include "mapview2d.h"
+#include "mapsphere.h"
+#include "statusbarids.h"		// For updating status bar text
 #include "ToolManager.h"
 #include "ToolSphere.h"
 #include "Selection.h"

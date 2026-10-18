@@ -5,10 +5,10 @@
 // $NoKeywords: $
 //=============================================================================
 
-#include "ServerPing.h"
+#include "serverping.h"
 #include "Iresponse.h"
 
-#include "ServerPingMsgHandler.h"
+#include "serverpingmsghandler.h"
 #include "Socket.h"
 #include "proto_oob.h"
 

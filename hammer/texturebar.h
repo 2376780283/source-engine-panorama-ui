@@ -11,11 +11,11 @@
 #endif
 
 
-#include "TextureBox.h"
-#include "IEditorTexture.h"
-#include "wndTex.h"
-#include "ControlBarIDs.h"
-#include "HammerBar.h"
+#include "texturebox.h"
+#include "ieditortexture.h"
+#include "wndtex.h"
+#include "controlbarids.h"
+#include "hammerbar.h"
 
 
 class IEditorTexture;

@@ -10,7 +10,7 @@
 #pragma once
 #endif
 
-#include "MapFace.h"
+#include "mapface.h"
 
 
 #define	ON_PLANE_EPSILON			0.5f		// Vertices must be within this many units of the plane to be considered on the plane.

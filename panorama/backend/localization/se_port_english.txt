@@ -1,0 +1,41 @@
+"lang"
+{
+	"Language"	"English"
+	"Tokens"
+	{
+		// SE port: strings the injected scripts put on screen (see mods/panorama_test/panorama/scripts/
+		// se_session_sim.js).  Loaded by panoramauiclient/se_uicomponents.cpp ->
+		// CLocalization::BLoadLocalizationFile( "se_port" ), which resolves
+		// <mod>/panorama/localization/se_port_<language>.txt; this english file is always loaded first
+		// as the fallback, so the per-language files only need the tokens that differ.
+
+		"SEPort_Store_Button"			"Store"
+		"SEPort_Store_Item_Fallback"		"Store item"
+
+		// Store entries - the def indexes are the ones in se_session_sim.js's STORE_BANNER.
+		"SEPort_Store_Item_4883"		"Paris 2023 Viewer Pass"
+		"SEPort_Store_Item_4888"		"Paris 2023 Souvenir Package"
+		"SEPort_Store_Item_6732"		"Paris 2023 Sticker Capsule"
+
+		// Operations, oldest first (the years in the sim's banner list are the giveaway).
+		"SEPort_Store_Item_9101"		"Operation Payback (2013)"
+		"SEPort_Store_Item_9102"		"Operation Bravo (2013)"
+		"SEPort_Store_Item_9103"		"Operation Phoenix (2014)"
+		"SEPort_Store_Item_9104"		"Operation Breakout (2014)"
+		"SEPort_Store_Item_9105"		"Operation Vanguard (2014)"
+		"SEPort_Store_Item_9106"		"Operation Bloodhound (2015)"
+		"SEPort_Store_Item_9107"		"Operation Wildfire (2016)"
+		"SEPort_Store_Item_9108"		"Operation Hydra (2017)"
+		"SEPort_Store_Item_9109"		"Operation Shattered Web (2019)"
+		"SEPort_Store_Item_9110"		"Operation Broken Fang (2020)"
+		"SEPort_Store_Item_9111"		"Operation Riptide (2021)"
+
+		// News panel demo entries (the real feed needs Steam's blog backend, which this port has not).
+		"SEPort_News_Title1"			"SE Panorama port"
+		"SEPort_News_Desc1"			"The news panel is wired to local demo data. Clicking an entry opens its link in the browser."
+		"SEPort_News_Title2"			"Store and market"
+		"SEPort_News_Desc2"			"The store banners and market entries can now be browsed from the main menu."
+		"SEPort_News_Title3"			"Friends and party"
+		"SEPort_News_Desc3"			"The sidebar's friend list and party panel come from the local session simulation data."
+	}
+}

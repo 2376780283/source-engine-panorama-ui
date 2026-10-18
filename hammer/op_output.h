@@ -8,12 +8,12 @@
 #define OP_OUTPUT_H
 #pragma once
 
-#include "ObjectPage.h"
-#include "Resource.h"
-#include "TargetNameCombo.h"
-#include "MapEntity.h"
+#include "objectpage.h"
+#include "resource.h"
+#include "targetnamecombo.h"
+#include "mapentity.h"
 #include "ToolPickEntity.h"
-#include "AutoSelCombo.h"
+#include "autoselcombo.h"
 #include "AnchorMgr.h"
 
 

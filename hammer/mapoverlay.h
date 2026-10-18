@@ -11,7 +11,7 @@
 
 #include <afxwin.h>
 #include "utlvector.h"
-#include "MapSideList.h"
+#include "mapsidelist.h"
 
 class CHelperInfo;
 class CMapFace;

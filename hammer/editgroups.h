@@ -10,7 +10,7 @@
 #pragma once
 #endif
 
-#include "GroupList.h"
+#include "grouplist.h"
 #include "mapdoc.h"
 
 

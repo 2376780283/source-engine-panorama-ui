@@ -12,7 +12,7 @@
 #endif
 
 #include "IAdminServer.h"
-#include "IVGuiModule.h"
+#include "IVguiModule.h"
 
 #include <utlvector.h>
 

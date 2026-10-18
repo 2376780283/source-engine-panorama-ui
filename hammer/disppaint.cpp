@@ -6,15 +6,15 @@
 //=============================================================================//
 
 #include <stdafx.h>
-#include "DispPaint.h"
-#include "ToolDisplace.h"
-#include "CollisionUtils.h"
-#include "DispManager.h"
-#include "MapDoc.h"
-#include "MapDisp.h"
-#include "GlobalFunctions.h"
-#include "History.h"
-#include "DispSew.h"
+#include "disppaint.h"
+#include "tooldisplace.h"
+#include "collisionutils.h"
+#include "dispmanager.h"
+#include "mapdoc.h"
+#include "mapdisp.h"
+#include "globalfunctions.h"
+#include "history.h"
+#include "dispsew.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include <tier0/memdbgon.h>

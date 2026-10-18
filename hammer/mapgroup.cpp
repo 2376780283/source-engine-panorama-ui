@@ -6,9 +6,9 @@
 //=============================================================================//
 
 #include "stdafx.h"
-#include "MapDefs.h"
-#include "MapGroup.h"
-#include "SaveInfo.h"
+#include "mapdefs.h"
+#include "mapgroup.h"
+#include "saveinfo.h"
 #include "hammer.h"
 
 // memdbgon must be the last include file in a .cpp file!!!

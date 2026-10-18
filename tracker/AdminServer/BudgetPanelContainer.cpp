@@ -9,9 +9,9 @@
 #include "vgui/vgui_budgetpanelshared.h"
 #include "AdminServer.h"
 #include "ivprofexport.h"
-#include "vgui/ilocalize.h"
+#include "vgui/ILocalize.h"
 #include "vgui/ISurface.h"
-#include "vgui/vgui_BaseBudgetPanel.h"
+#include "vgui/vgui_basebudgetpanel.h"
 
 
 // -------------------------------------------------------------------------------------------------------------------- //

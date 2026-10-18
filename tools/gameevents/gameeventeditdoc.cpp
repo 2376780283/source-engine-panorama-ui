@@ -13,8 +13,8 @@
 #include "filesystem.h"
 #include "toolframework/ienginetool.h"
 #include "datamodel/idatamodel.h"
-#include "toolutils/attributeelementchoicelist.h"
-#include "vgui_controls/messagebox.h"
+#include "toolutils/AttributeElementChoiceList.h"
+#include "vgui_controls/MessageBox.h"
 
 // FIXME: This document currently stores a whole lot of nothing.
 

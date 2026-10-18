@@ -94,7 +94,7 @@ class mxSlider;
 #define IDC_ET_SELECTION_COPY		1054
 #define IDC_ET_SELECTION_PASTE		1055
 
-#include "ExpressionSample.h"
+#include "expressionsample.h"
 
 class ExpressionTool : public mxWindow, public IFacePoserToolWindow
 {

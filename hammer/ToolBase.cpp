@@ -5,7 +5,7 @@
 //=============================================================================//
 
 #include "stdafx.h"
-#include "ToolInterface.h"
+#include "toolinterface.h"
 #include "mapdoc.h"
 
 // memdbgon must be the last include file in a .cpp file!!!

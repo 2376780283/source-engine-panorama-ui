@@ -11,8 +11,8 @@
 #pragma once
 #endif
 
-#include "MapAtom.h"
-#include "ToolInterface.h"
+#include "mapatom.h"
+#include "toolinterface.h"
 
 class CMapDoc;
 class CMapView;

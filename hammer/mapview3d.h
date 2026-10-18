@@ -11,9 +11,9 @@
 #pragma once
 #endif
 
-#include "Keyboard.h"
-#include "MapView.h"
-#include "Render3D.h"
+#include "keyboard.h"
+#include "mapview.h"
+#include "render3d.h"
 #include "camera.h"
 
 namespace vgui

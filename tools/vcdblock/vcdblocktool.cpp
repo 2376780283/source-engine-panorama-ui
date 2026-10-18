@@ -11,7 +11,7 @@
 #include "vgui/KeyCode.h"
 #include "vgui_controls/FileOpenDialog.h"
 #include "filesystem.h"
-#include "vgui/ilocalize.h"
+#include "vgui/ILocalize.h"
 #include "tier0/icommandline.h"
 #include "materialsystem/imaterialsystem.h"
 #include "VGuiMatSurface/IMatSystemSurface.h"
@@ -21,12 +21,12 @@
 #include "dme_controls/AttributeStringChoicePanel.h"
 #include "tier3/tier3.h"
 #include "tier2/fileutils.h"
-#include "vgui/ivgui.h"
+#include "vgui/IVGui.h"
 #include "view_shared.h"
 
 // for tracing
 #include "cmodel.h"
-#include "engine/ienginetrace.h"
+#include "engine/IEngineTrace.h"
 
 using namespace vgui;
 

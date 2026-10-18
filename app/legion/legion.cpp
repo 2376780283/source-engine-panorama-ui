@@ -20,7 +20,7 @@
 #include "vgui/IVGui.h"
 #include "vgui/ISurface.h"
 #include "VGuiMatSurface/IMatSystemSurface.h"
-#include "vgui_controls/controls.h"
+#include "vgui_controls/Controls.h"
 #include "vgui/ILocalize.h"
 #include "vgui_controls/AnimationController.h"
 #include "gamemanager.h"

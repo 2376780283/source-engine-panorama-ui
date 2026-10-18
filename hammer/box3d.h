@@ -10,8 +10,8 @@
 #pragma once
 
 
-#include "Tool3D.h"
-#include "BoundBox.h"
+#include "tool3d.h"
+#include "boundbox.h"
 
 
 class CMapView2D;

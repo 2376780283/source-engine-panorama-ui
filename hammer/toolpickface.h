@@ -12,8 +12,8 @@
 #endif
 
 
-#include "MapFace.h"
-#include "ToolInterface.h"
+#include "mapface.h"
+#include "toolinterface.h"
 
 
 class CMapView3D;

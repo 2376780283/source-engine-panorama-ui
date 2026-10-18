@@ -10,7 +10,7 @@
 #pragma once
 #endif
 
-#include "vgui_controls/editablepanel.h"
+#include "vgui_controls/EditablePanel.h"
 #include "tier1/utlstring.h"
 #include "particles/particles.h"
 

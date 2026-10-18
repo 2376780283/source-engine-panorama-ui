@@ -6,7 +6,7 @@
 #define __COREFOUNDATION_CFBASE__ 1
 
 #if CF_QUICKTIME
-#include <ConditionalMacros.h>
+#include <conditionalmacros.h>
 #include "QTMLCompilerOptions.h"
 #include "QTCFRenames.h"
 

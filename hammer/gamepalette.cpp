@@ -10,8 +10,8 @@
 //
 
 #include "stdafx.h"
-#include "GamePalette.h"
-#include "Hammer.h"
+#include "gamepalette.h"
+#include "hammer.h"
 #include "tier1/strtools.h"
 #pragma warning(push, 1)
 #pragma warning(disable:4701 4702 4530)

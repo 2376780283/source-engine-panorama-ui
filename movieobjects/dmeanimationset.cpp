@@ -10,7 +10,7 @@
 #include "datamodel/dmelementfactoryhelper.h"
 #include "datamodel/dmehandle.h"
 #include "phonemeconverter.h"
-#include "tier1/utlstringmap.h"
+#include "tier1/UtlStringMap.h"
 #include "tier2/tier2.h"
 #include "filesystem.h"
 #include "studio.h"

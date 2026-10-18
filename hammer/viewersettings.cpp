@@ -22,7 +22,7 @@
 // email:          mete@swissquake.ch
 // web:            http://www.swissquake.ch/chumbalum-soft/
 //
-#include "ViewerSettings.h"
+#include "viewersettings.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>

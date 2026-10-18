@@ -11,7 +11,7 @@
 
 
 #include "Render.h"
-#include "mathlib/Vector4D.h"
+#include "mathlib/vector4d.h"
 #include "utlpriorityqueue.h"
 #include "mapclass.h"
 #include "lpreview_thread.h"

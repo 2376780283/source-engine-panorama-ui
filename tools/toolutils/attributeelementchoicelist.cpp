@@ -6,7 +6,7 @@
 //
 //=============================================================================//
 
-#include "toolutils/attributeelementchoicelist.h"
+#include "toolutils/AttributeElementChoiceList.h"
 #include "datamodel/dmelement.h"
 
 	

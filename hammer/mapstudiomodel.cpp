@@ -5,20 +5,20 @@
 //=============================================================================//
 
 #include "stdafx.h"
-#include "Box3D.h"
-#include "GlobalFunctions.h"
-#include "MapDefs.h"		// dvs: For COORD_NOTINIT
-#include "MapDoc.h"
-#include "MapEntity.h"
-#include "MapStudioModel.h"
-#include "Render2D.h"
-#include "Render3D.h"
-#include "ViewerSettings.h"
+#include "box3d.h"
+#include "globalfunctions.h"
+#include "mapdefs.h"		// dvs: For COORD_NOTINIT
+#include "mapdoc.h"
+#include "mapentity.h"
+#include "mapstudiomodel.h"
+#include "render2d.h"
+#include "render3d.h"
+#include "viewersettings.h"
 #include "hammer.h"
 #include "materialsystem/imesh.h"
-#include "TextureSystem.h"
-#include "Material.h"
-#include "Options.h"
+#include "texturesystem.h"
+#include "material.h"
+#include "options.h"
 #include "camera.h"
 
 // memdbgon must be the last include file in a .cpp file!!!

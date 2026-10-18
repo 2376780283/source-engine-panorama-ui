@@ -9,9 +9,9 @@
 #define OP_INPUT_H
 #pragma once
 
-#include "ObjectPage.h"
-#include "Resource.h"
-#include "MapEntity.h"
+#include "objectpage.h"
+#include "resource.h"
+#include "mapentity.h"
 #include "AnchorMgr.h"
 
 #define OUTPUT_LIST_NUM_COLUMNS		6

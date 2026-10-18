@@ -26,7 +26,7 @@
 #include "movieobjects/dmematerial.h"
 #include "movieobjects/dmobjserializer.h"
 #include "dme_controls/dmedagrenderpanel.h"
-#include "vgui/keycode.h"
+#include "vgui/KeyCode.h"
 #include "filesystem.h"
 
 

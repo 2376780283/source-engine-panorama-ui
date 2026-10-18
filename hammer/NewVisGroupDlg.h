@@ -11,7 +11,7 @@
 #endif
 
 #include "resource.h"
-#include "GroupList.h"
+#include "grouplist.h"
 
 
 class CNewVisGroupDlg : public CDialog

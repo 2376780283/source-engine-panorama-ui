@@ -12,8 +12,8 @@
 #include "vgui_controls/FileOpenDialog.h"
 #include "vgui_controls/PropertySheet.h"
 #include "filesystem.h"
-#include "vgui/ilocalize.h"
-#include "dme_controls/elementpropertiestree.h"
+#include "vgui/ILocalize.h"
+#include "dme_controls/ElementPropertiesTree.h"
 #include "tier0/icommandline.h"
 #include "materialsystem/imaterialsystem.h"
 #include "VGuiMatSurface/IMatSystemSurface.h"
@@ -23,7 +23,7 @@
 #include "dme_controls/AttributeStringChoicePanel.h"
 #include "tier2/fileutils.h"
 #include "tier3/tier3.h"
-#include "vgui/ivgui.h"
+#include "vgui/IVGui.h"
 #include "toolutils/ConsolePage.h"
 
 

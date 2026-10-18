@@ -6,7 +6,7 @@
 //=============================================================================//
 
 #include "tabwindow.h"
-#include "ChoreoWidgetDrawHelper.h"
+#include "choreowidgetdrawhelper.h"
 #include "hlfaceposer.h"
 
 //-----------------------------------------------------------------------------

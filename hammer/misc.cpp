@@ -8,7 +8,7 @@
 #include "stdafx.h"
 #include <direct.h>
 #include <time.h>
-#include "MapSolid.h"
+#include "mapsolid.h"
 #include "mapworld.h"
 
 // memdbgon must be the last include file in a .cpp file!!!

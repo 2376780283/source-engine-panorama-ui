@@ -17,8 +17,8 @@
 #include <vgui_controls/Button.h>
 #include <vgui_controls/PHandle.h>
 #include <vgui_controls/WizardPanel.h>
-#include <FileSystem.h>
-#include "vgui/mousecode.h"
+#include <filesystem.h>
+#include "vgui/MouseCode.h"
 #include "vgui/IScheme.h"
 
 

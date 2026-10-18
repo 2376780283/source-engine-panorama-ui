@@ -10,7 +10,7 @@
 
 #include "stdafx.h"
 #include "hammer.h"
-#include "OptionProperties.h"
+#include "optionproperties.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include <tier0/memdbgon.h>

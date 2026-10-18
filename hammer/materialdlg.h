@@ -9,7 +9,7 @@
 #pragma once
 
 #include "resource.h"
-#include "smoothinggroupmgr.h"
+#include "SmoothingGroupMgr.h"
 
 //=============================================================================
 //

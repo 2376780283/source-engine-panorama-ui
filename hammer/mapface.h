@@ -17,12 +17,12 @@
 #include <fstream>
 #pragma warning(pop)
 #include "hammer_mathlib.h"
-#include "MapAtom.h"
-#include "DispManager.h"
-#include "mathlib/Vector4d.h"
+#include "mapatom.h"
+#include "dispmanager.h"
+#include "mathlib/vector4d.h"
 #include "utlvector.h"
 #include "Color.h"
-#include "smoothinggroupmgr.h"
+#include "SmoothingGroupMgr.h"
 #include "detailobjects.h"
 
 class CCheckFaceInfo;

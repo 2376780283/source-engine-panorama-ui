@@ -11,7 +11,7 @@
 #pragma once
 #endif
 
-#include "Resource.h"
+#include "resource.h"
 
 
 class GDclass;

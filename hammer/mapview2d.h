@@ -13,7 +13,7 @@
 #endif
 
 
-#include "MapView2DBase.h"
+#include "mapview2dbase.h"
 #include "tier1/utlvector.h"
 
 class CMapInstance;

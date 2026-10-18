@@ -15,7 +15,7 @@
 #define TEXTUREBOX_H
 #pragma once
 
-#include "IEditorTexture.h"
+#include "ieditortexture.h"
 
 class CTextureBox : public CComboBox
 {

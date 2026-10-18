@@ -5,13 +5,13 @@
 //=============================================================================
 
 #include "foundrytool.h"
-#include "toolutils/basetoolsystem.h"
+#include "toolutils/BaseToolSystem.h"
 #include "toolutils/recentfilelist.h"
 #include "toolutils/toolmenubar.h"
-#include "toolutils/toolswitchmenubutton.h"
-#include "toolutils/tooleditmenubutton.h"
-#include "toolutils/toolfilemenubutton.h"
-#include "toolutils/toolmenubutton.h"
+#include "toolutils/ToolSwitchMenuButton.h"
+#include "toolutils/ToolEditMenuButton.h"
+#include "toolutils/ToolFileMenuButton.h"
+#include "toolutils/ToolMenuButton.h"
 #include "vgui_controls/Menu.h"
 #include "tier1/KeyValues.h"
 #include "toolutils/enginetools_int.h"
@@ -20,8 +20,8 @@
 #include "vgui/KeyCode.h"
 #include "vgui_controls/FileOpenDialog.h"
 #include "filesystem.h"
-#include "vgui/ilocalize.h"
-#include "dme_controls/elementpropertiestree.h"
+#include "vgui/ILocalize.h"
+#include "dme_controls/ElementPropertiesTree.h"
 #include "tier0/icommandline.h"
 #include "materialsystem/imaterialsystem.h"
 #include "VGuiMatSurface/IMatSystemSurface.h"
@@ -35,7 +35,7 @@
 #include "dmevmfentity.h"
 #include "tier3/tier3.h"
 #include "tier2/fileutils.h"
-#include "vgui/ivgui.h"
+#include "vgui/IVGui.h"
 
 
 using namespace vgui;

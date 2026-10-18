@@ -11,7 +11,7 @@
 
 #include "mathlib/vector.h"
 #include "utlvector.h"
-#include "DispManager.h"
+#include "dispmanager.h"
 
 class CMapDisp;
 

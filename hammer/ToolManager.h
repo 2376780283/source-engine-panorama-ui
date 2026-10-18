@@ -10,7 +10,7 @@
 #pragma once
 #endif
 
-#include "ToolInterface.h"
+#include "toolinterface.h"
 #include "utlvector.h"
 
 

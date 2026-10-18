@@ -6,29 +6,29 @@
 
 
 #include "hlfaceposer.h"
-#include "FlexPanel.h"
-#include "ViewerSettings.h"
-#include "StudioModel.h"
-#include "MatSysWin.h"
-#include "ControlPanel.h"
+#include "flexpanel.h"
+#include "viewersettings.h"
+#include "studiomodel.h"
+#include "matsyswin.h"
+#include "controlpanel.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <mxtk/mx.h>
-#include <mxtk/mxBmp.h>
+#include <mxtk/mxbmp.h>
 
 #include "mxbitmapwindow.h"
-#include "mxExpressionTray.h"
+#include "mxexpressiontray.h"
 #include "expressions.h"
 #include "expressiontool.h"
 #include "filesystem.h"
 #include "mdlviewer.h"
-#include "ExpressionProperties.h"
+#include "expressionproperties.h"
 #include "expclass.h"
 #include "choreowidgetdrawhelper.h"
 #include "choreoview.h"
 #include "choreoscene.h"
-#include "mxExpressionSlider.h"
+#include "mxexpressionslider.h"
 #include "faceposer_models.h"
 
 LocalFlexController_t FindFlexControllerIndexByName( StudioModel *model, char const *searchname );

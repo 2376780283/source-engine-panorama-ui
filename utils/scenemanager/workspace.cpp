@@ -9,7 +9,7 @@
 #include "project.h"
 #include "vstdlib/random.h"
 #include "cmdlib.h"
-#include "FileSystem_Tools.h"
+#include "filesystem_tools.h"
 #include "utlbuffer.h"
 #include "workspacemanager.h"
 #include "workspacebrowser.h"

@@ -15,7 +15,7 @@
 
 #include "stdafx.h"
 #include "hammer.h"
-#include "HammerBar.h"
+#include "hammerbar.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include <tier0/memdbgon.h>

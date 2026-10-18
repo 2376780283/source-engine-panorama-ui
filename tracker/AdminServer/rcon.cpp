@@ -8,12 +8,12 @@
 #include "rcon.h"
 #include "Iresponse.h"
 
-#include "RconMsgHandler.h"
+#include "rconmsghandler.h"
 #include "Socket.h"
 #include "proto_oob.h"
 #include "DialogGameInfo.h"
 #include "inetapi.h"
-#include "dialogkickplayer.h"
+#include "DialogKickPlayer.h"
 
 extern void v_strncpy(char *dest, const char *src, int bufsize);
 

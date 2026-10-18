@@ -6,7 +6,7 @@
 //=============================================================================//
 
 #include <windows.h>
-#include "HardwareMatrixState.h"
+#include "hardwarematrixstate.h"
 #include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>

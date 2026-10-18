@@ -23,8 +23,8 @@
 #include "IVguiMatInfo.h"
 
 #include "appframework/IAppSystem.h"
-#include "bitmap/ImageFormat.h"
-#include "Vector2D.h"  // must be before the namespace line
+#include "bitmap/imageformat.h"
+#include "vector2d.h"  // must be before the namespace line
 
 #ifdef CreateFont
 #undef CreateFont

@@ -12,15 +12,15 @@
 #include <sys\stat.h>
 #include <fcntl.h>
 #include "hammer.h"
-#include "MapDoc.h"
-#include "Options.h"
+#include "mapdoc.h"
+#include "options.h"
 #include "MainFrm.h"
-#include "GlobalFunctions.h"
-#include "WADTypes.h"
-#include "BSPFile.h"
+#include "globalfunctions.h"
+#include "wadtypes.h"
+#include "bspfile.h"
 #include "bitmap/imageformat.h" // hack : don't want to include this just for ImageFormat
-#include "TextureSystem.h"
-#include "WADTexture.h"
+#include "texturesystem.h"
+#include "wadtexture.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include <tier0/memdbgon.h>

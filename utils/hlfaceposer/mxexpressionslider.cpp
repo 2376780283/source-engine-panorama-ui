@@ -6,7 +6,7 @@
 //=============================================================================//
 #include <stdio.h>
 #include <windows.h>
-#include "mxExpressionSlider.h"
+#include "mxexpressionslider.h"
 #include "expressiontool.h"
 #include "mathlib/mathlib.h"
 #include "hlfaceposer.h"

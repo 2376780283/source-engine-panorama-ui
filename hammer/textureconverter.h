@@ -10,13 +10,13 @@
 #pragma once
 
 
-#include "MapWorld.h"
-#include "MapSolid.h"
-#include "MapFace.h"
-#include "MapDecal.h"
-#include "IEditorTexture.h"
+#include "mapworld.h"
+#include "mapsolid.h"
+#include "mapface.h"
+#include "mapdecal.h"
+#include "ieditortexture.h"
 #include "resource.h"
-#include "ProgDlg.h"
+#include "progdlg.h"
 
 class CTextureConverter
 {

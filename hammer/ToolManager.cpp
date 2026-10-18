@@ -6,21 +6,21 @@
 //=============================================================================//
 
 #include "stdafx.h"
-#include "MapDoc.h"
+#include "mapdoc.h"
 #include "MainFrm.h"
-#include "MapView2D.h"			// FIXME: for MapView2D::updTool
+#include "mapview2d.h"			// FIXME: for MapView2D::updTool
 #include "ToolAxisHandle.h"
 #include "ToolDecal.h"
-#include "ToolDisplace.h"
+#include "tooldisplace.h"
 #include "ToolManager.h"
 #include "ToolMagnify.h"
 #include "ToolMaterial.h"
-#include "ToolPickFace.h"
+#include "toolpickface.h"
 #include "ToolPickAngles.h"
 #include "ToolPickEntity.h"
 #include "ToolPointHandle.h"
 #include "ToolSphere.h"
-#include "ToolSweptHull.h"
+#include "toolswepthull.h"
 #include "ToolBlock.h"
 #include "ToolCamera.h"
 #include "ToolClipper.h"
@@ -31,7 +31,7 @@
 #include "ToolSelection.h"
 #include "ToolMagnify.h"
 #include "ToolMaterial.h"
-#include "ChunkFile.h"
+#include "chunkfile.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include <tier0/memdbgon.h>

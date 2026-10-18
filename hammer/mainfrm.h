@@ -10,14 +10,14 @@
 #pragma once
 #endif
 
-#include "MDIClientWnd.h"
-#include "FilterControl.h"
-#include "ObjectBar.h"
-#include "Texturebar.h"
-#include "MapAnimationDlg.h"
+#include "mdiclientwnd.h"
+#include "filtercontrol.h"
+#include "objectbar.h"
+#include "texturebar.h"
+#include "mapanimationdlg.h"
 #include "SelectModeDlgBar.h"
 #include "materialdlg.h"
-#include "ManifestDialog.h"
+#include "manifestdialog.h"
 
 class CChildFrame;
 class CObjectProperties;

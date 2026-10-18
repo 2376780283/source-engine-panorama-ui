@@ -17,7 +17,7 @@
 #pragma warning(disable:4786)
 #endif
 
-#include "MatchInfo.h"
+#include "matchinfo.h"
 #include "HTML.h"
 
 

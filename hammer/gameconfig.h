@@ -14,11 +14,11 @@
 #pragma warning(disable:4701 4702 4530)
 #include <fstream>
 #pragma warning(pop)
-#include "fgdlib/HelperInfo.h"
-#include "TokenReader.h"
+#include "fgdlib/helperinfo.h"
+#include "tokenreader.h"
 #include "fgdlib/gamedata.h"
-#include "GamePalette.h"
-#include "IEditorTexture.h"
+#include "gamepalette.h"
+#include "ieditortexture.h"
 #include "utlvector.h"
 
 

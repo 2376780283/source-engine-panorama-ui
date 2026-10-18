@@ -11,7 +11,7 @@
 //                 provided without guarantee or warrantee expressed or
 //                 implied.
 //
-#include "mxtk/mxWidget.h"
+#include "mxtk/mxwidget.h"
 #include <windows.h>
 #include <commctrl.h>
 #include <string.h>

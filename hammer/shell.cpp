@@ -7,9 +7,9 @@
 
 #include "stdafx.h"
 #include "MainFrm.h"
-#include "MapDoc.h"
-#include "MapEntity.h"
-#include "Shell.h"
+#include "mapdoc.h"
+#include "mapentity.h"
+#include "shell.h"
 #include "hammer.h"
 #include "filesystem_helpers.h"
 

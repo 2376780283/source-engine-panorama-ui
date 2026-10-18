@@ -10,11 +10,11 @@
 
 #include "stdafx.h"
 #include "hammer.h"
-#include "PrefabsDlg.h"
-#include "Prefabs.h"
-#include "Prefab3D.h"
-#include "EditPrefabDlg.h"
-#include "MapDoc.h"
+#include "prefabsdlg.h"
+#include "prefabs.h"
+#include "prefab3d.h"
+#include "editprefabdlg.h"
+#include "mapdoc.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include <tier0/memdbgon.h>

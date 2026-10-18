@@ -12,8 +12,8 @@
 #endif
 
 
-#include "HammerBar.h"
-#include "MapClass.h"
+#include "hammerbar.h"
+#include "mapclass.h"
 
 
 class CMapAnimationDlg : public CHammerBar

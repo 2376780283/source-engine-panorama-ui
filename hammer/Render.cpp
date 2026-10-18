@@ -6,30 +6,30 @@
 //===========================================================================//
 
 #include "stdafx.h"
-#include "MapDoc.h"
+#include "mapdoc.h"
 #include <VGuiMatSurface/IMatSystemSurface.h>
 #include "mathlib/vmatrix.h"
 #include "Render.h"
-#include "Camera.h"
-#include "Material.h"
+#include "camera.h"
+#include "material.h"
 #include "materialsystem/imesh.h"
-#include "datacache\imdlcache.h"
+#include "datacache/imdlcache.h"
 #include "hammer.h"
 #include "hammer_mathlib.h"
 #include "vgui_controls/Controls.h"
 #include "vgui/IScheme.h"
 #include "texturesystem.h"
-#include "IStudioRender.h"
+#include "istudiorender.h"
 #include "builddisp.h"
 #include "mapview.h"
 #include "material.h"
 #include <renderparm.h>
-#include "materialsystem/IMaterialSystemHardwareConfig.h"
+#include "materialsystem/imaterialsystemhardwareconfig.h"
 #include "vphysics_interface.h"
-#include "materialsystem/MaterialSystem_Config.h"
+#include "materialsystem/materialsystem_config.h"
 #include "VGuiWnd.h"
-#include "Box3D.h"
-#include "MapInstance.h"
+#include "box3d.h"
+#include "mapinstance.h"
 
 extern IMatSystemSurface *g_pMatSystemSurface;
 

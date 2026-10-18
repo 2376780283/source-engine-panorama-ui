@@ -5,19 +5,19 @@
 //=============================================================================//
 
 #include "stdafx.h"
-#include "Box3D.h"
-#include "BrushOps.h"
-#include "GlobalFunctions.h"
-#include "MapDefs.h"		// dvs: For COORD_NOTINIT
-#include "MapView2D.h" // dvs FIXME: For HitTest2D implementation
-#include "MapWorld.h"
-#include "MapSolid.h"
-#include "Options.h"
-#include "Render2D.h"
-#include "Render3D.h"
-#include "SaveInfo.h"
-#include "MapDoc.h"
-#include "MapDisp.h"
+#include "box3d.h"
+#include "brushops.h"
+#include "globalfunctions.h"
+#include "mapdefs.h"		// dvs: For COORD_NOTINIT
+#include "mapview2d.h" // dvs FIXME: For HitTest2D implementation
+#include "mapworld.h"
+#include "mapsolid.h"
+#include "options.h"
+#include "render2d.h"
+#include "render3d.h"
+#include "saveinfo.h"
+#include "mapdoc.h"
+#include "mapdisp.h"
 #include "camera.h"
 #include "ssolid.h"
 

@@ -127,3 +127,115 @@
 | 测试脚本 | `build/_gamma_make_assets3.ps1`(造素材)、`build/_gamma_run2.ps1`(运行+PrintWindow 截图+色块测量)、`build/_gamma_bands.ps1`(量灰阶)、`build/_mm_verify.ps1`(主菜单整窗 mean) |
 | 仓库内布局副本 | `mods/panorama_test/panorama/layout/`(需要时同步) |
 | 相关坑位 | P101(根因)、P102(PanDx 死代码)、P103(灰阶测试法与基线数字)、P104(YUV 豁免尝试与回退) |
+
+---
+
+## T2. 背景模糊（blurrects / CSGOBlurTarget）解挂 + `se_blur` cfg 开关（2026-09-19）✅
+
+### 0. 一句话结论
+
+**09-17 被当成"暂时查不出"挂起的模糊，其实是 T1 那个 sRGB 缺陷的另一个受害者。**
+修好两个 panorama shader 的 SRGBREAD、并把 YUV 平面从 `I8` 换成 `A8` 之后，开启 blur pass 不再出现
+贴图包装器的 error texture（紫黑格），主菜单背景就是 CS:GO 那种**模糊 + 压暗**的观感。
+同时把编译期开关换成 **cfg 开关 `se_blur`（默认 `1`）**：`config.cfg` / `autoexec.cfg` / 控制台 / 启动行都能切，
+**下一帧生效**，不用重编。
+
+### 1. 历史（为什么之前是 PARKED）
+
+- 09-16：打开 blur pass ⇒ 整屏紫黑缺材质格（`build/_verify_wash_bluron*`、`D:\cstrike\se_blurprobe.txt` 的 BLURFAST/BLURCOPY）；
+  关掉 ⇒ 背景泛白（P63，整窗 mean 203.6）。算法 / shader / layer RT / scratch RT（P52）/ sampler（P53）/
+  blurrects 查找（P57）**全部验过无罪**（P62/P64）。
+- 09-17：用户拍板挂起，`SE_PortSupportsBlurPasses()` 固定 `false`，归档进 `pitfalls §I`（P63–P65）。
+
+### 2. 现在为什么行
+
+09-19 的两处上游修复（见 T1）把这条路的输入修好了：
+
+1. `panorama_dx9.cpp` / `panoramafancy_dx9.cpp` 的 `SHADOW_STATE` 补 `EnableSRGBRead`（纹理不再被多提亮一次 gamma）；
+2. YUV 三个平面 `IMAGE_FORMAT_I8 → A8` + `panoramafancy_ps30.fxc` 读 `.a`（背景视频不再双重线性化）。
+
+⇒ 进 blur 那条路的源纹理不再是坏数据，blur pass 的输出就正常了。
+**没有动过任何 blur 算法/合成代码**——唯一的开关动作就是把 `SE_PortSupportsBlurPasses()` 从 `false` 放回 `true`。
+
+### 3. 实现（`se_blur` 开关）
+
+`panorama/source2/renderer/source2surface.cpp`：
+
+```cpp
+ConVar se_blur( "se_blur", "1", FCVAR_ARCHIVE, "SE port: run the panorama backdrop blur passes (blurrects)" );
+
+static bool SE_PortSupportsBlurPasses() { return se_blur.GetBool(); }
+```
+
+门控点没变（`PopCompositingLayer()` 里
+`... && !s_convarPanoramaDisableBlur.GetBool() && SE_PortSupportsBlurPasses()`），每次合成层 pop 都判一次
+⇒ `se_blur 0` **下一帧**就生效。
+
+`panoramauiclient/se_ui_settings.cpp`：`extern ConVar se_blur;`，并在 `SE_PortInstallGameInterfaceBindings()` 里
+`g_pCVar->RegisterConCommand( &se_blur );`，启动日志打印 `se_blur='%s' (@%p icvar=%p)`。
+
+两个坑（都是既有教训）：
+
+- **这个模块从不调 `ConVar_Register()`** ⇒ 模块自己的 ConVar 必须显式注册（与 `se_popup_news`/`se_popup_legacy` 同一原因）。
+- **不要加 `FCVAR_DEVELOPMENTONLY`**：release 下这类命令被隐藏（本项目实测过，`panorama_status` 当初就踩了）。
+  顺带记：老的 `@panorama_disable_blur` 带 `FCVAR_DEVELOPMENTONLY | FCVAR_CHEAT`，**不是可用的 cfg 开关**，
+  而且它只能"关"不能"开"——好用的开关是 `se_blur`。
+
+`FCVAR_ARCHIVE` ⇒ 选择会存进 `config.cfg`。
+
+### 4. 用法
+
+| 方式 | 写法 |
+|---|---|
+| 启动行 | `+se_blur 0`（`build/_blur_sw.ps1 -Value 0 -Tag off` 已包好） |
+| 控制台 | `se_blur 0` / `se_blur 1` |
+| 配置文件 | `config.cfg` / `autoexec.cfg` 里写 `se_blur "1"` |
+
+### 5. 验收证据
+
+1280x720 窗口，`+panorama_menu base_mainmenu.xml`，`+ui_mainmenu_bkgnd_movie anubis720`。
+
+**开（默认 `1`）**——模糊真的执行了：
+
+```
+SE_PORT_BLURSTR: ok=1 in='fastgaussian( 8, 8, 5 )' -> type=1 passes=5.00 stddev=8.00/8.00
+SE_PORT_BLURDATA: building gaussian blur data
+SE_PORT_BLURPUSH: type=1 passes=5.00 stddev=8.00/8.00
+```
+
+截图 `build/_bluron.png`：背景棕榈树**柔化**、无紫黑格，导航栏/侧边栏是对比度正常的深色。
+
+**关（`+se_blur 0`）**——层要求模糊、门拒绝：
+
+```
+SE_PORT_BLUR: layer=0A945A00 redraw=1 passes=5.00 stddev=8.00/8.00 type=1 disableBlur=0 seBlur=0 (@6ACAF8F0) gate=0
+```
+
+截图 `build/_blursw_off.png`：同一视频但背景**锐利**。报告 `build/_blursw_off_report.txt`。
+⇒ 证明启动行/配置里的 `se_blur` 真的被渲染代码读到了（`seBlur=0` 且 `gate=0`）。
+
+⚠️ **口径提醒（别误读数字）**：这两张截图**不是同一页面**（开的那张在主菜单主页、关的那张落在设置页——
+页面状态会被 sim 层存盘恢复），所以整窗 mean（105.5 vs 87.2）**不能横比**。
+可信的判据是「背景柔化 vs 锐利」+ 上面的探针行；要做严格亮度 A/B，先把页面复位到同一页再跑。
+
+⚠️ **另一条观察（待复核）**：P63 的①「关掉 blur pass 背景视频就没了（全黑）」在 09-19 这次**不复现**——
+`+se_blur 0` 时背景视频照常显示（只是锐利）。说明视频上屏已不再依赖 blur 那条路径。
+
+### 6. 遗留
+
+- `SE_PORT_BLUR` / `BLURSTR` / `BLURDATA` / `BLURPUSH` 探针仍在树里，且 `SE_PORT_BLUR` 那行还带着为验证开关加的
+  `seBlur=` / `gate=` 字段 ⇒ 收尾时一并清掉。**`se_blur` 这个 ConVar 要保留**（它是功能开关，不是探针）。
+- 模糊恢复后若再出现"偏亮 / 平灰"，先查 T1 的 sRGB 修复有没有被回退，**不要**再按 P63–P65 的假设去查。
+- P104 的注意点仍成立：blur 的源若来自**引擎写的 RT**（`_rt_FullFrameFB` 等，引擎不做 sRGB 写），
+  `EnableSRGBRead` 会把世界画面错误线性化。主菜单这一轮没观察到；**进游戏内（世界背景）时要留意**。
+
+### 7. 涉及文件/脚本清单
+
+| 类型 | 路径 |
+|---|---|
+| 开关 + 门控 | `panorama/source2/renderer/source2surface.cpp`（`se_blur` ConVar、`SE_PortSupportsBlurPasses()`、`SE_PORT_BLUR` 探针） |
+| 注册 | `panoramauiclient/se_ui_settings.cpp`（`extern` + `RegisterConCommand` + 启动日志） |
+| A/B 脚本 | `build/_blur_sw.ps1`（包 `_bluroff_verify3.ps1`，带 `+se_blur <值>`）、`build/_bluroff_verify3.ps1`（部署+启动+抢前台+抓图+亮度统计） |
+| 状态助手 | `build/_blurst.ps1`（打印开关源码状态 / 构建日志 / 部署 DLL 时间戳） |
+| 截图/报告 | `build/_bluron.png`(+`_bluron_report.txt`)、`build/_blursw_off.png`(+`_blursw_off_report.txt`)、引擎日志 `build/_blursw_off_engine.log` |
+| 相关记录 | 本文 T1；`csgo_panorama_port_pitfalls.md` §I（P63–P65，已作废保留作历史）与 P104 |

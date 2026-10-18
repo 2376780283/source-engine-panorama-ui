@@ -8,9 +8,9 @@
 #include <windows.h>
 #include "tier0/dbg.h"
 #include "utldict.h"
-#include "tier1/UtlLinkedList.h"
+#include "tier1/utllinkedlist.h"
 #include "filesystem.h"
-#include "FileSystem_Tools.h"
+#include "filesystem_tools.h"
 #include "KeyValues.h"
 #include "cmdlib.h"
 #include "scriplib.h"

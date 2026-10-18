@@ -7,8 +7,8 @@
 #include "stdafx.h"
 #include "resource.h"
 #include "ToolPickAngles.h"
-#include "MapView3D.h"
-#include "MapSolid.h"
+#include "mapview3d.h"
+#include "mapsolid.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include <tier0/memdbgon.h>

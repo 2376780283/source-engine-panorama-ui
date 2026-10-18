@@ -5,7 +5,7 @@
 #include "stdafx.h"
 #include "gametrace.h"
 #include "fmtstr.h"
-#include "appframework/appframework.h"
+#include "appframework/AppFramework.h"
 #include "filesystem.h"
 #include "filesystem_init.h"
 #include "tier1/tier1.h"

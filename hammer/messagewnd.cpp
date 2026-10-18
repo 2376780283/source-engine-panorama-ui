@@ -7,9 +7,9 @@
 #include "stdafx.h"
 #include <afxtempl.h>
 #include "hammer.h"
-#include "MessageWnd.h"
+#include "messagewnd.h"
 #include "mainfrm.h"
-#include "GlobalFunctions.h"
+#include "globalfunctions.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include <tier0/memdbgon.h>

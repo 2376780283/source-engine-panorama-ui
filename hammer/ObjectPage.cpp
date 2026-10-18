@@ -7,9 +7,9 @@
 
 #include "stdafx.h"
 #include "hammer.h"
-#include "ObjectPage.h"
-#include "GlobalFunctions.h"
-#include "ObjectProperties.h"
+#include "objectpage.h"
+#include "globalfunctions.h"
+#include "objectproperties.h"
 
 
 //

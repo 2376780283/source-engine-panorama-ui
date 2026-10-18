@@ -5,8 +5,8 @@
 // $NoKeywords: $
 //=============================================================================//
 #include "resource.h"
-#include "ActorProperties.h"
-#include "ChoreoView.h"
+#include "actorproperties.h"
+#include "choreoview.h"
 #include "choreoactor.h"
 #include "mdlviewer.h"
 

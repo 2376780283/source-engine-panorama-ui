@@ -6,7 +6,7 @@
 #include <windows.h>
 #include <stdio.h>
 #include "common.h"
-#include "extrnvar.h"
+#include "EXTRNVAR.H"
 
 typedef struct _i386RelocTypes
 {

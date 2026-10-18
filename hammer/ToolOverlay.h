@@ -10,9 +10,9 @@
 #pragma once
 
 #include <afxwin.h>
-#include "Box3D.h"
-#include "ToolInterface.h"
-#include "MapOverlay.h"
+#include "box3d.h"
+#include "toolinterface.h"
+#include "mapoverlay.h"
 
 class CMapDoc;
 struct Shoreline_t;

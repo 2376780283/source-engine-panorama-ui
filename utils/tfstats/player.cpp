@@ -9,7 +9,7 @@
 #include <string>
 
 #include "Player.h"
-#include "MatchInfo.h"
+#include "matchinfo.h"
 using namespace std;
 
 

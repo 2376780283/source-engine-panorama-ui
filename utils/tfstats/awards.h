@@ -15,13 +15,13 @@
 #ifdef WIN32
 #pragma once
 #endif
-#include "SentryRebuildAward.h"
-#include "CureAward.h"
-#include "KamikazeAward.h"
-#include "TalkativeAward.h"
-#include "WeaponAwards.h"
-#include "SharpshooterAward.h"
-#include "TeamkillAward.h"
-#include "SurvivalistAward.h"
+#include "sentryrebuildaward.h"
+#include "cureaward.h"
+#include "kamikazeaward.h"
+#include "talkativeaward.h"
+#include "weaponawards.h"
+#include "sharpshooteraward.h"
+#include "teamkillaward.h"
+#include "survivalistaward.h"
 
 #endif // AWARDS_H

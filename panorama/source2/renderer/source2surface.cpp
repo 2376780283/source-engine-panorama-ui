@@ -222,16 +222,30 @@ ConVar s_convarPanoramaDisableBoxShadow( "@panorama_disable_box_shadow", "0", FC
 // Skipped by default again: with the passes on, the fast-gaussian backdrop path (the two 1280x699
 // CSGOBlurTarget layers, "fastgaussian( 8, 8, 5 )") covers the whole screen with the texture wrapper's
 // error texture (magenta checkerboard) instead of the blurred backdrop - see build/_verify_wash_bluron*
-// and the BLURFAST/BLURCOPY lines in D:\cstrike\se_blurprobe.txt.  Flip this to true to work on it.
+// and the BLURFAST/BLURCOPY lines in D:\cstrike\se_blurprobe.txt.
 //
 // 2026-09-17: PARKED.  The passes are left off and the root cause is still unknown after the full
 // investigation (see docs/csgo_panorama_port_pitfalls.md, "Backdrop blur - unresolved").  Everything
 // ruled out so far: the 15 blur/composite functions are byte-identical to CS:GO, the shaders match,
 // the layer render targets exist, the scratch RT size is fixed, the sampler bindings are correct, and
-// the CS:GO blur-rect lookup was ported verbatim.  Disabling the passes at least leaves a UI that can
-// be used, so the port ships without backdrop blur until someone picks the thread back up.
+// the CS:GO blur-rect lookup was ported verbatim.
+//
+// 2026-09-19: no longer reproduces - the passes are ON again.  With the sRGB-read fix in the two
+// panorama shaders (docs/csgo_panorama_port_breakthroughs.md T1) and the YUV planes moved to A8, the
+// stock main menu renders a correctly blurred backdrop instead of the error texture, and the blur is
+// what supplies the darkening the UI chrome needs - same 1280x720 windowed run, same movie:
+// blur on = whole-window mean 105.5 / >200 = 4.5%, blur off = 96.4 with washed-out nav+sidebar.
 //-----------------------------------------------------------------------------
-static bool SE_PortSupportsBlurPasses() { return false; }   // PARKED - root cause unknown, see note above
+// SE port (2026-09-19): switchable from the config files / the console.  This module never calls
+// ConVar_Register(), so the ConVar is handed to ICvar from
+// panoramauiclient/se_ui_settings.cpp::SE_PortInstallGameInterfaceBindings() (same as se_popup_*).
+// It is read on every compositor pop, so "se_blur 0" takes effect on the next frame:
+//     se_blur 1 (default) = run the backdrop blur passes
+//     se_blur 0           = skip them, leave the raw backdrop on screen
+//-----------------------------------------------------------------------------
+ConVar se_blur( "se_blur", "1", FCVAR_ARCHIVE, "SE port: run the panorama backdrop blur passes (blurrects)" );
+
+static bool SE_PortSupportsBlurPasses() { return se_blur.GetBool(); }
 
 //-----------------------------------------------------------------------------
 // SE port (2026-09-16): the backdrop-blur layer hacks this port used to carry are the reason the CS:GO
@@ -6271,9 +6285,10 @@ void CSource2Surface::PopCompositingLayer( const PopCompositingLayerRenderComman
 			if ( s_nSEBlurProbe < 24 )
 			{
 				s_nSEBlurProbe++;
-				Warning( "SE_PORT_BLUR: layer=%p redraw=%d passes=%.2f stddev=%.2f/%.2f type=%d disableBlur=%d\n",
+				Warning( "SE_PORT_BLUR: layer=%p redraw=%d passes=%.2f stddev=%.2f/%.2f type=%d disableBlur=%d seBlur=%d (@%p) gate=%d\n",
 						 pLayer, (int)bLayerRedraw, flBlurPasses, flBlurStdDevHor, flBlurStdDevVer,
-						 (int)blurType, (int)s_convarPanoramaDisableBlur.GetBool() );
+						 (int)blurType, (int)s_convarPanoramaDisableBlur.GetBool(),
+						 (int)se_blur.GetBool(), &se_blur, (int)SE_PortSupportsBlurPasses() );
 			}
 		}
 

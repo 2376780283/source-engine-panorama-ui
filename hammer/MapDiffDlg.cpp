@@ -2,26 +2,26 @@
 // MapDiffDlg.cpp : implementation file
 //
 #include "stdafx.h"
-#include "GlobalFunctions.h"
-#include "History.h"
+#include "globalfunctions.h"
+#include "history.h"
 #include "MainFrm.h"
 #include "MapDiffDlg.h"
-#include "MapDoc.h"
-#include "MapEntity.h"
-#include "MapSolid.h"
-#include "MapView2D.h"
-#include "MapWorld.h"
-#include "ObjectProperties.h"	// For ObjectProperties::RefreshData
-#include "Options.h"
+#include "mapdoc.h"
+#include "mapentity.h"
+#include "mapsolid.h"
+#include "mapview2d.h"
+#include "mapworld.h"
+#include "objectproperties.h"	// For ObjectProperties::RefreshData
+#include "options.h"
 #include "ToolManager.h"
-#include "VisGroup.h"
+#include "visgroup.h"
 #include "hammer.h"
-#include "MapOverlay.h"
-#include "GameConfig.h"
+#include "mapoverlay.h"
+#include "gameconfig.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include <tier0/memdbgon.h>
-#include ".\mapdiffdlg.h"
+#include "MapDiffDlg.h"
 
 CMapDiffDlg *s_pDlg = NULL;
 CMapDoc *s_pCurrentMap = NULL;

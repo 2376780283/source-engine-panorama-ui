@@ -6,7 +6,7 @@
 //=============================================================================//
 
 #include "resource.h"
-#include "ChoiceProperties.h"
+#include "choiceproperties.h"
 #include <mxtk/mx.h>
 #include "mdlviewer.h"
 

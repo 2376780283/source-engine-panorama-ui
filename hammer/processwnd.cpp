@@ -14,7 +14,7 @@
 #include "stdafx.h"
 #include <wincon.h>
 #include "hammer.h"
-#include "ProcessWnd.h"
+#include "processwnd.h"
 #include "osver.h"
 
 // memdbgon must be the last include file in a .cpp file!!!

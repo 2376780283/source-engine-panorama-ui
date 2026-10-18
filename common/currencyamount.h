@@ -10,7 +10,7 @@
 #include "platform.h"
 #ifdef CLIENT_DLL
 #ifdef DOTA_CLIENT_DLL
-#include "engineinterface.h"
+#include "EngineInterface.h"
 #else
 #include "cbase.h"
 #endif

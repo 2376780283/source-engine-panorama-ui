@@ -7,10 +7,10 @@
 
 #include <stdafx.h>
 #include "MainFrm.h"
-#include "MapDoc.h"
-#include "GlobalFunctions.h"
-#include "Subdiv.h"
-#include "History.h"
+#include "mapdoc.h"
+#include "globalfunctions.h"
+#include "subdiv.h"
+#include "history.h"
 
 //=============================================================================
 //

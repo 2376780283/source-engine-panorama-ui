@@ -10,8 +10,8 @@
 
 #include "stdafx.h"
 #include "hammer.h"
-#include "MapErrorsDlg.h"
-#include "Error3d.h"
+#include "maperrorsdlg.h"
+#include "error3d.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include <tier0/memdbgon.h>

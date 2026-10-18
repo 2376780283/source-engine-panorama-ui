@@ -10,7 +10,7 @@
 #include "stdafx.h"
 #include "hammer.h"
 #include "hammer_mathlib.h"
-#include "TorusDlg.h"
+#include "torusdlg.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include <tier0/memdbgon.h>

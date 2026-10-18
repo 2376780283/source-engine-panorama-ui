@@ -7,8 +7,8 @@
 //===========================================================================//
 
 #include "menumanager.h"
-#include "vgui_controls/panel.h"
-#include "vgui_controls/frame.h"
+#include "vgui_controls/Panel.h"
+#include "vgui_controls/Frame.h"
 #include "uimanager.h"
 
 

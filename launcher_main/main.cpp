@@ -16,8 +16,8 @@
 #include <xbdm.h>
 #include <stdio.h>
 #include <assert.h>
-#include "xbox\xbox_core.h"
-#include "xbox\xbox_launch.h"
+#include "xbox/xbox_core.h"
+#include "xbox/xbox_launch.h"
 #endif
 #ifdef POSIX
 #include <stdio.h>

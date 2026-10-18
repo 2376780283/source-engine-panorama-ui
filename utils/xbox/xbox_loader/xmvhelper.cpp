@@ -13,7 +13,7 @@
 
 #include "xbox_loader.h"
 #include <xtl.h>
-#include "XMVHelper.h"
+#include "xmvhelper.h"
 #include "XBUtil.h"
 #include <stdio.h>
 

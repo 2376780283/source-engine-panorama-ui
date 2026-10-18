@@ -9,10 +9,10 @@
 #define OBJECTPROPERTIES_H
 #pragma once
 
-#include "MapClass.h"
-#include "EditGameClass.h"
-#include "ObjectPage.h"
-#include "OP_Groups.h"
+#include "mapclass.h"
+#include "editgameclass.h"
+#include "objectpage.h"
+#include "op_groups.h"
 #include "AnchorMgr.h"
 
 

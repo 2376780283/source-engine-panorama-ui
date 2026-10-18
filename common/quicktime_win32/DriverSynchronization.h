@@ -17,7 +17,7 @@
 #define __DRIVERSYNCHRONIZATION__
 
 #ifndef __CONDITIONALMACROS__
-#include <ConditionalMacros.h>
+#include <conditionalmacros.h>
 #endif
 
 #ifndef __MACTYPES__

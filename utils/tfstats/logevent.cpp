@@ -13,7 +13,7 @@
 #include <stdio.h>
 #include <time.h>
 #include <string.h>
-#include "LogEvent.h"
+#include "logevent.h"
 #include "util.h"
 #include "memdbg.h"
 

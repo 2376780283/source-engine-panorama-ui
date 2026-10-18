@@ -13,7 +13,7 @@
 #endif
 
 #include "tier1/utlvector.h"
-#include "matsys_controls/PotteryWheelPanel.h"
+#include "matsys_controls/potterywheelpanel.h"
 #include "datamodel/dmehandle.h"
 
 

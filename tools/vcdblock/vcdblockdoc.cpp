@@ -15,9 +15,9 @@
 #include "toolframework/ienginetool.h"
 #include "dmevmfentity.h"
 #include "datamodel/idatamodel.h"
-#include "toolutils/attributeelementchoicelist.h"
+#include "toolutils/AttributeElementChoiceList.h"
 #include "infotargetbrowserpanel.h"
-#include "vgui_controls/messagebox.h"
+#include "vgui_controls/MessageBox.h"
 
 
 //-----------------------------------------------------------------------------

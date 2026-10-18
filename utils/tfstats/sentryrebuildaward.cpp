@@ -10,7 +10,7 @@
 //
 // $NoKeywords: $
 //=============================================================================//
-#include "SentryRebuildAward.h"
+#include "sentryrebuildaward.h"
 
 //------------------------------------------------------------------------------------------------------
 // Function:	CSentryRebuildAward::getWinner

@@ -8,7 +8,7 @@
 #include <stdio.h>
 #include "winsock.h" // this BUGGER defines PropertySheet to PropertySheetA ....
 #undef PropertySheet
-#include "tokenline.h"
+#include "TokenLine.h"
 
 #include "GamePanelInfo.h"
 //#include "Info.h"

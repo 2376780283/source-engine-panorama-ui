@@ -5,7 +5,7 @@
 // $NoKeywords: $
 //
 //=============================================================================//
-#include "MatchResults.h"
+#include "matchresults.h"
 
 void CMatchResults::init()
 {

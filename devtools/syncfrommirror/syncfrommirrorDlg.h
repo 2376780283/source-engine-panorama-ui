@@ -8,7 +8,7 @@
 // syncfrommirrorDlg.h : header file
 //
 
-#include "redirect.h"
+#include "Redirect.h"
 
 #if !defined(AFX_SYNCFROMMIRRORDLG_H__CCDE7319_F912_4B51_A526_4B718AE8E22A__INCLUDED_)
 #define AFX_SYNCFROMMIRRORDLG_H__CCDE7319_F912_4B51_A526_4B718AE8E22A__INCLUDED_

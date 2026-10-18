@@ -86,7 +86,7 @@ using sixenseMath::Line;
 #endif
 
 #ifdef CSTRIKE15
-#include "basepanel.h"
+#include "BasePanel.h"
 #endif
 
 using sixenseMath::Plane;

@@ -1,6 +1,6 @@
 
 
-#include "VertexCache.h"
+#include "vertexcache.h"
 
 VertexCache::VertexCache()
 {

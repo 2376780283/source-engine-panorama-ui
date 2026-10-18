@@ -12,7 +12,7 @@
 #include "Color.h"
 #include "utlstack.h"
 #include "hammer_mathlib.h"
-#include "MaterialSystem\imesh.h"
+#include "materialsystem/imesh.h"
 
 class IMaterial;
 struct DrawModelInfo_t;

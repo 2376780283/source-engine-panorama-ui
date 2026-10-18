@@ -15,10 +15,10 @@
 //=============================================================================//
 
 #include "stdafx.h"
-#include "EntityConnection.h"
-#include "MapEntity.h"
-#include "MapDoc.h"
-#include "MapWorld.h"
+#include "entityconnection.h"
+#include "mapentity.h"
+#include "mapdoc.h"
+#include "mapworld.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include <tier0/memdbgon.h>

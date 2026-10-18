@@ -8,13 +8,13 @@
 #include "playerlist.h"
 #include "Iresponse.h"
 
-#include "PlayerMsgHandler.h"
+#include "playermsghandler.h"
 #include "Socket.h"
 #include "proto_oob.h"
 #include "DialogGameInfo.h"
 #include "inetapi.h"
 #include "TokenLine.h"
-#include "dialogkickplayer.h"
+#include "DialogKickPlayer.h"
 
 extern void v_strncpy(char *dest, const char *src, int bufsize);
 

@@ -602,7 +602,7 @@ typedef struct MSVidOutput MSVidOutput;
 
 /* header files for imported files */
 #include "mshtml.h"
-#include "segment.h"
+#include "Segment.h"
 
 #ifdef __cplusplus
 extern "C"{

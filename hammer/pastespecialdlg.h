@@ -4,7 +4,7 @@
 //
 //=============================================================================
 
-#include "BoundBox.h"
+#include "boundbox.h"
 
 class CPasteSpecialDlg : public CDialog
 {

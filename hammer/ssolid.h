@@ -16,7 +16,7 @@
 #endif
 
 
-#include "MapFace.h"
+#include "mapface.h"
 
 
 #define MAX_FACES 120

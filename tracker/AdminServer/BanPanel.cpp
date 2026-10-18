@@ -27,7 +27,7 @@
 #include "filesystem.h"
 
 #include "DialogCvarChange.h"
-#include "tokenline.h"
+#include "TokenLine.h"
 
 using namespace vgui;
 

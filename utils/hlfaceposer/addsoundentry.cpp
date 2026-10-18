@@ -6,7 +6,7 @@
 #include "cbase.h"
 #include "mxtk/mx.h"
 #include "resource.h"
-#include "AddSoundEntry.h"
+#include "addsoundentry.h"
 #include "mdlviewer.h"
 #include "SoundEmitterSystem/isoundemittersystembase.h"
 #include "filesystem.h"

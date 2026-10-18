@@ -28,12 +28,12 @@
 #include "cmdlib.h"
 #include "studio.h"
 #include "studiomdl.h"
-#include "HardwareMatrixState.h"
-#include "HardwareVertexCache.h"
+#include "hardwarematrixstate.h"
+#include "hardwarevertexcache.h"
 #include "optimize.h"
 #include <malloc.h>
 #include <nvtristrip.h>
-#include "FileBuffer.h"
+#include "filebuffer.h"
 #include "tier1/utlvector.h"
 #include "materialsystem/imaterial.h"
 #include "tier1/utllinkedlist.h"
